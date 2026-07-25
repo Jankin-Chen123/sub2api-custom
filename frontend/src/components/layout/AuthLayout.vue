@@ -50,11 +50,13 @@ onMounted(() => {
 
 <style scoped>
 .auth-page {
+  --auth-page-gutter: clamp(16px, 3vw, 48px);
+
   display: grid;
   min-height: 100vh;
   place-items: center;
   overflow: hidden;
-  padding: clamp(16px, 3vw, 48px);
+  padding: var(--auth-page-gutter);
   background-color: #f6fbfa;
   background-image:
     linear-gradient(rgba(28, 145, 143, 0.07) 1px, transparent 1px),
@@ -69,7 +71,10 @@ onMounted(() => {
   z-index: 1;
   display: grid;
   width: min(1760px, 100%);
-  min-height: min(820px, calc(100vh - 48px));
+  min-height: min(
+    820px,
+    calc(100vh - var(--auth-page-gutter) - var(--auth-page-gutter))
+  );
   grid-template-columns: minmax(0, 1.06fr) minmax(480px, 0.94fr);
   overflow: hidden;
   border: 1px solid #dbe9e8;
@@ -87,7 +92,7 @@ onMounted(() => {
 .auth-form-panel {
   position: relative;
   min-width: 0;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - var(--auth-page-gutter) - var(--auth-page-gutter));
   overflow-y: auto;
   padding: clamp(72px, 7vh, 104px) clamp(40px, 5vw, 92px) 42px;
   background: #fff;
@@ -335,7 +340,7 @@ onMounted(() => {
 
 @media (max-width: 560px) {
   .auth-page {
-    padding: 0;
+    --auth-page-gutter: 0px;
   }
 
   .auth-shell {

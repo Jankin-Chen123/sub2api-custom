@@ -240,6 +240,24 @@ const { t } = useI18n()
   }
 }
 
+@media (max-width: 1100px), (max-height: 780px) {
+  .auth-brand-copy {
+    margin-top: 50px;
+  }
+
+  .auth-brand-headline {
+    font-size: 2.8rem;
+  }
+
+  .auth-brand-description {
+    font-size: 1rem;
+  }
+
+  .auth-brand-facts {
+    margin-top: 42px;
+  }
+}
+
 @media (max-width: 900px) {
   .auth-brand-panel {
     min-height: 280px;
