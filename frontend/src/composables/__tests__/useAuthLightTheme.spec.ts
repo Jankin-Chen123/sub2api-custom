@@ -60,6 +60,24 @@ describe('useAuthLightTheme', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
+  it('restores dark mode only after the last overlapping auth scope unmounts', async () => {
+    document.documentElement.classList.add('dark')
+
+    const first = mountHarness()
+    const second = mountHarness()
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+
+    first.unmount()
+    await flushThemeRestore()
+
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+
+    second.unmount()
+    await flushThemeRestore()
+
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
   it('leaves an initially light document light after the auth scope unmounts', async () => {
     const wrapper = mountHarness()
     expect(document.documentElement.classList.contains('dark')).toBe(false)
