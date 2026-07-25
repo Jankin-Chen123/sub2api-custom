@@ -1,7 +1,7 @@
 <template>
   <div class="auth-page">
     <div class="auth-shell">
-      <AuthBrandPanel :site-name="siteName" :site-logo="siteLogo || '/logo.svg'" />
+      <AuthBrandPanel :site-name="siteName" :site-logo="siteLogo || '/brand-icon.png'" />
 
       <main class="auth-form-panel">
         <RouterLink to="/" class="auth-home-link">
@@ -37,7 +37,11 @@ useAuthLightTheme()
 const { t } = useI18n()
 const appStore = useAppStore()
 
-const siteName = computed(() => appStore.siteName || 'Sub2API')
+const siteName = computed(
+  () =>
+    appStore.cachedPublicSettings?.site_name ||
+    (appStore.siteName !== 'Sub2API' ? appStore.siteName : '爱白嫖公益站')
+)
 const siteLogo = computed(() =>
   sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true })
 )
