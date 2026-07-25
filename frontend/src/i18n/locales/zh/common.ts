@@ -218,7 +218,7 @@ export default {
     signingIn: '登录中...',
     enterConsole: '进入控制台',
     createAccount: '创建账户',
-    continueCreateAccount: '继续创建账户',
+    continueCreateAccount: '创建账户',
     signUpToStart: '注册后开始使用 {siteName}',
     signUp: '注册',
     processing: '处理中...',

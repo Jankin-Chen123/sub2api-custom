@@ -218,7 +218,7 @@ export default {
     signingIn: 'Signing in...',
     enterConsole: 'Enter Console',
     createAccount: 'Create Account',
-    continueCreateAccount: 'Continue Creating Account',
+    continueCreateAccount: 'Create Account',
     signUpToStart: 'Register to start using {siteName}',
     signUp: 'Sign up',
     processing: 'Processing...',
