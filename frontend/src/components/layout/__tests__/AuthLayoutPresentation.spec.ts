@@ -31,6 +31,16 @@ describe('AuthLayout presentation contract', () => {
     expect(authLayoutSource).toContain('@media (prefers-reduced-motion: reduce)')
   })
 
+  it('animates only auth content during directional route switches', () => {
+    expect(authLayoutSource).toContain(
+      "import { getAuthRouteMotion } from '@/utils/authRouteMotion'"
+    )
+    expect(authLayoutSource).toContain(':class="authMotionClass"')
+    expect(authLayoutSource).toContain('.auth-motion--forward .auth-shell')
+    expect(authLayoutSource).toContain('@keyframes auth-content-enter-forward')
+    expect(authLayoutSource).toContain('@keyframes auth-content-enter-backward')
+  })
+
   it('keeps the primary action shimmer behind all button content', () => {
     expect(authLayoutSource).toContain('isolation: isolate;')
     expect(authLayoutSource).toContain('z-index: -1;')

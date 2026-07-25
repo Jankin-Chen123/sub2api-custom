@@ -1,5 +1,5 @@
 <template>
-  <div class="auth-page">
+  <div class="auth-page" :class="authMotionClass">
     <div class="auth-shell">
       <AuthBrandPanel :site-name="siteName" :site-logo="siteLogo || '/brand-icon.png'" />
 
@@ -30,12 +30,14 @@ import { useI18n } from 'vue-i18n'
 import AuthBrandPanel from '@/components/auth/AuthBrandPanel.vue'
 import { useAuthLightTheme } from '@/composables/useAuthLightTheme'
 import { useAppStore } from '@/stores'
+import { getAuthRouteMotion } from '@/utils/authRouteMotion'
 import { sanitizeUrl } from '@/utils/url'
 
 useAuthLightTheme()
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const authMotionClass = `auth-motion--${getAuthRouteMotion()}`
 
 const siteName = computed(
   () =>
@@ -155,6 +157,24 @@ onMounted(() => {
   min-height: 100%;
   flex: 1;
   flex-direction: column;
+}
+
+.auth-motion--forward .auth-shell,
+.auth-motion--backward .auth-shell,
+.auth-motion--neutral .auth-shell {
+  animation: none;
+}
+
+.auth-motion--forward .auth-form-content {
+  animation: auth-content-enter-forward 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-motion--backward .auth-form-content {
+  animation: auth-content-enter-backward 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-motion--neutral .auth-form-content {
+  animation: auth-content-enter-neutral 240ms ease-out both;
 }
 
 .auth-layout-footer {
@@ -353,6 +373,40 @@ onMounted(() => {
   }
 }
 
+@keyframes auth-content-enter-forward {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes auth-content-enter-backward {
+  from {
+    opacity: 0;
+    transform: translate3d(-18px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes auth-content-enter-neutral {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 @media (max-width: 900px) {
   .auth-page {
     display: block;
@@ -389,6 +443,38 @@ onMounted(() => {
     margin-top: 25px;
     font-size: 26px;
   }
+
+  .auth-motion--forward .auth-form-content {
+    animation-name: auth-content-enter-forward-mobile;
+  }
+
+  .auth-motion--backward .auth-form-content {
+    animation-name: auth-content-enter-backward-mobile;
+  }
+}
+
+@keyframes auth-content-enter-forward-mobile {
+  from {
+    opacity: 0;
+    transform: translate3d(12px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes auth-content-enter-backward-mobile {
+  from {
+    opacity: 0;
+    transform: translate3d(-12px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 @media (max-width: 520px) {
@@ -398,7 +484,8 @@ onMounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .auth-shell {
+  .auth-shell,
+  .auth-form-content {
     animation: none;
   }
 

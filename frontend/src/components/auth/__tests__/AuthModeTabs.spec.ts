@@ -49,6 +49,8 @@ describe('AuthModeTabs', () => {
     })
 
     const links = wrapper.findAllComponents(RouterLinkStub)
+    expect(wrapper.get('nav').classes()).toContain('auth-mode-tabs--register')
+    expect(wrapper.get('nav').classes()).toContain('auth-mode-tabs--motion-initial')
     expect(links[0].classes()).toContain('auth-mode-tab')
     expect(links[0].classes()).not.toContain('auth-mode-tab--active')
     expect(links[0].attributes('aria-current')).toBeUndefined()

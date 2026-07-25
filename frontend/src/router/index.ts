@@ -13,6 +13,7 @@ import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
+import { resolveAuthRouteMotion, setAuthRouteMotion } from '@/utils/authRouteMotion'
 
 /**
  * Route definitions with lazy loading
@@ -756,7 +757,9 @@ function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: bo
   return false
 }
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, from, next) => {
+  setAuthRouteMotion(resolveAuthRouteMotion(from.path, to.path))
+
   // 开始导航加载状态
   navigationLoading.startNavigation()
 
