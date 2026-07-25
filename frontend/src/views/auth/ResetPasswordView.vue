@@ -1,6 +1,10 @@
 <template>
   <AuthLayout>
-    <div class="auth-form-stack">
+    <div class="auth-form-stack auth-reset-stack">
+      <router-link to="/login" class="auth-back-chip">
+        &larr;&nbsp; {{ t('auth.backToLogin') }}
+      </router-link>
+
       <!-- Title -->
       <div>
         <h2 class="auth-view-heading">
@@ -187,9 +191,9 @@
     <!-- Footer -->
     <template #footer>
       <p class="auth-footer-copy">
-        {{ t('auth.rememberedPassword') }}
-        <router-link to="/login">
-          {{ t('auth.signIn') }}
+        {{ t('auth.resetLinkExpiredQuestion') }}
+        <router-link to="/forgot-password">
+          {{ t('auth.resendResetLink') }}
         </router-link>
       </p>
     </template>

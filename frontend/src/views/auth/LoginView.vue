@@ -1,6 +1,6 @@
 <template>
   <AuthLayout>
-    <div class="auth-form-stack">
+    <div class="auth-form-stack auth-login-stack">
       <div v-if="!backendModeEnabled">
         <AuthModeTabs active="login" />
       </div>
@@ -75,7 +75,7 @@
             <router-link
               v-if="passwordResetEnabled && !backendModeEnabled"
               to="/forgot-password"
-              class="text-sm font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+              class="auth-inline-link text-xs"
             >
               {{ t('auth.forgotPassword') }}
             </router-link>
@@ -120,7 +120,7 @@
             ></path>
           </svg>
           <Icon v-else name="login" size="md" class="mr-2" />
-          {{ isLoading ? t('auth.signingIn') : t('auth.signIn') }}
+          {{ isLoading ? t('auth.signingIn') : t('auth.enterConsole') }}
         </button>
 
         <LoginAgreementPrompt
@@ -179,9 +179,9 @@
     <!-- Footer -->
     <template v-if="!backendModeEnabled" #footer>
       <p class="auth-footer-copy">
-        {{ t('auth.dontHaveAccount') }}
+        {{ t('auth.firstTimeHere') }}
         <router-link to="/register">
-          {{ t('auth.signUp') }}
+          {{ t('auth.createAccount') }}
         </router-link>
       </p>
     </template>

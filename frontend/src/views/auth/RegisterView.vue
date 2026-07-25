@@ -1,6 +1,6 @@
 <template>
   <AuthLayout>
-    <div class="auth-form-stack">
+    <div class="auth-form-stack auth-register-stack">
       <AuthModeTabs active="register" />
 
       <!-- Title -->
@@ -239,7 +239,7 @@
               ? t('auth.processing')
               : emailVerifyEnabled
                 ? t('auth.continue')
-                : t('auth.createAccount')
+                : t('auth.continueCreateAccount')
           }}
         </button>
 
@@ -289,7 +289,7 @@
       <p class="auth-footer-copy">
         {{ t('auth.alreadyHaveAccount') }}
         <router-link to="/login">
-          {{ t('auth.signIn') }}
+          {{ t('auth.backToLogin') }}
         </router-link>
       </p>
     </template>

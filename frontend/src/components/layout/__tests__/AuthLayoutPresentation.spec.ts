@@ -37,21 +37,15 @@ describe('AuthLayout presentation contract', () => {
     expect(authLayoutSource).not.toContain(':deep(.auth-primary-action > *)')
   })
 
-  it('budgets both page gutters on short viewports', () => {
-    const availableHeight =
-      'calc(100vh - var(--auth-page-gutter) - var(--auth-page-gutter))'
-
-    expect(authLayoutSource).toContain('--auth-page-gutter: clamp(16px, 3vw, 48px);')
-    expect(authLayoutSource).toContain('padding: var(--auth-page-gutter);')
-    expect(authLayoutSource.split(availableHeight)).toHaveLength(3)
+  it('uses the approved compact C-layout shell proportions', () => {
+    expect(authLayoutSource).toContain('width: min(1120px, 100%);')
+    expect(authLayoutSource).toContain('grid-template-columns: minmax(410px, 1fr) minmax(430px, 1fr);')
+    expect(authLayoutSource).toContain('border-radius: 34px;')
   })
 
-  it('compacts the brand story at medium widths or short heights', () => {
-    expect(authBrandPanelSource).toContain(
-      '@media (max-width: 1100px), (max-height: 780px)'
-    )
-    expect(authBrandPanelSource).toContain('margin-top: 50px;')
-    expect(authBrandPanelSource).toContain('font-size: 2.8rem;')
-    expect(authBrandPanelSource).toContain('margin-top: 42px;')
+  it('uses the approved compact mobile brand treatment', () => {
+    expect(authBrandPanelSource).toContain('@media (max-width: 900px)')
+    expect(authBrandPanelSource).toContain('min-height: 230px;')
+    expect(authBrandPanelSource).toContain('font-size: 29px;')
   })
 })
