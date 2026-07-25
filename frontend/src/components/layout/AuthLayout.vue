@@ -218,7 +218,7 @@ onMounted(() => {
 :deep(.auth-primary-action::after) {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   background: linear-gradient(
     105deg,
@@ -229,11 +229,6 @@ onMounted(() => {
   content: '';
   transform: translateX(-120%);
   transition: transform 520ms ease;
-}
-
-:deep(.auth-primary-action > *) {
-  position: relative;
-  z-index: 1;
 }
 
 :deep(.auth-primary-action:hover:not(:disabled)) {

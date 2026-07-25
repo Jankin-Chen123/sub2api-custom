@@ -29,4 +29,10 @@ describe('AuthLayout presentation contract', () => {
   it('honors reduced-motion preferences', () => {
     expect(authLayoutSource).toContain('@media (prefers-reduced-motion: reduce)')
   })
+
+  it('keeps the primary action shimmer behind all button content', () => {
+    expect(authLayoutSource).toContain('isolation: isolate;')
+    expect(authLayoutSource).toContain('z-index: -1;')
+    expect(authLayoutSource).not.toContain(':deep(.auth-primary-action > *)')
+  })
 })
