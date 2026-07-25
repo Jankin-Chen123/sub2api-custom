@@ -1,12 +1,16 @@
 <template>
   <AuthLayout>
-    <div class="space-y-6">
+    <div class="auth-form-stack">
+      <div v-if="!backendModeEnabled">
+        <AuthModeTabs active="login" />
+      </div>
+
       <!-- Title -->
-      <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+      <div>
+        <h2 class="auth-view-heading">
           {{ t('auth.welcomeBack') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="auth-view-description">
           {{ t('auth.signInToAccount') }}
         </p>
       </div>
@@ -79,7 +83,7 @@
         </div>
 
         <!-- Turnstile Widget -->
-        <div v-if="turnstileEnabled && turnstileSiteKey">
+        <div v-if="turnstileEnabled && turnstileSiteKey" class="auth-turnstile-slot">
           <TurnstileWidget
             ref="turnstileRef"
             :site-key="turnstileSiteKey"
@@ -93,7 +97,7 @@
         <button
           type="submit"
           :disabled="authActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary w-full"
+          class="btn btn-primary auth-primary-action w-full"
         >
           <svg
             v-if="isLoading"
@@ -174,12 +178,9 @@
 
     <!-- Footer -->
     <template v-if="!backendModeEnabled" #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="auth-footer-copy">
         {{ t('auth.dontHaveAccount') }}
-        <router-link
-          to="/register"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
-        >
+        <router-link to="/register">
           {{ t('auth.signUp') }}
         </router-link>
       </p>
@@ -202,6 +203,7 @@ import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
+import AuthModeTabs from '@/components/auth/AuthModeTabs.vue'
 import LinuxDoOAuthSection from '@/components/auth/LinuxDoOAuthSection.vue'
 import DingTalkOAuthSection from '@/components/auth/DingTalkOAuthSection.vue'
 import OidcOAuthSection from '@/components/auth/OidcOAuthSection.vue'

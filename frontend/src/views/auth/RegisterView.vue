@@ -1,12 +1,14 @@
 <template>
   <AuthLayout>
-    <div class="space-y-6">
+    <div class="auth-form-stack">
+      <AuthModeTabs active="register" />
+
       <!-- Title -->
-      <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+      <div>
+        <h2 class="auth-view-heading">
           {{ t('auth.createAccount') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="auth-view-description">
           {{ t('auth.signUpToStart', { siteName }) }}
         </p>
       </div>
@@ -14,7 +16,7 @@
       <!-- Registration Disabled Message -->
       <div
         v-if="!registrationEnabled && settingsLoaded"
-        class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/20"
+        class="auth-status-card auth-status-card--warning"
       >
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0">
@@ -183,7 +185,7 @@
         </div>
 
         <!-- Turnstile Widget -->
-        <div v-if="turnstileEnabled && turnstileSiteKey">
+        <div v-if="turnstileEnabled && turnstileSiteKey" class="auth-turnstile-slot">
           <TurnstileWidget
             ref="turnstileRef"
             :site-key="turnstileSiteKey"
@@ -209,7 +211,7 @@
         <button
           type="submit"
           :disabled="registrationActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary w-full"
+          class="btn btn-primary auth-primary-action w-full"
         >
           <svg
             v-if="isLoading"
@@ -284,12 +286,9 @@
 
     <!-- Footer -->
     <template #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="auth-footer-copy">
         {{ t('auth.alreadyHaveAccount') }}
-        <router-link
-          to="/login"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
-        >
+        <router-link to="/login">
           {{ t('auth.signIn') }}
         </router-link>
       </p>
@@ -302,6 +301,7 @@ import { computed, ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
+import AuthModeTabs from '@/components/auth/AuthModeTabs.vue'
 import LinuxDoOAuthSection from '@/components/auth/LinuxDoOAuthSection.vue'
 import OidcOAuthSection from '@/components/auth/OidcOAuthSection.vue'
 import WechatOAuthSection from '@/components/auth/WechatOAuthSection.vue'
