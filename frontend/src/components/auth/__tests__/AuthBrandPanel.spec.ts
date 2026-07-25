@@ -26,7 +26,7 @@ const i18n = createI18n({
 })
 
 describe('AuthBrandPanel', () => {
-  it('renders one accessible site logo and the localized brand story', () => {
+  it('renders one site logo and the localized brand story', () => {
     const wrapper = mount(AuthBrandPanel, {
       props: {
         siteName: 'MySub2API',

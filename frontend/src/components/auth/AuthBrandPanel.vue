@@ -19,9 +19,9 @@ const { t } = useI18n()
       <span class="auth-brand-name">{{ siteName }}</span>
     </header>
 
-    <section class="auth-brand-copy" aria-labelledby="auth-brand-headline">
+    <section class="auth-brand-copy">
       <p class="auth-brand-kicker">{{ t('auth.brand.kicker') }}</p>
-      <h1 id="auth-brand-headline" class="auth-brand-headline">{{ t('auth.brand.headline') }}</h1>
+      <h1 class="auth-brand-headline">{{ t('auth.brand.headline') }}</h1>
       <p class="auth-brand-description">{{ t('auth.brand.description') }}</p>
     </section>
 
