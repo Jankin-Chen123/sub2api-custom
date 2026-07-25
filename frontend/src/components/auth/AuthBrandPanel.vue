@@ -58,7 +58,7 @@ const { t } = useI18n()
   min-height: 100%;
   flex-direction: column;
   overflow: hidden;
-  padding: 42px 48px;
+  padding: 48px 56px;
   color: #102d32;
   background: #dff5f6;
 }
@@ -116,40 +116,40 @@ const { t } = useI18n()
 
 .auth-brand-name {
   overflow-wrap: anywhere;
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 850;
 }
 
 .auth-brand-copy {
   position: relative;
   z-index: 2;
-  max-width: 430px;
+  max-width: 520px;
   margin-top: 88px;
 }
 
 .auth-brand-kicker {
   margin: 0;
   color: #108e87;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 900;
   letter-spacing: 0;
 }
 
 .auth-brand-headline {
-  max-width: 430px;
+  max-width: 480px;
   margin: 14px 0 16px;
   white-space: pre-line;
-  font-size: 44px;
+  font-size: 52px;
   font-weight: 800;
   line-height: 1.12;
   letter-spacing: 0;
 }
 
 .auth-brand-description {
-  max-width: 410px;
+  max-width: 500px;
   margin: 0;
   color: #5f7f85;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.85;
 }
 
@@ -182,7 +182,7 @@ const { t } = useI18n()
   color: #315b60;
   background: rgba(255, 255, 255, 0.78);
   box-shadow: 0 6px 16px rgba(39, 105, 110, 0.07);
-  font-size: 12px;
+  font-size: 14px;
   font-style: normal;
 }
 
@@ -194,12 +194,12 @@ const { t } = useI18n()
 
 .auth-brand-fact strong {
   color: #294f55;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .auth-brand-fact span {
   color: #4f7076;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.5;
 }
 

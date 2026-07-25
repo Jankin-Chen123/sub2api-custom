@@ -73,7 +73,7 @@
           <div class="mt-1 flex items-center justify-between">
             <span></span>
             <router-link
-              v-if="passwordResetEnabled && !backendModeEnabled"
+              v-if="!backendModeEnabled"
               to="/forgot-password"
               class="auth-inline-link text-xs"
             >

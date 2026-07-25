@@ -38,8 +38,8 @@ describe('AuthLayout presentation contract', () => {
   })
 
   it('uses the approved compact C-layout shell proportions', () => {
-    expect(authLayoutSource).toContain('width: min(1120px, 100%);')
-    expect(authLayoutSource).toContain('grid-template-columns: minmax(410px, 1fr) minmax(430px, 1fr);')
+    expect(authLayoutSource).toContain('width: min(1280px, 100%);')
+    expect(authLayoutSource).toContain('grid-template-columns: minmax(480px, 1fr) minmax(500px, 1fr);')
     expect(authLayoutSource).toContain('border-radius: 34px;')
   })
 

@@ -54,19 +54,54 @@ onMounted(() => {
 
 <style scoped>
 .auth-page {
+  position: relative;
   display: grid;
   min-height: 100vh;
   place-items: center;
   padding: 38px 5vw;
-  background: linear-gradient(135deg, #f8ffff, #edf9f7 48%, #fff8ee);
+  overflow: hidden;
+  background-color: #f6fbfa;
+  background-image:
+    linear-gradient(rgba(18, 164, 155, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 164, 155, 0.045) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(248, 255, 255, 0.92), rgba(237, 249, 247, 0.9) 48%, rgba(255, 248, 238, 0.88));
+  background-size: 72px 72px, 72px 72px, 100% 100%;
+}
+
+.auth-page::before,
+.auth-page::after {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed rgba(18, 164, 155, 0.19);
+  border-radius: 50%;
+  content: '';
+}
+
+.auth-page::before {
+  width: 430px;
+  height: 210px;
+  left: -120px;
+  bottom: 6%;
+  transform: rotate(-14deg);
+}
+
+.auth-page::after {
+  width: 340px;
+  height: 340px;
+  top: 5%;
+  right: -120px;
+  border-style: solid;
+  border-width: 1px;
+  opacity: 0.72;
 }
 
 .auth-shell {
   position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: minmax(410px, 1fr) minmax(430px, 1fr);
-  width: min(1120px, 100%);
-  min-height: 610px;
+  grid-template-columns: minmax(480px, 1fr) minmax(500px, 1fr);
+  width: min(1280px, 100%);
+  min-height: 700px;
   overflow: hidden;
   border: 1px solid #d9e9eb;
   border-radius: 34px;
@@ -84,15 +119,15 @@ onMounted(() => {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  padding: 34px 56px 32px;
+  padding: 42px 64px 38px;
   background: rgba(255, 255, 255, 0.98);
 }
 
 .auth-home-link {
   position: absolute;
   z-index: 3;
-  top: 45px;
-  right: 56px;
+  top: 53px;
+  right: 64px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -322,6 +357,12 @@ onMounted(() => {
   .auth-page {
     display: block;
     padding: 20px 14px;
+    overflow: visible;
+  }
+
+  .auth-page::before,
+  .auth-page::after {
+    display: none;
   }
 
   .auth-shell {
