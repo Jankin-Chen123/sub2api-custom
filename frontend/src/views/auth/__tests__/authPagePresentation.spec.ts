@@ -23,6 +23,23 @@ describe('auth page presentation contract', () => {
     }
   })
 
+  it('applies the shared password recovery presentation hooks', () => {
+    expect(viewSources.forgot).toContain('auth-view-heading')
+    expect(viewSources.forgot).toContain('auth-primary-action')
+    expect(viewSources.forgot).toContain(
+      'class="auth-status-card auth-status-card--success"'
+    )
+
+    expect(viewSources.reset).toContain('auth-view-heading')
+    expect(viewSources.reset).toContain('auth-primary-action')
+    expect(viewSources.reset).toContain(
+      'class="auth-status-card auth-status-card--warning"'
+    )
+    expect(viewSources.reset).toContain(
+      'class="auth-status-card auth-status-card--success"'
+    )
+  })
+
   it('keeps Turnstile on credential entry pages only', () => {
     for (const source of [viewSources.login, viewSources.register, viewSources.forgot]) {
       expect(source).toContain('v-if="turnstileEnabled && turnstileSiteKey"')

@@ -1,19 +1,19 @@
 <template>
   <AuthLayout>
-    <div class="space-y-6">
+    <div class="auth-form-stack">
       <!-- Title -->
-      <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+      <div>
+        <h2 class="auth-view-heading">
           {{ t('auth.resetPasswordTitle') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="auth-view-description">
           {{ t('auth.resetPasswordHint') }}
         </p>
       </div>
 
       <!-- Invalid Link State -->
       <div v-if="isInvalidLink" class="space-y-6">
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-800/50 dark:bg-amber-900/20">
+        <div class="auth-status-card auth-status-card--warning">
           <div class="flex flex-col items-center gap-4 text-center">
             <div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-800/50">
               <Icon name="exclamationCircle" size="lg" class="text-amber-600 dark:text-amber-400" />
@@ -32,7 +32,7 @@
         <div class="text-center">
           <router-link
             to="/forgot-password"
-            class="inline-flex items-center gap-2 font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+            class="auth-inline-link inline-flex items-center gap-2"
           >
             {{ t('auth.requestNewResetLink') }}
           </router-link>
@@ -41,7 +41,7 @@
 
       <!-- Success State -->
       <div v-else-if="isSuccess" class="space-y-6">
-        <div class="rounded-xl border border-green-200 bg-green-50 p-6 dark:border-green-800/50 dark:bg-green-900/20">
+        <div class="auth-status-card auth-status-card--success">
           <div class="flex flex-col items-center gap-4 text-center">
             <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-800/50">
               <Icon name="checkCircle" size="lg" class="text-green-600 dark:text-green-400" />
@@ -60,7 +60,7 @@
         <div class="text-center">
           <router-link
             to="/login"
-            class="btn btn-primary inline-flex items-center gap-2"
+            class="btn btn-primary auth-primary-action inline-flex items-center gap-2"
           >
             <Icon name="login" size="md" />
             {{ t('auth.signIn') }}
@@ -156,7 +156,7 @@
         <button
           type="submit"
           :disabled="isLoading"
-          class="btn btn-primary w-full"
+          class="btn btn-primary auth-primary-action w-full"
         >
           <svg
             v-if="isLoading"
@@ -186,12 +186,9 @@
 
     <!-- Footer -->
     <template #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="auth-footer-copy">
         {{ t('auth.rememberedPassword') }}
-        <router-link
-          to="/login"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
-        >
+        <router-link to="/login">
           {{ t('auth.signIn') }}
         </router-link>
       </p>
@@ -331,16 +328,3 @@ async function handleSubmit(): Promise<void> {
   }
 }
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-</style>
