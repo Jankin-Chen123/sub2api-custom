@@ -1,0 +1,104 @@
+name: Build Custom Sub2API Image
+
+on:
+  push:
+    branches:
+      - custom/frontend
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: custom-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout custom branch
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run authentication and upstream smoke tests
+        working-directory: frontend
+        run: >-
+          pnpm exec vitest run
+          src/utils/__tests__/authRouteMotion.spec.ts
+          src/components/layout/__tests__/AuthLayoutPresentation.spec.ts
+          src/components/auth/__tests__/AuthModeTabs.spec.ts
+          src/views/auth/__tests__/authPagePresentation.spec.ts
+          src/router/__tests__/guards.spec.ts
+          src/components/common/__tests__/AnnouncementPopup.spec.ts
+          src/views/user/__tests__/AffiliateView.spec.ts
+
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm run build
+
+      - name: Prepare image metadata
+        id: image
+        shell: bash
+        run: |
+          version="$(tr -d '\r\n' < backend/cmd/server/VERSION)"
+          image="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          tag="${version}-ui.${GITHUB_RUN_NUMBER}"
+          build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "image=${image}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "build_date=${build_date}" >> "${GITHUB_OUTPUT}"
+          echo "Building ${image}:${tag}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push linux/amd64 image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}:${{ steps.image.outputs.tag }}
+            ${{ steps.image.outputs.image }}:custom-frontend-latest
+          build-args: |
+            VERSION=${{ steps.image.outputs.tag }}
+            COMMIT=${{ github.sha }}
+            DATE=${{ steps.image.outputs.build_date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Publish deployment summary
+        run: |
+          {
+            echo "## Custom Sub2API image"
+            echo
+            echo "- Image: \`${{ steps.image.outputs.image }}:${{ steps.image.outputs.tag }}\`"
+            echo "- Platform: \`linux/amd64\`"
+            echo "- Commit: \`${{ github.sha }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
