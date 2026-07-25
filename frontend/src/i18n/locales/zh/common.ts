@@ -201,6 +201,17 @@ export default {
 
   // Auth
   auth: {
+    brand: {
+      kicker: 'WELCOME TO AI GATEWAY',
+      headline: '认真维护每一条\n通往 AI 的线路',
+      description: '清晰、稳定、透明。登录后所有密钥、用量和渠道状态一目了然。',
+      billingTitle: '清楚计费',
+      billingDescription: '每一笔消耗都有迹可循',
+      routingTitle: '灵活调度',
+      routingDescription: '异常时自动选择可用线路'
+    },
+    modeTabsLabel: '登录与注册',
+    backHome: '返回首页',
     welcomeBack: '欢迎回来',
     signInToAccount: '登录您的账户以继续',
     signIn: '登录',

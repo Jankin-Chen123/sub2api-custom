@@ -201,6 +201,17 @@ export default {
 
   // Auth
   auth: {
+    brand: {
+      kicker: 'WELCOME TO AI GATEWAY',
+      headline: 'Every route to AI,\ncarefully maintained',
+      description: 'Clear, stable and transparent. Keys, usage and channel health stay visible after sign-in.',
+      billingTitle: 'Traceable billing',
+      billingDescription: 'Every unit of usage can be reviewed',
+      routingTitle: 'Flexible routing',
+      routingDescription: 'Automatically selects an available route'
+    },
+    modeTabsLabel: 'Sign in or register',
+    backHome: 'Back home',
     welcomeBack: 'Welcome Back',
     signInToAccount: 'Sign in to your account to continue',
     signIn: 'Sign In',
