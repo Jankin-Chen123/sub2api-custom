@@ -40,6 +40,13 @@ const { t } = useI18n()
           <span>{{ t('auth.brand.routingDescription') }}</span>
         </dd>
       </div>
+      <div class="auth-brand-fact">
+        <dt class="auth-brand-fact-number">03</dt>
+        <dd>
+          <strong>{{ t('auth.brand.validationTitle') }}</strong>
+          <span>{{ t('auth.brand.validationDescription') }}</span>
+        </dd>
+      </div>
     </dl>
 
     <div class="auth-brand-route" aria-hidden="true">

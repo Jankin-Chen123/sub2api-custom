@@ -19,6 +19,8 @@ const i18n = createI18n({
           billingDescription: 'Every unit of usage can be reviewed',
           routingTitle: 'Flexible routing',
           routingDescription: 'Automatically selects an available route',
+          validationTitle: 'Careful validation',
+          validationDescription: 'Thoroughly checks account pool quality before listing',
         },
       },
     },
@@ -45,5 +47,8 @@ describe('AuthBrandPanel', () => {
     expect(wrapper.text()).toContain('Every route to AI, carefully maintained')
     expect(wrapper.text()).toContain('Traceable billing')
     expect(wrapper.text()).toContain('Flexible routing')
+    expect(wrapper.findAll('.auth-brand-fact')).toHaveLength(3)
+    expect(wrapper.text()).toContain('Careful validation')
+    expect(wrapper.text()).toContain('Thoroughly checks account pool quality before listing')
   })
 })

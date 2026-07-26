@@ -208,7 +208,9 @@ export default {
       billingTitle: 'Traceable billing',
       billingDescription: 'Every unit of usage can be reviewed',
       routingTitle: 'Flexible routing',
-      routingDescription: 'Automatically selects an available route'
+      routingDescription: 'Automatically selects an available route',
+      validationTitle: 'Careful validation',
+      validationDescription: 'Thoroughly checks account pool quality before listing'
     },
     modeTabsLabel: 'Sign in or register',
     backHome: 'Back home',

@@ -208,7 +208,9 @@ export default {
       billingTitle: '清楚计费',
       billingDescription: '每一笔消耗都有迹可循',
       routingTitle: '灵活调度',
-      routingDescription: '异常时自动选择可用线路'
+      routingDescription: '异常时自动选择可用线路',
+      validationTitle: '认真验证',
+      validationDescription: '上架前深度检查号池质量'
     },
     modeTabsLabel: '登录与注册',
     backHome: '返回首页',
