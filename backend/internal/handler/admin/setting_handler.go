@@ -91,16 +91,16 @@ func validateContactPageUpdate(req UpdateSettingsRequest) error {
 		return fmt.Errorf("QQ group number must contain 5 to 20 digits")
 	}
 	if len(strings.TrimSpace(req.ContactPageTelegramName)) > 200 {
-		return fmt.Errorf("Telegram channel name is too long")
+		return fmt.Errorf("telegram channel name is too long")
 	}
 	if telegramURL := strings.TrimSpace(req.ContactPageTelegramURL); telegramURL != "" {
 		parsed, err := url.ParseRequestURI(telegramURL)
 		if err != nil || parsed.Scheme != "https" {
-			return fmt.Errorf("Telegram channel URL must be a valid https URL")
+			return fmt.Errorf("telegram channel URL must be a valid https URL")
 		}
 		host := strings.ToLower(parsed.Hostname())
 		if host != "t.me" && host != "telegram.me" {
-			return fmt.Errorf("Telegram channel URL must use t.me or telegram.me")
+			return fmt.Errorf("telegram channel URL must use t.me or telegram.me")
 		}
 	}
 	if err := validateContactPageImageReference(req.ContactPageQQQRCodeImage); err != nil {
