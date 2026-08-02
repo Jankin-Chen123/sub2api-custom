@@ -137,6 +137,11 @@ type SystemSettings struct {
 	SiteSubtitle                string
 	APIBaseURL                  string
 	ContactInfo                 string
+	ContactPageQQGroupNumber    string
+	ContactPageQQQRCodeImage    string
+	ContactPageTelegramName     string
+	ContactPageTelegramURL      string
+	ContactPageTelegramQRImage  string
 	DocURL                      string
 	HomeContent                 string
 	CompactHomeEnabled          bool

@@ -140,6 +140,11 @@ type UpdateSettingsRequest struct {
 	SiteSubtitle                string                `json:"site_subtitle"`
 	APIBaseURL                  string                `json:"api_base_url"`
 	ContactInfo                 string                `json:"contact_info"`
+	ContactPageQQGroupNumber    string                `json:"contact_page_qq_group_number"`
+	ContactPageQQQRCodeImage    string                `json:"contact_page_qq_qr_image"`
+	ContactPageTelegramName     string                `json:"contact_page_telegram_name"`
+	ContactPageTelegramURL      string                `json:"contact_page_telegram_url"`
+	ContactPageTelegramQRImage  string                `json:"contact_page_telegram_qr_image"`
 	DocURL                      string                `json:"doc_url"`
 	HomeContent                 string                `json:"home_content"`
 	CompactHomeEnabled          bool                  `json:"compact_home_enabled"`
@@ -445,6 +450,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	var req UpdateSettingsRequest
 	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if err := validateContactPageUpdate(req); err != nil {
+		response.BadRequest(c, err.Error())
 		return
 	}
 	omitted := omittedSettingKeys(sentFields)
@@ -1429,6 +1438,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SiteSubtitle:                           req.SiteSubtitle,
 		APIBaseURL:                             req.APIBaseURL,
 		ContactInfo:                            req.ContactInfo,
+		ContactPageQQGroupNumber:               strings.TrimSpace(req.ContactPageQQGroupNumber),
+		ContactPageQQQRCodeImage:               strings.TrimSpace(req.ContactPageQQQRCodeImage),
+		ContactPageTelegramName:                strings.TrimSpace(req.ContactPageTelegramName),
+		ContactPageTelegramURL:                 strings.TrimSpace(req.ContactPageTelegramURL),
+		ContactPageTelegramQRImage:             strings.TrimSpace(req.ContactPageTelegramQRImage),
 		DocURL:                                 req.DocURL,
 		HomeContent:                            req.HomeContent,
 		CompactHomeEnabled:                     req.CompactHomeEnabled,
@@ -1982,6 +1996,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SiteSubtitle:                                           updatedSettings.SiteSubtitle,
 		APIBaseURL:                                             updatedSettings.APIBaseURL,
 		ContactInfo:                                            updatedSettings.ContactInfo,
+		ContactPageQQGroupNumber:                               updatedSettings.ContactPageQQGroupNumber,
+		ContactPageQQQRCodeImage:                               updatedSettings.ContactPageQQQRCodeImage,
+		ContactPageTelegramName:                                updatedSettings.ContactPageTelegramName,
+		ContactPageTelegramURL:                                 updatedSettings.ContactPageTelegramURL,
+		ContactPageTelegramQRImage:                             updatedSettings.ContactPageTelegramQRImage,
 		DocURL:                                                 updatedSettings.DocURL,
 		HomeContent:                                            updatedSettings.HomeContent,
 		CompactHomeEnabled:                                     updatedSettings.CompactHomeEnabled,

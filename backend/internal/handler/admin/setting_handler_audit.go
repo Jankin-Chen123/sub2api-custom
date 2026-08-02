@@ -293,6 +293,21 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.ContactInfo != after.ContactInfo {
 		changed = append(changed, "contact_info")
 	}
+	if before.ContactPageQQGroupNumber != after.ContactPageQQGroupNumber {
+		changed = append(changed, "contact_page_qq_group_number")
+	}
+	if before.ContactPageQQQRCodeImage != after.ContactPageQQQRCodeImage {
+		changed = append(changed, "contact_page_qq_qr_image")
+	}
+	if before.ContactPageTelegramName != after.ContactPageTelegramName {
+		changed = append(changed, "contact_page_telegram_name")
+	}
+	if before.ContactPageTelegramURL != after.ContactPageTelegramURL {
+		changed = append(changed, "contact_page_telegram_url")
+	}
+	if before.ContactPageTelegramQRImage != after.ContactPageTelegramQRImage {
+		changed = append(changed, "contact_page_telegram_qr_image")
+	}
 	if before.DocURL != after.DocURL {
 		changed = append(changed, "doc_url")
 	}

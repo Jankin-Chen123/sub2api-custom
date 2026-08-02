@@ -131,6 +131,35 @@ func TestSecurityHeaders(t *testing.T) {
 		assert.Contains(t, csp, CloudflareInsightsDomain)
 	})
 
+	t.Run("contact_page_allows_same_origin_embedding_only", func(t *testing.T) {
+		cfg := config.CSPConfig{
+			Enabled: true,
+			Policy:  "default-src 'self'; frame-ancestors 'none'",
+		}
+		middleware := SecurityHeaders(cfg, nil)
+
+		for _, path := range []string{"/contact", "/contact/"} {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, path, nil)
+
+			middleware(c)
+
+			assert.Equal(t, "SAMEORIGIN", w.Header().Get("X-Frame-Options"), "path=%s", path)
+			assert.Contains(t, w.Header().Get("Content-Security-Policy"), "frame-ancestors 'self'", "path=%s", path)
+			assert.NotContains(t, w.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'", "path=%s", path)
+		}
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/contact/private", nil)
+
+		middleware(c)
+
+		assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
+		assert.Contains(t, w.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'")
+	})
+
 	t.Run("api_route_skips_csp_nonce_generation", func(t *testing.T) {
 		cfg := config.CSPConfig{
 			Enabled: true,
@@ -407,6 +436,23 @@ func TestAddToDirective(t *testing.T) {
 
 		assert.Contains(t, result, "script-src")
 		assert.Contains(t, result, "https://example.com")
+	})
+}
+
+func TestSetDirective(t *testing.T) {
+	t.Run("replaces_existing_directive", func(t *testing.T) {
+		policy := "default-src 'self'; frame-ancestors 'none'; script-src 'self'"
+		result := setDirective(policy, "frame-ancestors", "'self'")
+
+		assert.Contains(t, result, "frame-ancestors 'self'")
+		assert.NotContains(t, result, "frame-ancestors 'none'")
+		assert.Contains(t, result, "script-src 'self'")
+	})
+
+	t.Run("appends_missing_directive", func(t *testing.T) {
+		result := setDirective("default-src 'self'", "frame-ancestors", "'self'")
+
+		assert.Contains(t, result, "frame-ancestors 'self'")
 	})
 }
 

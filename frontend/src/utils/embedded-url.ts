@@ -13,20 +13,25 @@ const EMBEDDED_UI_MODE_VALUE = 'embedded'
 const EMBEDDED_SRC_HOST_QUERY_KEY = 'src_host'
 const EMBEDDED_SRC_QUERY_KEY = 'src_url'
 
+export interface EmbeddedUrlOptions {
+  includeAuth?: boolean
+}
+
 export function buildEmbeddedUrl(
   baseUrl: string,
   userId?: number,
   authToken?: string | null,
   theme: 'light' | 'dark' = 'light',
   lang?: string,
+  options: EmbeddedUrlOptions = {},
 ): string {
   if (!baseUrl) return baseUrl
   try {
     const url = new URL(baseUrl)
-    if (userId) {
+    if (options.includeAuth !== false && userId) {
       url.searchParams.set(EMBEDDED_USER_ID_QUERY_KEY, String(userId))
     }
-    if (authToken) {
+    if (options.includeAuth !== false && authToken) {
       url.searchParams.set(EMBEDDED_AUTH_TOKEN_QUERY_KEY, authToken)
     }
     url.searchParams.set(EMBEDDED_THEME_QUERY_KEY, theme)
@@ -43,6 +48,29 @@ export function buildEmbeddedUrl(
   } catch {
     return baseUrl
   }
+}
+
+export function isSameOriginContactPageUrl(baseUrl: string): boolean {
+  if (!baseUrl || typeof window === 'undefined') return false
+  try {
+    const url = new URL(baseUrl)
+    return url.origin === window.location.origin
+      && (url.pathname === '/contact' || url.pathname === '/contact/')
+  } catch {
+    return false
+  }
+}
+
+export function buildCustomPageEmbeddedUrl(
+  baseUrl: string,
+  userId?: number,
+  authToken?: string | null,
+  theme: 'light' | 'dark' = 'light',
+  lang?: string,
+): string {
+  return buildEmbeddedUrl(baseUrl, userId, authToken, theme, lang, {
+    includeAuth: !isSameOriginContactPageUrl(baseUrl),
+  })
 }
 
 export function detectTheme(): 'light' | 'dark' {

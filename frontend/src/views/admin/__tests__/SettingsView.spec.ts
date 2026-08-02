@@ -376,6 +376,11 @@ const baseSettingsResponse = {
   site_subtitle: "",
   api_base_url: "",
   contact_info: "",
+  contact_page_qq_group_number: "1097280864",
+  contact_page_qq_qr_image: "/contact/qq-group-qr.jpg",
+  contact_page_telegram_name: "@ai_baipiao",
+  contact_page_telegram_url: "https://t.me/ai_baipiao",
+  contact_page_telegram_qr_image: "/contact/telegram-channel-qr.png",
   doc_url: "",
   home_content: "",
   compact_home_enabled: false,
@@ -694,6 +699,29 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({ compact_home_enabled: true }),
+    );
+  });
+
+  it("loads and submits the contact page configuration", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="contact-page-settings-card"]').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="contact-page-qq-group-number"]').setValue("987654321");
+    await wrapper.get('[data-testid="contact-page-telegram-name"]').setValue("@runtime_channel");
+    await wrapper.get('[data-testid="contact-page-telegram-url"]').setValue("https://t.me/runtime_channel");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contact_page_qq_group_number: "987654321",
+        contact_page_qq_qr_image: "/contact/qq-group-qr.jpg",
+        contact_page_telegram_name: "@runtime_channel",
+        contact_page_telegram_url: "https://t.me/runtime_channel",
+        contact_page_telegram_qr_image: "/contact/telegram-channel-qr.png",
+      }),
     );
   });
 

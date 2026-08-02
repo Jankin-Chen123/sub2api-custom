@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -119,4 +120,36 @@ func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *
 	require.True(t, resp.Data.WeChatOAuthEnabled)
 	require.True(t, resp.Data.WeChatOAuthOpenEnabled)
 	require.True(t, resp.Data.WeChatOAuthMPEnabled)
+}
+
+func TestSettingHandler_GetContactPageSettings_ExposesRuntimeConfiguration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{
+		values: map[string]string{
+			service.SettingKeyContactPageQQGroupNumber:   "987654321",
+			service.SettingKeyContactPageQQQRCodeImage:   "data:image/png;base64,cXE=",
+			service.SettingKeyContactPageTelegramName:    "@runtime_channel",
+			service.SettingKeyContactPageTelegramURL:     "https://t.me/runtime_channel",
+			service.SettingKeyContactPageTelegramQRImage: "/uploads/runtime-telegram.png",
+		},
+	}, &config.Config{}), "test-version")
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/settings/contact-page", nil)
+
+	h.GetContactPageSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var resp struct {
+		Code int                     `json:"code"`
+		Data dto.ContactPageSettings `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Equal(t, "987654321", resp.Data.QQGroupNumber)
+	require.Equal(t, "data:image/png;base64,cXE=", resp.Data.QQQRCodeImage)
+	require.Equal(t, "@runtime_channel", resp.Data.TelegramName)
+	require.Equal(t, "https://t.me/runtime_channel", resp.Data.TelegramURL)
+	require.Equal(t, "/uploads/runtime-telegram.png", resp.Data.TelegramQRImage)
 }

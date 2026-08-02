@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildEmbeddedUrl, detectTheme } from '../embedded-url'
+import {
+  buildCustomPageEmbeddedUrl,
+  buildEmbeddedUrl,
+  detectTheme,
+  isSameOriginContactPageUrl,
+} from '../embedded-url'
 
 describe('embedded-url', () => {
   const originalLocation = window.location
@@ -54,6 +59,61 @@ describe('embedded-url', () => {
     expect(url.searchParams.has('user_id')).toBe(false)
     expect(url.searchParams.has('token')).toBe(false)
     expect(url.searchParams.has('lang')).toBe(false)
+  })
+
+  it('can omit credentials for an informational embedded page', () => {
+    const result = buildEmbeddedUrl(
+      'https://app.example.com/contact',
+      42,
+      'token-123',
+      'dark',
+      'zh-CN',
+      { includeAuth: false },
+    )
+
+    const url = new URL(result)
+    expect(url.searchParams.has('user_id')).toBe(false)
+    expect(url.searchParams.has('token')).toBe(false)
+    expect(url.searchParams.get('theme')).toBe('dark')
+    expect(url.searchParams.get('lang')).toBe('zh-CN')
+  })
+
+  it('recognizes only the exact same-origin contact page', () => {
+    expect(isSameOriginContactPageUrl('https://app.example.com/contact')).toBe(true)
+    expect(isSameOriginContactPageUrl('https://app.example.com/contact/')).toBe(true)
+    expect(isSameOriginContactPageUrl('https://app.example.com/contact/private')).toBe(false)
+    expect(isSameOriginContactPageUrl('https://other.example.com/contact')).toBe(false)
+  })
+
+  it('keeps display context but strips credentials from a same-origin contact embed', () => {
+    const result = buildCustomPageEmbeddedUrl(
+      'https://app.example.com/contact',
+      42,
+      'token-123',
+      'dark',
+      'zh-CN',
+    )
+
+    const url = new URL(result)
+    expect(url.searchParams.has('user_id')).toBe(false)
+    expect(url.searchParams.has('token')).toBe(false)
+    expect(url.searchParams.get('theme')).toBe('dark')
+    expect(url.searchParams.get('lang')).toBe('zh-CN')
+    expect(url.searchParams.get('ui_mode')).toBe('embedded')
+  })
+
+  it('retains credentials for other custom-page embeds', () => {
+    const result = buildCustomPageEmbeddedUrl(
+      'https://tools.example.com/dashboard',
+      42,
+      'token-123',
+      'light',
+      'en-US',
+    )
+
+    const url = new URL(result)
+    expect(url.searchParams.get('user_id')).toBe('42')
+    expect(url.searchParams.get('token')).toBe('token-123')
   })
 
   it('returns original string for invalid url input', () => {

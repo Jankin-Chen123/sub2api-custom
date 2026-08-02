@@ -5920,6 +5920,109 @@
                 </p>
               </div>
 
+              <!-- Contact Page Settings -->
+              <div
+                class="rounded-2xl border border-primary-200 bg-primary-50/40 p-5 dark:border-primary-900/50 dark:bg-primary-950/20"
+                data-testid="contact-page-settings-card"
+              >
+                <div class="mb-4">
+                  <h3 class="font-semibold text-gray-900 dark:text-white">
+                    {{ t("admin.settings.site.contactPage.title") }}
+                  </h3>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.site.contactPage.description") }}
+                  </p>
+                  <p
+                    class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                  >
+                    {{ t("admin.settings.site.contactPage.qqExpiryWarning") }}
+                  </p>
+                </div>
+
+                <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                  <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-600 dark:bg-dark-800">
+                    <h4 class="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      {{ t("admin.settings.site.contactPage.qqTitle") }}
+                    </h4>
+                    <div class="space-y-4">
+                      <div>
+                        <label class="input-label">
+                          {{ t("admin.settings.site.contactPage.qqGroupNumber") }}
+                        </label>
+                        <input
+                          v-model="form.contact_page_qq_group_number"
+                          type="text"
+                          inputmode="numeric"
+                          class="input font-mono"
+                          data-testid="contact-page-qq-group-number"
+                          :placeholder="t('admin.settings.site.contactPage.qqGroupNumberPlaceholder')"
+                        />
+                      </div>
+                      <div>
+                        <label class="input-label">
+                          {{ t("admin.settings.site.contactPage.qqQrImage") }}
+                        </label>
+                        <ImageUpload
+                          v-model="form.contact_page_qq_qr_image"
+                          mode="image"
+                          size="lg"
+                          :upload-label="t('admin.settings.site.contactPage.replaceImage')"
+                          :remove-label="t('admin.settings.site.remove')"
+                          :hint="t('admin.settings.site.contactPage.imageHint')"
+                          :max-size="2 * 1024 * 1024"
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-600 dark:bg-dark-800">
+                    <h4 class="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      {{ t("admin.settings.site.contactPage.telegramTitle") }}
+                    </h4>
+                    <div class="space-y-4">
+                      <div>
+                        <label class="input-label">
+                          {{ t("admin.settings.site.contactPage.telegramName") }}
+                        </label>
+                        <input
+                          v-model="form.contact_page_telegram_name"
+                          type="text"
+                          class="input"
+                          data-testid="contact-page-telegram-name"
+                          :placeholder="t('admin.settings.site.contactPage.telegramNamePlaceholder')"
+                        />
+                      </div>
+                      <div>
+                        <label class="input-label">
+                          {{ t("admin.settings.site.contactPage.telegramUrl") }}
+                        </label>
+                        <input
+                          v-model="form.contact_page_telegram_url"
+                          type="url"
+                          class="input font-mono text-sm"
+                          data-testid="contact-page-telegram-url"
+                          placeholder="https://t.me/ai_baipiao"
+                        />
+                      </div>
+                      <div>
+                        <label class="input-label">
+                          {{ t("admin.settings.site.contactPage.telegramQrImage") }}
+                        </label>
+                        <ImageUpload
+                          v-model="form.contact_page_telegram_qr_image"
+                          mode="image"
+                          size="lg"
+                          :upload-label="t('admin.settings.site.contactPage.replaceImage')"
+                          :remove-label="t('admin.settings.site.remove')"
+                          :hint="t('admin.settings.site.contactPage.imageHint')"
+                          :max-size="2 * 1024 * 1024"
+                        />
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
               <!-- Doc URL -->
               <div>
                 <label
@@ -8848,6 +8951,11 @@ const form = reactive<SettingsForm>({
   site_subtitle: "Subscription to API Conversion Platform",
   api_base_url: "",
   contact_info: "",
+  contact_page_qq_group_number: "1097280864",
+  contact_page_qq_qr_image: "/contact/qq-group-qr.jpg",
+  contact_page_telegram_name: "@ai_baipiao",
+  contact_page_telegram_url: "https://t.me/ai_baipiao",
+  contact_page_telegram_qr_image: "/contact/telegram-channel-qr.png",
   doc_url: "",
   home_content: "",
   compact_home_enabled: false,
@@ -10373,6 +10481,11 @@ async function saveSettings() {
       site_subtitle: form.site_subtitle,
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
+      contact_page_qq_group_number: form.contact_page_qq_group_number,
+      contact_page_qq_qr_image: form.contact_page_qq_qr_image,
+      contact_page_telegram_name: form.contact_page_telegram_name,
+      contact_page_telegram_url: form.contact_page_telegram_url,
+      contact_page_telegram_qr_image: form.contact_page_telegram_qr_image,
       doc_url: form.doc_url,
       home_content: form.home_content,
       compact_home_enabled: form.compact_home_enabled,

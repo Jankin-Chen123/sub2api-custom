@@ -140,6 +140,11 @@ type SystemSettings struct {
 	SiteSubtitle                string           `json:"site_subtitle"`
 	APIBaseURL                  string           `json:"api_base_url"`
 	ContactInfo                 string           `json:"contact_info"`
+	ContactPageQQGroupNumber    string           `json:"contact_page_qq_group_number"`
+	ContactPageQQQRCodeImage    string           `json:"contact_page_qq_qr_image"`
+	ContactPageTelegramName     string           `json:"contact_page_telegram_name"`
+	ContactPageTelegramURL      string           `json:"contact_page_telegram_url"`
+	ContactPageTelegramQRImage  string           `json:"contact_page_telegram_qr_image"`
 	DocURL                      string           `json:"doc_url"`
 	HomeContent                 string           `json:"home_content"`
 	CompactHomeEnabled          bool             `json:"compact_home_enabled"`
@@ -314,6 +319,14 @@ type SystemSettings struct {
 
 	// 允许终端用户在用量页查看自己的失败请求
 	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
+}
+
+type ContactPageSettings struct {
+	QQGroupNumber   string `json:"qq_group_number"`
+	QQQRCodeImage   string `json:"qq_qr_image"`
+	TelegramName    string `json:"telegram_name"`
+	TelegramURL     string `json:"telegram_url"`
+	TelegramQRImage string `json:"telegram_qr_image"`
 }
 
 type DefaultSubscriptionSetting struct {

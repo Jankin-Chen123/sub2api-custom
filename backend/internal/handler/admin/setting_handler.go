@@ -2,10 +2,12 @@ package admin
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -21,6 +23,11 @@ var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 
 // menuItemIDPattern validates custom menu item IDs: alphanumeric, hyphens, underscores only.
 var menuItemIDPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
+var qqGroupNumberPattern = regexp.MustCompile(`^[0-9]{5,20}$`)
+var contactPageImageDataURLPattern = regexp.MustCompile(`(?i)^data:image/(png|jpe?g|webp|gif);base64,`)
+
+const contactPageImageMaxEncodedSize = 3 << 20
 
 // generateMenuItemID generates a short random hex ID for a custom menu item.
 func generateMenuItemID() (string, error) {
@@ -47,6 +54,62 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func validateContactPageImageReference(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	if len(value) > contactPageImageMaxEncodedSize {
+		return fmt.Errorf("contact page image exceeds the 3 MiB encoded size limit")
+	}
+	if strings.HasPrefix(value, "/") && !strings.HasPrefix(value, "//") {
+		return nil
+	}
+	if contactPageImageDataURLPattern.MatchString(value) {
+		comma := strings.IndexByte(value, ',')
+		if comma < 0 || comma == len(value)-1 {
+			return fmt.Errorf("contact page image data URL is empty")
+		}
+		if _, err := base64.StdEncoding.DecodeString(value[comma+1:]); err != nil {
+			return fmt.Errorf("contact page image data URL is invalid")
+		}
+		return nil
+	}
+
+	parsed, err := url.ParseRequestURI(value)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return fmt.Errorf("contact page image must be an http(s) URL, site-relative path, or image data URL")
+	}
+	return nil
+}
+
+func validateContactPageUpdate(req UpdateSettingsRequest) error {
+	qqGroupNumber := strings.TrimSpace(req.ContactPageQQGroupNumber)
+	if qqGroupNumber != "" && !qqGroupNumberPattern.MatchString(qqGroupNumber) {
+		return fmt.Errorf("QQ group number must contain 5 to 20 digits")
+	}
+	if len(strings.TrimSpace(req.ContactPageTelegramName)) > 200 {
+		return fmt.Errorf("Telegram channel name is too long")
+	}
+	if telegramURL := strings.TrimSpace(req.ContactPageTelegramURL); telegramURL != "" {
+		parsed, err := url.ParseRequestURI(telegramURL)
+		if err != nil || parsed.Scheme != "https" {
+			return fmt.Errorf("Telegram channel URL must be a valid https URL")
+		}
+		host := strings.ToLower(parsed.Hostname())
+		if host != "t.me" && host != "telegram.me" {
+			return fmt.Errorf("Telegram channel URL must use t.me or telegram.me")
+		}
+	}
+	if err := validateContactPageImageReference(req.ContactPageQQQRCodeImage); err != nil {
+		return fmt.Errorf("invalid QQ QR image: %w", err)
+	}
+	if err := validateContactPageImageReference(req.ContactPageTelegramQRImage); err != nil {
+		return fmt.Errorf("invalid Telegram QR image: %w", err)
+	}
+	return nil
 }
 
 // SettingHandler 系统设置处理器
@@ -231,6 +294,11 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		SiteSubtitle:                                           settings.SiteSubtitle,
 		APIBaseURL:                                             settings.APIBaseURL,
 		ContactInfo:                                            settings.ContactInfo,
+		ContactPageQQGroupNumber:                               settings.ContactPageQQGroupNumber,
+		ContactPageQQQRCodeImage:                               settings.ContactPageQQQRCodeImage,
+		ContactPageTelegramName:                                settings.ContactPageTelegramName,
+		ContactPageTelegramURL:                                 settings.ContactPageTelegramURL,
+		ContactPageTelegramQRImage:                             settings.ContactPageTelegramQRImage,
 		DocURL:                                                 settings.DocURL,
 		HomeContent:                                            settings.HomeContent,
 		CompactHomeEnabled:                                     settings.CompactHomeEnabled,

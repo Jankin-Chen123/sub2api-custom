@@ -438,6 +438,11 @@ export interface SystemSettings {
   site_subtitle: string;
   api_base_url: string;
   contact_info: string;
+  contact_page_qq_group_number: string;
+  contact_page_qq_qr_image: string;
+  contact_page_telegram_name: string;
+  contact_page_telegram_url: string;
+  contact_page_telegram_qr_image: string;
   doc_url: string;
   home_content: string;
   compact_home_enabled: boolean;
@@ -751,6 +756,11 @@ export interface UpdateSettingsRequest {
   site_subtitle?: string;
   api_base_url?: string;
   contact_info?: string;
+  contact_page_qq_group_number?: string;
+  contact_page_qq_qr_image?: string;
+  contact_page_telegram_name?: string;
+  contact_page_telegram_url?: string;
+  contact_page_telegram_qr_image?: string;
   doc_url?: string;
   home_content?: string;
   compact_home_enabled?: boolean;

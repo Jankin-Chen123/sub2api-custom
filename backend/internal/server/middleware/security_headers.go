@@ -92,7 +92,12 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 		}
 
 		c.Header("X-Content-Type-Options", "nosniff")
-		c.Header("X-Frame-Options", "DENY")
+		if isSameOriginEmbeddablePage(c) {
+			c.Header("X-Frame-Options", "SAMEORIGIN")
+			finalPolicy = setDirective(finalPolicy, "frame-ancestors", "'self'")
+		} else {
+			c.Header("X-Frame-Options", "DENY")
+		}
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		if isAPIRoutePath(c) {
 			c.Next()
@@ -113,6 +118,17 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 		}
 		c.Next()
 	}
+}
+
+// isSameOriginEmbeddablePage is intentionally an exact allowlist. The contact
+// page is rendered inside the authenticated custom-menu iframe; every other
+// frontend page keeps the default clickjacking protection.
+func isSameOriginEmbeddablePage(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	path := c.Request.URL.Path
+	return path == "/contact" || path == "/contact/"
 }
 
 func isAPIRoutePath(c *gin.Context) bool {
@@ -194,4 +210,32 @@ func addToDirective(policy, directive, value string) string {
 	// Insert value before the semicolon
 	insertPos := idx + endIdx
 	return policy[:insertPos] + " " + value + policy[insertPos:]
+}
+
+// setDirective replaces a directive with an exact value, or appends it when
+// the configured policy does not define that directive. This is required for
+// frame-ancestors because 'none' cannot be combined with 'self'.
+func setDirective(policy, directive, value string) string {
+	rawDirectives := strings.Split(policy, ";")
+	replaced := false
+	for i, rawDirective := range rawDirectives {
+		fields := strings.Fields(strings.TrimSpace(rawDirective))
+		if len(fields) == 0 || fields[0] != directive {
+			continue
+		}
+		rawDirectives[i] = directive + " " + value
+		replaced = true
+	}
+	if !replaced {
+		rawDirectives = append(rawDirectives, directive+" "+value)
+	}
+
+	normalized := make([]string, 0, len(rawDirectives))
+	for _, rawDirective := range rawDirectives {
+		trimmed := strings.TrimSpace(rawDirective)
+		if trimmed != "" {
+			normalized = append(normalized, trimmed)
+		}
+	}
+	return strings.Join(normalized, "; ") + ";"
 }

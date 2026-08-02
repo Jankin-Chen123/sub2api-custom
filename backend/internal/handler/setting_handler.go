@@ -111,6 +111,24 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 	})
 }
 
+// GetContactPageSettings returns the public community details used by /contact.
+// GET /api/v1/settings/contact-page
+func (h *SettingHandler) GetContactPageSettings(c *gin.Context) {
+	settings, err := h.settingService.GetContactPageSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.ContactPageSettings{
+		QQGroupNumber:   settings.QQGroupNumber,
+		QQQRCodeImage:   settings.QQQRCodeImage,
+		TelegramName:    settings.TelegramName,
+		TelegramURL:     settings.TelegramURL,
+		TelegramQRImage: settings.TelegramQRImage,
+	})
+}
+
 // UnsubscribeNotificationEmail handles optional notification email opt-outs.
 // GET /api/v1/settings/email-unsubscribe?token=...
 func (h *SettingHandler) UnsubscribeNotificationEmail(c *gin.Context) {

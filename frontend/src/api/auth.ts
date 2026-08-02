@@ -336,6 +336,19 @@ export async function getPublicSettings(): Promise<PublicSettings> {
   return data
 }
 
+export interface ContactPageSettings {
+  qq_group_number: string
+  qq_qr_image: string
+  telegram_name: string
+  telegram_url: string
+  telegram_qr_image: string
+}
+
+export async function getContactPageSettings(): Promise<ContactPageSettings> {
+  const { data } = await apiClient.get<ContactPageSettings>('/settings/contact-page')
+  return data
+}
+
 export type WeChatOAuthMode = 'open' | 'mp'
 export type WeChatOAuthUnavailableReason =
   | 'not_configured'
@@ -673,6 +686,7 @@ export const authAPI = {
   getTokenExpiresAt,
   clearAuthToken,
   getPublicSettings,
+  getContactPageSettings,
   sendVerifyCode,
   sendPendingOAuthVerifyCode,
   validatePromoCode,
