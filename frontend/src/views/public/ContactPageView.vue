@@ -352,6 +352,7 @@ const QrPlaceholder = defineComponent({
   --contact-shadow: 0 26px 75px rgba(42, 100, 106, 0.15);
   position: relative;
   display: grid;
+  height: 100svh;
   min-height: 100svh;
   place-items: center;
   overflow: hidden;
@@ -364,38 +365,16 @@ const QrPlaceholder = defineComponent({
   background-size: 72px 72px, 72px 72px, 100% 100%;
 }
 
-.dark .contact-page {
-  --contact-bg: #07181b;
-  --contact-surface: rgba(10, 31, 35, 0.97);
-  --contact-panel: #10292e;
-  --contact-panel-strong: #123338;
-  --contact-ink: #effffd;
-  --contact-ink-soft: #c6e2e1;
-  --contact-muted: #98b7b8;
-  --contact-faint: #789597;
-  --contact-border: rgba(125, 217, 213, 0.2);
-  --contact-divider: rgba(125, 217, 213, 0.13);
-  --contact-brand: #55d7cc;
-  --contact-brand-strong: #78e2da;
-  --contact-brand-soft: #103a3d;
-  --contact-grid: rgba(85, 215, 204, 0.045);
-  --contact-shadow: 0 30px 85px rgba(0, 0, 0, 0.3);
-  background-image:
-    linear-gradient(var(--contact-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--contact-grid) 1px, transparent 1px),
-    linear-gradient(135deg, #07181b, #0a2326 48%, #151e1e);
-}
-
 .contact-page-inner {
   position: relative;
   z-index: 2;
   width: 100%;
-  padding: 38px 5vw;
+  padding: 16px clamp(18px, 3vw, 44px);
 }
 
 .contact-page-inner--embedded {
-  padding-top: 24px;
-  padding-bottom: 24px;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 
 .contact-page-shape,
@@ -476,10 +455,10 @@ const QrPlaceholder = defineComponent({
   isolation: isolate;
   width: min(1040px, 100%);
   margin-inline: auto;
-  padding: 30px 54px 38px;
+  padding: 20px 36px 22px;
   overflow: hidden;
   border: 1px solid var(--contact-border);
-  border-radius: 34px;
+  border-radius: 28px;
   background: var(--contact-surface);
   box-shadow: var(--contact-shadow);
 }
@@ -538,10 +517,10 @@ const QrPlaceholder = defineComponent({
 }
 
 .contact-brand-logo {
-  width: 46px;
-  height: 46px;
-  flex: 0 0 46px;
-  border-radius: 15px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 13px;
   object-fit: cover;
   box-shadow: 0 9px 22px rgba(18, 139, 135, 0.2);
   animation: contact-logo-float 4.8s ease-in-out infinite;
@@ -550,7 +529,7 @@ const QrPlaceholder = defineComponent({
 .contact-brand-name {
   overflow: hidden;
   color: var(--contact-ink);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -561,17 +540,13 @@ const QrPlaceholder = defineComponent({
   flex: 0 0 auto;
   align-items: center;
   gap: 7px;
-  padding: 7px 12px;
+  padding: 6px 10px;
   border: 1px solid rgba(18, 164, 155, 0.2);
   border-radius: 999px;
   color: var(--contact-brand-strong);
   background: rgba(223, 245, 246, 0.72);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-}
-
-.dark .contact-status {
-  background: rgba(18, 164, 155, 0.12);
 }
 
 .contact-status-dot {
@@ -584,18 +559,18 @@ const QrPlaceholder = defineComponent({
 
 .contact-hero {
   max-width: 680px;
-  margin: 38px auto 30px;
+  margin: 12px auto 14px;
   text-align: center;
 }
 
 .contact-hero-mark {
   display: grid;
-  width: 58px;
-  height: 58px;
-  margin: 0 auto 15px;
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 7px;
   place-items: center;
   border: 1px solid rgba(18, 164, 155, 0.14);
-  border-radius: 19px;
+  border-radius: 14px;
   color: var(--contact-brand-strong);
   background: var(--contact-brand-soft);
   box-shadow: 0 10px 24px rgba(18, 139, 135, 0.1);
@@ -604,15 +579,15 @@ const QrPlaceholder = defineComponent({
 .contact-kicker {
   margin: 0;
   color: var(--contact-brand-strong);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.08em;
 }
 
 .contact-hero h1 {
-  margin: 9px 0 8px;
+  margin: 5px 0 4px;
   color: var(--contact-ink);
-  font-size: 42px;
+  font-size: 34px;
   font-weight: 850;
   letter-spacing: -0.03em;
   line-height: 1.12;
@@ -622,25 +597,25 @@ const QrPlaceholder = defineComponent({
   max-width: 620px;
   margin: 0 auto;
   color: var(--contact-muted);
-  font-size: 15px;
-  line-height: 1.75;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .contact-action-grid,
 .contact-qr-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .contact-action-card {
   --card-accent: var(--contact-brand);
   display: flex;
   min-width: 0;
-  min-height: 166px;
+  min-height: 110px;
   flex-direction: column;
   justify-content: space-between;
-  padding: 23px 24px 19px;
+  padding: 15px 18px 13px;
   overflow: hidden;
   border: 1px solid var(--contact-border);
   border-top: 3px solid var(--card-accent);
@@ -691,18 +666,18 @@ a.contact-action-card {
   display: flex;
   min-width: 0;
   align-items: flex-start;
-  gap: 14px;
+  gap: 11px;
 }
 
 .contact-platform-icon,
 .contact-placeholder-icon {
   display: grid;
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 16px;
+  border-radius: 13px;
 }
 
 .contact-platform-icon--qq,
@@ -745,16 +720,16 @@ a.contact-action-card {
 .contact-card-label {
   display: block;
   color: var(--contact-ink-soft);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 780;
 }
 
 .contact-card-value {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
   overflow: hidden;
   color: var(--contact-ink);
-  font-size: 21px;
+  font-size: 18px;
   font-weight: 850;
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
@@ -771,19 +746,19 @@ a.contact-action-card {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-top: 15px;
-  margin-top: 18px;
+  padding-top: 9px;
+  margin-top: 9px;
   border-top: 1px solid var(--contact-divider);
   color: var(--contact-muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .contact-card-action-icon {
   display: grid;
-  width: 31px;
-  height: 31px;
-  flex: 0 0 31px;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
   place-items: center;
   border-radius: 10px;
   color: var(--card-accent);
@@ -799,7 +774,7 @@ a.contact-action-card {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin: 31px 0 18px;
+  margin: 14px 0 10px;
 }
 
 .contact-scan-line {
@@ -813,7 +788,7 @@ a.contact-action-card {
   align-items: center;
   gap: 9px;
   color: var(--contact-muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -834,9 +809,9 @@ a.contact-action-card {
 }
 
 .contact-qr-card {
-  padding: 19px 19px 17px;
+  padding: 12px;
   border: 1px solid var(--contact-border);
-  border-radius: 22px;
+  border-radius: 18px;
   background: var(--contact-panel);
   box-shadow: 0 10px 26px rgba(42, 100, 106, 0.045);
   transition: border-color 220ms ease, box-shadow 220ms ease;
@@ -852,23 +827,23 @@ a.contact-action-card {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 15px;
+  margin-bottom: 8px;
   color: var(--contact-ink-soft);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .contact-qr-frame {
   display: flex;
-  width: min(100%, 360px);
-  height: clamp(390px, 36vw, 450px);
+  width: min(100%, 310px);
+  height: clamp(240px, 30vh, 300px);
   align-items: center;
   justify-content: center;
-  padding: 10px;
+  padding: 8px;
   margin-inline: auto;
   overflow: hidden;
   border: 1px solid var(--contact-border);
-  border-radius: 22px;
+  border-radius: 18px;
   background: #fff;
 }
 
@@ -918,11 +893,11 @@ a.contact-action-card {
 }
 
 .contact-qr-description {
-  margin: 13px 0 0;
+  margin: 8px 0 0;
   color: var(--contact-muted);
   text-align: center;
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .contact-footer {
@@ -930,7 +905,7 @@ a.contact-action-card {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  margin-top: 24px;
+  margin-top: 12px;
   color: var(--contact-faint);
   font-size: 11px;
 }
@@ -981,9 +956,54 @@ a.contact-action-card {
   }
 }
 
+@media (min-width: 761px) and (max-height: 820px) {
+  .contact-page-inner,
+  .contact-page-inner--embedded {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .contact-shell {
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+
+  .contact-hero {
+    margin-top: 7px;
+    margin-bottom: 10px;
+  }
+
+  .contact-hero-mark {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 4px;
+    border-radius: 12px;
+  }
+
+  .contact-action-card {
+    min-height: 100px;
+    padding-top: 12px;
+    padding-bottom: 11px;
+  }
+
+  .contact-scan-divider {
+    margin-top: 10px;
+    margin-bottom: 8px;
+  }
+
+  .contact-qr-frame {
+    height: clamp(205px, 28vh, 220px);
+  }
+
+  .contact-footer {
+    margin-top: 8px;
+  }
+}
+
 @media (max-width: 760px) {
   .contact-page {
     display: block;
+    height: auto;
     overflow: visible;
   }
 

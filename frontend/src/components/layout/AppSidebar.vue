@@ -1072,14 +1072,24 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-/* Custom SVG icon in sidebar: constrain size without overriding uploaded SVG colors */
+/* Custom SVG icon in sidebar: inherit the current menu color in every theme/state. */
 .sidebar-svg-icon {
-  color: currentColor;
+  color: inherit;
 }
 
 .sidebar-svg-icon :deep(svg) {
   display: block;
   width: 1.25rem;
   height: 1.25rem;
+}
+
+.sidebar-svg-icon :deep([fill]:not([fill='none'])),
+.sidebar-svg-icon :deep([style*='fill:']) {
+  fill: currentColor !important;
+}
+
+.sidebar-svg-icon :deep([stroke]:not([stroke='none'])),
+.sidebar-svg-icon :deep([style*='stroke:']) {
+  stroke: currentColor !important;
 }
 </style>
