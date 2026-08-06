@@ -1963,15 +1963,13 @@ func (a *Account) IsAnthropicOAuthOrSetupToken() bool {
 	return a.Platform == PlatformAnthropic && (a.Type == AccountTypeOAuth || a.Type == AccountTypeSetupToken)
 }
 
-// IsTLSFingerprintEnabled 检查是否启用 TLS 指纹伪装
-// 仅适用于 Anthropic OAuth/SetupToken 类型账号
-// 启用后将模拟 Claude Code (Node.js) 客户端的 TLS 握手特征
+// IsTLSFingerprintEnabled 检查账号是否显式启用 TLS 指纹伪装。
+//
+// 该开关按账号 opt-in，默认关闭。它最初只用于 Anthropic OAuth/
+// SetupToken，但自定义 OpenAI API key 上游也可能按 TLS 客户端特征拦截
+// 请求，因此不能再把能力绑定到某个平台或账号类型。
 func (a *Account) IsTLSFingerprintEnabled() bool {
-	// 仅支持 Anthropic OAuth/SetupToken 账号
-	if !a.IsAnthropicOAuthOrSetupToken() {
-		return false
-	}
-	if a.Extra == nil {
+	if a == nil || a.Extra == nil {
 		return false
 	}
 	if v, ok := a.Extra["enable_tls_fingerprint"]; ok {
