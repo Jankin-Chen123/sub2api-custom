@@ -519,6 +519,10 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	if err != nil {
 		return nil, err
 	}
+	accountExtra, err = NormalizeAccountPurposeExtra(input.Platform, input.Type, input.Credentials, accountExtra)
+	if err != nil {
+		return nil, err
+	}
 	accountExtra, err = normalizeGrokMediaEligibilityExtra(input.Platform, accountExtra)
 	if err != nil {
 		return nil, err
@@ -686,6 +690,10 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		delete(normalizedExtra, OllamaCloudUsageSnapshotExtraKey)
 		// 保留配额用量和专用服务受管字段，防止普通账号编辑意外覆盖。
 		for _, key := range []string{
+			// Account purpose is administrator-controlled routing state. Keep it
+			// when an account edit updates unrelated extra fields; otherwise a
+			// sparse edit would silently turn an image_only account into general.
+			AccountPurposeExtraKey,
 			"quota_used",
 			"quota_daily_used",
 			"quota_daily_start",
@@ -824,6 +832,10 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if input.AutoPauseOnExpired != nil {
 		account.AutoPauseOnExpired = *input.AutoPauseOnExpired
 	}
+	account.Extra, err = NormalizeAccountPurposeExtra(account.Platform, account.Type, account.Credentials, account.Extra)
+	if err != nil {
+		return nil, err
+	}
 
 	// 先验证分组是否存在（在任何写操作之前）
 	if input.GroupIDs != nil {
@@ -904,6 +916,12 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 // UpdateAccountExtra 仅对 Extra JSONB 做 key 级合并，避免覆盖其它运行态键
 // （如 model_rate_limits / passive_usage_* 等）。
 func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, updates map[string]any) error {
+	if _, exists := updates[AccountPurposeExtraKey]; exists {
+		return infraerrors.BadRequest(
+			"ACCOUNT_PURPOSE_REQUIRES_FULL_UPDATE",
+			"account_purpose must be changed through the account update endpoint",
+		)
+	}
 	delete(updates, UpstreamBillingProbeEnabledExtraKey)
 	delete(updates, UpstreamBillingRateSyncEnabledExtraKey)
 	delete(updates, UpstreamBillingProbeExtraKey)
@@ -928,6 +946,12 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 // BulkUpdateAccounts updates multiple accounts in one request.
 // It merges credentials/extra keys instead of overwriting the whole object.
 func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error) {
+	if _, exists := input.Extra[AccountPurposeExtraKey]; exists {
+		return nil, infraerrors.BadRequest(
+			"ACCOUNT_PURPOSE_REQUIRES_INDIVIDUAL_UPDATE",
+			"account_purpose must be changed through an individual account update",
+		)
+	}
 	// Managed probe/session state may only enter through dedicated typed endpoints.
 	delete(input.Extra, UpstreamBillingProbeEnabledExtraKey)
 	delete(input.Extra, UpstreamBillingRateSyncEnabledExtraKey)

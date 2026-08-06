@@ -103,7 +103,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		h.openAISecurityAuditError(c, decision)
 		return
 	}
-	imageReleaseFunc, acquired := h.acquireImageGenerationSlot(c, streamStarted)
+	imageReleaseFunc, acquired := h.acquireImageGenerationSlot(c, streamStarted, requestModel)
 	if !acquired {
 		return
 	}

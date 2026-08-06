@@ -103,6 +103,22 @@ func (s *GatewayCacheSuite) TestGetSessionAccountID_CorruptedValue() {
 	require.False(s.T(), errors.Is(err, service.ErrStickySessionNotFound), "expected parsing error, not a miss")
 }
 
+func (s *GatewayCacheSuite) TestCodexDedicatedImageReplayStore_RoundTripAndDelete() {
+	store, ok := s.cache.(service.CodexDedicatedImageReplayStore)
+	require.True(s.T(), ok)
+	responseID := "resp_sub2api_image_test"
+	payload := []byte(`{"upstream_response_id":"resp_planner_test","function_call_output":{"type":"function_call_output"}}`)
+
+	require.NoError(s.T(), store.SetCodexDedicatedImageReplay(s.ctx, responseID, payload, time.Minute))
+	got, err := store.GetCodexDedicatedImageReplay(s.ctx, responseID)
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), payload, got)
+
+	require.NoError(s.T(), store.DeleteCodexDedicatedImageReplay(s.ctx, responseID))
+	_, err = store.GetCodexDedicatedImageReplay(s.ctx, responseID)
+	require.ErrorIs(s.T(), err, service.ErrCodexDedicatedImageReplayNotFound)
+}
+
 func TestGatewayCacheSuite(t *testing.T) {
 	suite.Run(t, new(GatewayCacheSuite))
 }

@@ -81,6 +81,13 @@ export default {
       notes: '备注',
       notesPlaceholder: '请输入备注',
       notesHint: '备注可选',
+      accountPurpose: {
+        label: '账号用途',
+        general: '普通账号',
+        imageOnly: '生图专用账号（沧元）',
+        generalHint: '用于聊天、代码、工具调用和普通兼容请求。',
+        imageOnlyHint: '只参与图片执行，不会接收聊天或 Responses 对话请求。需要配置沧元地址和 1K/2K/4K 模型映射。'
+      },
       // Filter options
       allPlatforms: '全部平台',
       allTypes: '全部类型',
@@ -1341,6 +1348,10 @@ export default {
       imageTestMode: '模式：生图测试',
       imagePreview: '生成结果：',
       imageReceived: '已收到第 {count} 张测试图片',
+      imageTestCostConfirm: '我确认这次测试会产生上游生图费用。',
+      imageTestCostHint: '测试使用当前选择的沧元分辨率档位；结果只展示状态，不会暴露上游密钥或任务 ID。',
+      dedicatedImageTestCompleted: '沧元生图测试已完成，耗时 {duration} 毫秒。',
+      dedicatedImageTestFailed: '沧元生图测试失败，请检查账号端点和 API key。',
       // Stats Modal
       viewStats: '查看统计',
       usageStatistics: '使用统计',

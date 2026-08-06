@@ -58,6 +58,90 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_JSON(t *testing.T) {
 	require.False(t, parsed.Multipart)
 }
 
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_CangyuanJSONAliasesAndAsync(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{
+		"model":"gpt-image-2-4k",
+		"prompt":"turn this into a poster",
+		"images":["https://example.com/source.png",{"image_url":"https://example.com/source.png"}],
+		"referenceImages":["data:image/png;base64,QUJD"],
+		"mask":"https://example.com/mask.png",
+		"aspect_ratio":"16:9",
+		"async":true
+	}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	parsed, err := (&OpenAIGatewayService{}).ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	require.True(t, parsed.Async)
+	require.Equal(t, "16:9", parsed.AspectRatio)
+	require.Equal(t, "https://example.com/mask.png", parsed.MaskImageURL)
+	require.Equal(t, []string{
+		"https://example.com/source.png",
+		"data:image/png;base64,QUJD",
+	}, parsed.InputImageURLs)
+}
+
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_EditAcceptsEveryCangyuanJSONAlias(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name  string
+		field string
+		value string
+	}{
+		{name: "image", field: "image", value: `"https://example.com/source.png"`},
+		{name: "images", field: "images", value: `["https://example.com/source.png"]`},
+		{name: "imageUrls", field: "imageUrls", value: `["https://example.com/source.png"]`},
+		{name: "image_urls", field: "image_urls", value: `["https://example.com/source.png"]`},
+		{name: "reference_images", field: "reference_images", value: `["https://example.com/source.png"]`},
+		{name: "referenceImages", field: "referenceImages", value: `["https://example.com/source.png"]`},
+		{name: "image_refs", field: "image_refs", value: `["https://example.com/source.png"]`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			body := []byte(`{"model":"gpt-image-2-1k","prompt":"edit","` + test.field + `":` + test.value + `}`)
+			req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = req
+
+			parsed, err := (&OpenAIGatewayService{}).ParseOpenAIImagesRequest(c, body)
+			require.NoError(t, err)
+			require.Equal(t, []string{"https://example.com/source.png"}, parsed.InputImageURLs)
+		})
+	}
+}
+
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_JSONEditAcceptsDataURLImagesArray(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{
+		"model":"gpt-image-2-2k",
+		"prompt":"local JSON edit test",
+		"size":"2048x2048",
+		"images":["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="],
+		"response_format":"b64_json"
+	}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	parsed, err := (&OpenAIGatewayService{}).ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	require.NotNil(t, parsed)
+	require.Equal(t, "/v1/images/edits", parsed.Endpoint)
+	require.Equal(t, "gpt-image-2-2k", parsed.Model)
+	require.Equal(t, "2K", parsed.SizeTier)
+	require.Equal(t, []string{"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="}, parsed.InputImageURLs)
+}
+
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

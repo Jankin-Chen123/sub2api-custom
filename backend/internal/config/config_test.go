@@ -49,6 +49,13 @@ func TestLoadRedisUsernameFromEnvironment(t *testing.T) {
 	require.Equal(t, "app-user", cfg.Redis.Username)
 }
 
+func TestLoadDedicatedImageFallbackDefaultsClosed(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.False(t, cfg.DedicatedImage.FallbackToGeneral)
+}
+
 func TestLoadHTTPIngressSafetyDefaults(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	cfg, err := Load()
@@ -1900,6 +1907,31 @@ func TestValidateConfigErrors(t *testing.T) {
 			wantErr: "gateway.image_concurrency.max_concurrent_requests must be non-negative",
 		},
 		{
+			name:    "gateway image concurrency user negative",
+			mutate:  func(c *Config) { c.Gateway.ImageConcurrency.MaxPerUser = -1 },
+			wantErr: "gateway.image_concurrency.max_per_user must be non-negative",
+		},
+		{
+			name:    "gateway image concurrency api key negative",
+			mutate:  func(c *Config) { c.Gateway.ImageConcurrency.MaxPerAPIKey = -1 },
+			wantErr: "gateway.image_concurrency.max_per_api_key must be non-negative",
+		},
+		{
+			name:    "gateway image concurrency group negative",
+			mutate:  func(c *Config) { c.Gateway.ImageConcurrency.MaxPerGroup = -1 },
+			wantErr: "gateway.image_concurrency.max_per_group must be non-negative",
+		},
+		{
+			name:    "gateway image concurrency account negative",
+			mutate:  func(c *Config) { c.Gateway.ImageConcurrency.MaxPerAccount = -1 },
+			wantErr: "gateway.image_concurrency.max_per_account must be non-negative",
+		},
+		{
+			name:    "gateway image concurrency 4k negative",
+			mutate:  func(c *Config) { c.Gateway.ImageConcurrency.Max4KConcurrent = -1 },
+			wantErr: "gateway.image_concurrency.max_4k_concurrent must be non-negative",
+		},
+		{
 			name:    "gateway image concurrency overflow mode invalid",
 			mutate:  func(c *Config) { c.Gateway.ImageConcurrency.OverflowMode = "queue" },
 			wantErr: "gateway.image_concurrency.overflow_mode",
@@ -2530,6 +2562,9 @@ func TestLoad_DefaultGatewayImageStreamConfig(t *testing.T) {
 	}
 	if cfg.Gateway.ImageConcurrency.MaxConcurrentRequests != 0 {
 		t.Fatalf("image_concurrency.max_concurrent_requests = %d, want 0", cfg.Gateway.ImageConcurrency.MaxConcurrentRequests)
+	}
+	if cfg.Gateway.ImageConcurrency.MaxPerUser != 0 || cfg.Gateway.ImageConcurrency.MaxPerAPIKey != 0 || cfg.Gateway.ImageConcurrency.MaxPerGroup != 0 || cfg.Gateway.ImageConcurrency.MaxPerAccount != 0 || cfg.Gateway.ImageConcurrency.Max4KConcurrent != 0 {
+		t.Fatalf("image_concurrency distributed dimensions should default to zero: %+v", cfg.Gateway.ImageConcurrency)
 	}
 	if cfg.Gateway.ImageConcurrency.OverflowMode != ImageConcurrencyOverflowModeReject {
 		t.Fatalf("image_concurrency.overflow_mode = %q, want %q", cfg.Gateway.ImageConcurrency.OverflowMode, ImageConcurrencyOverflowModeReject)

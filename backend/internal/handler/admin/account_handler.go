@@ -1025,7 +1025,7 @@ func (h *AccountHandler) Update(c *gin.Context) {
 // 当前请求。探测错误仅记录日志，不向上下文传播：探测失败时标记保持缺失，
 // 网关会按"现状即证据"默认走 Responses。
 func (h *AccountHandler) scheduleOpenAIResponsesProbe(account *service.Account) {
-	if account == nil || account.Platform != service.PlatformOpenAI || account.Type != service.AccountTypeAPIKey {
+	if account == nil || account.Platform != service.PlatformOpenAI || account.Type != service.AccountTypeAPIKey || account.IsImageOnly() {
 		return
 	}
 	if h.accountTestService == nil {
@@ -1067,6 +1067,15 @@ type TestAccountRequest struct {
 	Mode    string `json:"mode"`
 }
 
+// TestImageAccountRequest is intentionally explicit because this endpoint
+// creates a billable upstream image. It is not part of the normal account
+// connectivity test, which must remain free of image-generation side effects.
+type TestImageAccountRequest struct {
+	Confirm bool   `json:"confirm"`
+	Model   string `json:"model"`
+	Prompt  string `json:"prompt"`
+}
+
 type SyncFromCRSRequest struct {
 	BaseURL            string   `json:"base_url" binding:"required"`
 	Username           string   `json:"username" binding:"required"`
@@ -1105,6 +1114,59 @@ func (h *AccountHandler) Test(c *gin.Context) {
 			_ = c.Error(err)
 		}
 	}
+}
+
+// TestImageAccount performs one real 1K/2K/4K Cangyuan generation against an
+// image_only account. The request requires an explicit cost confirmation and
+// intentionally returns no provider task ID, signed URL, key, or raw error.
+// POST /api/v1/admin/accounts/:id/test-image
+func (h *AccountHandler) TestImage(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+	var req TestImageAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid image test request")
+		return
+	}
+	if !req.Confirm {
+		response.Error(c, http.StatusBadRequest, "Image test requires explicit cost confirmation")
+		return
+	}
+	if h.adminService == nil {
+		response.Error(c, http.StatusServiceUnavailable, "Account service unavailable")
+		return
+	}
+	account, err := h.adminService.GetAccount(c.Request.Context(), accountID)
+	if err != nil || account == nil {
+		response.NotFound(c, "Account not found")
+		return
+	}
+	if !account.IsImageOnly() {
+		response.Error(c, http.StatusBadRequest, "Only image_only accounts can use the image test endpoint")
+		return
+	}
+	if len([]rune(req.Prompt)) > 4096 {
+		response.BadRequest(c, "Image test prompt is too long")
+		return
+	}
+
+	result, err := service.RunCangyuanImageAccountTest(c.Request.Context(), account, req.Model, req.Prompt)
+	if err != nil || result == nil {
+		// Do not pass the adapter error through: provider responses can contain
+		// sensitive request details and are not a stable administrator contract.
+		response.Error(c, http.StatusBadGateway, "Cangyuan image test failed")
+		return
+	}
+	response.Success(c, gin.H{
+		"success":     true,
+		"model":       result.Model,
+		"status":      result.Status,
+		"completed":   result.Completed,
+		"duration_ms": result.Duration.Milliseconds(),
+	})
 }
 
 // RecoverState handles unified recovery of recoverable account runtime state.

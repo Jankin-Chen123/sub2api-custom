@@ -551,6 +551,118 @@ func ProvideImageTaskService(store ImageTaskStore, settings *ImageStorageSetting
 	return NewImageTaskServiceWithResolver(store, settings.Resolver(), defaultImageTaskTTL, defaultImageTaskExecutionTimeout)
 }
 
+func ProvideImageGenerationResultStore(settings *ImageStorageSettingService, cfg *config.Config) *ResolvingImageGenerationResultStore {
+	return NewResolvingImageGenerationResultStore(settings, cfg.DedicatedImage.ResultPrefix, cfg.DedicatedImage.MaxOutputBytes)
+}
+
+func ProvideImageGenerationBilling(
+	repo UsageBillingRepository,
+	apiKeys *APIKeyService,
+	accounts AccountRepository,
+	usageLogs UsageLogRepository,
+	cache *BillingCacheService,
+) ImageGenerationBilling {
+	return &UsageImageGenerationBilling{Repo: repo, APIKeys: apiKeys, Accounts: accounts, UsageLogs: usageLogs, Cache: cache}
+}
+
+func ProvideImageGenerationAccountSelector(gateway *OpenAIGatewayService, accounts AccountRepository, cfgs ...*config.Config) ImageGenerationAccountSelector {
+	var admission *ImageGenerationAdmission
+	if gateway != nil && len(cfgs) > 0 && cfgs[0] != nil {
+		imageConcurrency := cfgs[0].Gateway.ImageConcurrency
+		admission = NewImageGenerationAdmission(gateway.concurrencyService, ImageGenerationAdmissionConfig{
+			Enabled:            imageConcurrency.Enabled,
+			MaxPerUser:         imageConcurrency.MaxPerUser,
+			MaxPerAPIKey:       imageConcurrency.MaxPerAPIKey,
+			MaxPerGroup:        imageConcurrency.MaxPerGroup,
+			MaxPerAccount:      imageConcurrency.MaxPerAccount,
+			Max4KConcurrent:    imageConcurrency.Max4KConcurrent,
+			OverflowMode:       imageConcurrency.OverflowMode,
+			WaitTimeout:        time.Duration(imageConcurrency.WaitTimeoutSeconds) * time.Second,
+			MaxWaitingRequests: imageConcurrency.MaxWaitingRequests,
+		})
+	}
+	allowGeneralFallback := false
+	if len(cfgs) > 0 && cfgs[0] != nil {
+		allowGeneralFallback = cfgs[0].DedicatedImage.FallbackToGeneral
+	}
+	return &DedicatedImageAccountSelector{
+		Gateway: gateway, Accounts: accounts, ImageAdmission: admission,
+		AllowGeneralFallback: allowGeneralFallback,
+	}
+}
+
+func ProvideImageGenerationProviderFactory() ImageGenerationProviderFactory {
+	return &DefaultImageGenerationProviderFactory{}
+}
+
+func ProvideImageGenerationOrchestrator(repo ImageGenerationJobRepository, payloads ImageGenerationPayloadStore, wakeup ImageGenerationWakeup, cfg *config.Config) *ImageGenerationOrchestrator {
+	return NewImageGenerationOrchestrator(repo, payloads, time.Duration(cfg.DedicatedImage.PayloadTTLHours)*time.Hour, wakeup)
+}
+
+func ProvideImageGenerationWorker(
+	repo ImageGenerationJobRepository,
+	payloads ImageGenerationPayloadStore,
+	results ImageGenerationResultStore,
+	billing ImageGenerationBilling,
+	accounts ImageGenerationAccountSelector,
+	providers ImageGenerationProviderFactory,
+	cfg *config.Config,
+) *ImageGenerationWorker {
+	options := ImageGenerationWorkerOptions{
+		LeaseDuration:     time.Duration(cfg.DedicatedImage.LeaseDurationSeconds) * time.Second,
+		PollInterval:      time.Duration(cfg.DedicatedImage.PollIntervalSeconds) * time.Second,
+		RetryDelay:        time.Duration(cfg.DedicatedImage.RetryDelaySeconds) * time.Second,
+		IdleDelay:         time.Duration(cfg.DedicatedImage.IdleDelayMilliseconds) * time.Millisecond,
+		RecoveryInterval:  time.Duration(cfg.DedicatedImage.RecoveryIntervalSeconds) * time.Second,
+		PayloadTTL:        time.Duration(cfg.DedicatedImage.PayloadTTLHours) * time.Hour,
+		MaxSubmitAttempts: cfg.DedicatedImage.MaxSubmitAttempts,
+		RecoveryLimit:     cfg.DedicatedImage.RecoveryLimit,
+	}
+	return NewImageGenerationWorker(repo, payloads, results, billing, accounts, providers, options)
+}
+
+func ProvideImageGenerationWorkerRuntime(worker *ImageGenerationWorker, wakeup ImageGenerationWakeup, cfg *config.Config) *ImageGenerationWorkerRuntime {
+	runtime := NewImageGenerationWorkerRuntime(worker, wakeup)
+	if cfg != nil && cfg.DedicatedImage.Enabled && cfg.DedicatedImage.WorkerEnabled {
+		runtime.Start()
+	}
+	return runtime
+}
+
+func ProvideImageGenerationCleanupService(
+	repo ImageGenerationJobRepository,
+	payloads ImageGenerationPayloadStore,
+	results ImageGenerationResultReader,
+	deleter ImageStorageDeleter,
+	cfg *config.Config,
+) *ImageGenerationCleanupService {
+	if cfg == nil {
+		return NewImageGenerationCleanupService(repo, payloads, results, deleter, 0, 0, 0)
+	}
+	svc := NewImageGenerationCleanupService(
+		repo, payloads, results, deleter,
+		time.Duration(cfg.DedicatedImage.TerminalRetentionHours)*time.Hour,
+		time.Duration(cfg.DedicatedImage.CleanupIntervalMinutes)*time.Minute,
+		cfg.DedicatedImage.CleanupBatchSize,
+	)
+	if cfg.DedicatedImage.Enabled && cfg.DedicatedImage.WorkerEnabled {
+		svc.Start()
+	}
+	return svc
+}
+
+func ProvideCodexDedicatedImageBridge(
+	gateway *OpenAIGatewayService,
+	orchestrator *ImageGenerationOrchestrator,
+	repo ImageGenerationJobRepository,
+	results ImageGenerationResultReader,
+	billing *BillingService,
+	worker *ImageGenerationWorkerRuntime,
+	cfg *config.Config,
+) *CodexDedicatedImageBridge {
+	return NewCodexDedicatedImageBridge(gateway, orchestrator, repo, results, billing, worker, cfg)
+}
+
 // ProvideBackupService creates and starts BackupService
 func ProvideBackupService(
 	settingRepo SettingRepository,
@@ -698,6 +810,18 @@ var ProviderSet = wire.NewSet(
 	NewOpenAIGatewayService,
 	ProvideImageStorageSettingService,
 	ProvideImageTaskService,
+	ProvideImageGenerationResultStore,
+	wire.Bind(new(ImageGenerationResultStore), new(*ResolvingImageGenerationResultStore)),
+	wire.Bind(new(ImageGenerationResultReader), new(*ResolvingImageGenerationResultStore)),
+	wire.Bind(new(ImageStorageDeleter), new(*ResolvingImageGenerationResultStore)),
+	ProvideImageGenerationBilling,
+	ProvideImageGenerationAccountSelector,
+	ProvideImageGenerationProviderFactory,
+	ProvideImageGenerationOrchestrator,
+	ProvideImageGenerationWorker,
+	ProvideImageGenerationWorkerRuntime,
+	ProvideImageGenerationCleanupService,
+	ProvideCodexDedicatedImageBridge,
 	ProvideBatchImageModelPricingResolver,
 	NewBatchImagePublicService,
 	NewBatchImageDownloadService,

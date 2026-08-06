@@ -28,6 +28,24 @@
 
       <!-- API Key fields (only for apikey type) -->
       <div v-if="account.type === 'apikey'" class="space-y-4">
+        <div v-if="account.platform === 'openai'">
+          <label class="input-label">{{ t('admin.accounts.accountPurpose.label') }}</label>
+          <select
+            v-model="accountPurpose"
+            class="input"
+            data-testid="account-purpose-select"
+          >
+            <option value="general">{{ t('admin.accounts.accountPurpose.general') }}</option>
+            <option value="image_only">{{ t('admin.accounts.accountPurpose.imageOnly') }}</option>
+          </select>
+          <p class="input-hint">
+            {{
+              accountPurpose === 'image_only'
+                ? t('admin.accounts.accountPurpose.imageOnlyHint')
+                : t('admin.accounts.accountPurpose.generalHint')
+            }}
+          </p>
+        </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
           <input
@@ -2666,6 +2684,7 @@ import { adminAPI } from '@/api/admin'
 import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
 import type {
   Account,
+  AccountPurpose,
   Proxy,
   AdminGroup,
   CheckMixedChannelResponse,
@@ -2674,6 +2693,12 @@ import type {
   OpenAIEndpointCapability,
   OllamaCloudUsageState
 } from '@/types'
+import {
+  CANGYUAN_BASE_URL,
+  CANGYUAN_IMAGE_MODEL_MAPPINGS,
+  applyAccountPurpose,
+  resolveAccountPurpose
+} from '@/components/account/accountPurpose'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
@@ -3227,6 +3252,17 @@ const form = reactive({
   group_ids: [] as number[],
   expires_at: null as number | null
 })
+const accountPurpose = ref<AccountPurpose>('general')
+
+watch(accountPurpose, (purpose, previousPurpose) => {
+  if (purpose !== 'image_only' || previousPurpose === 'image_only') return
+  editBaseUrl.value = CANGYUAN_BASE_URL
+  modelRestrictionMode.value = 'mapping'
+  allowedModels.value = []
+  modelMappings.value = CANGYUAN_IMAGE_MODEL_MAPPINGS.map(mapping => ({ ...mapping }))
+  openaiPassthroughEnabled.value = false
+  upstreamBillingAutoProbeEnabled.value = false
+})
 
 const handleUpstreamBillingRateSyncChange = (enabled: boolean) => {
   upstreamBillingRateSyncEnabled.value = enabled
@@ -3314,6 +3350,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   if (!newAccount) {
     return
   }
+  accountPurpose.value = resolveAccountPurpose(newAccount.extra as Record<string, unknown> | undefined)
   antigravityMixedChannelConfirmed.value = false
   showMixedChannelWarning.value = false
   mixedChannelWarningDetails.value = null
@@ -4140,9 +4177,10 @@ const handleSubmit = async () => {
     }
     updatePayload.auto_pause_on_expired = autoPauseOnExpired.value
     if (props.account.type === 'apikey') {
-      updatePayload.upstream_billing_probe_enabled = upstreamBillingAutoProbeEnabled.value
-      updatePayload.upstream_billing_rate_sync_enabled = upstreamBillingRateSyncEnabled.value
-      if (upstreamBillingRateSyncEnabled.value) {
+      const billingProbeAllowed = accountPurpose.value !== 'image_only'
+      updatePayload.upstream_billing_probe_enabled = billingProbeAllowed && upstreamBillingAutoProbeEnabled.value
+      updatePayload.upstream_billing_rate_sync_enabled = billingProbeAllowed && upstreamBillingRateSyncEnabled.value
+      if (billingProbeAllowed && upstreamBillingRateSyncEnabled.value) {
         delete updatePayload.rate_multiplier
       }
     }
@@ -4185,12 +4223,17 @@ const handleSubmit = async () => {
         newCredentials.model_mapping = currentCredentials.model_mapping
       }
       if (props.account.platform === 'openai') {
-        applyOpenAIEndpointCapabilities(newCredentials)
-        const compactModelMapping = buildModelMappingObject('mapping', [], openAICompactModelMappings.value)
-        if (compactModelMapping) {
-          newCredentials.compact_model_mapping = compactModelMapping
-        } else {
+        if (accountPurpose.value === 'image_only') {
+          delete newCredentials.openai_capabilities
           delete newCredentials.compact_model_mapping
+        } else {
+          applyOpenAIEndpointCapabilities(newCredentials)
+          const compactModelMapping = buildModelMappingObject('mapping', [], openAICompactModelMappings.value)
+          if (compactModelMapping) {
+            newCredentials.compact_model_mapping = compactModelMapping
+          } else {
+            delete newCredentials.compact_model_mapping
+          }
         }
       }
 
@@ -4605,7 +4648,12 @@ const handleSubmit = async () => {
     // For OpenAI OAuth/SetupToken/API Key accounts, handle passthrough mode in extra
     if (props.account.platform === 'openai' && (props.account.type === 'oauth' || props.account.type === 'setup-token' || props.account.type === 'apikey')) {
       const currentExtra = (props.account.extra as Record<string, unknown>) || {}
-      const newExtra: Record<string, unknown> = { ...currentExtra }
+      const newExtra: Record<string, unknown> = {
+        ...(applyAccountPurpose(
+          currentExtra,
+          props.account.type === 'apikey' ? accountPurpose.value : 'general'
+        ) || {})
+      }
       const hadCodexCLIOnlyEnabled = currentExtra.codex_cli_only === true
       if (props.account.type === 'oauth' || props.account.type === 'setup-token') {
         newExtra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value

@@ -1,0 +1,157 @@
+name: sub2api-cangyuan-test
+
+services:
+  sub2api:
+    image: ${SUB2API_IMAGE:-ghcr.io/jankin-chen123/sub2api-custom:cangyuan-image-test-latest}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 100000
+        hard: 100000
+    ports:
+      - "${TEST_BIND_HOST:-127.0.0.1}:${TEST_HOST_PORT:-18080}:8080"
+    volumes:
+      - sub2api_cangyuan_test_data:/app/data
+    environment:
+      AUTO_SETUP: "true"
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "8080"
+      SERVER_MODE: "release"
+      TZ: ${TZ:-Asia/Shanghai}
+
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_USER: ${POSTGRES_USER:-sub2api_test}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      DATABASE_DBNAME: ${POSTGRES_DB:-sub2api_test}
+      DATABASE_SSLMODE: disable
+      DATABASE_MAX_OPEN_CONNS: ${DATABASE_MAX_OPEN_CONNS:-20}
+      DATABASE_MAX_IDLE_CONNS: ${DATABASE_MAX_IDLE_CONNS:-5}
+
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: "0"
+      REDIS_POOL_SIZE: ${REDIS_POOL_SIZE:-32}
+      REDIS_MIN_IDLE_CONNS: ${REDIS_MIN_IDLE_CONNS:-2}
+
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-cangyuan-test@example.invalid}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?TOTP_ENCRYPTION_KEY is required}
+
+      DEDICATED_IMAGE_ENABLED: ${DEDICATED_IMAGE_ENABLED:-true}
+      DEDICATED_IMAGE_WORKER_ENABLED: ${DEDICATED_IMAGE_WORKER_ENABLED:-true}
+      DEDICATED_IMAGE_CODEX_BRIDGE_ENABLED: ${DEDICATED_IMAGE_CODEX_BRIDGE_ENABLED:-false}
+      DEDICATED_IMAGE_FALLBACK_TO_GENERAL: ${DEDICATED_IMAGE_FALLBACK_TO_GENERAL:-false}
+      DEDICATED_IMAGE_POLL_INTERVAL_SECONDS: ${DEDICATED_IMAGE_POLL_INTERVAL_SECONDS:-2}
+      DEDICATED_IMAGE_RESULT_PREFIX: ${DEDICATED_IMAGE_RESULT_PREFIX:-images/cangyuan}
+
+      IMAGE_STORAGE_ENABLED: ${IMAGE_STORAGE_ENABLED:-true}
+      IMAGE_STORAGE_ENDPOINT: http://minio:9000
+      IMAGE_STORAGE_REGION: ${IMAGE_STORAGE_REGION:-us-east-1}
+      IMAGE_STORAGE_BUCKET: ${IMAGE_STORAGE_BUCKET:-sub2api-images}
+      IMAGE_STORAGE_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-sub2api-test}
+      IMAGE_STORAGE_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      IMAGE_STORAGE_PREFIX: ${IMAGE_STORAGE_PREFIX:-images/}
+      IMAGE_STORAGE_FORCE_PATH_STYLE: "true"
+      IMAGE_STORAGE_PUBLIC_BASE_URL: ""
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    networks:
+      - cangyuan-test
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      POSTGRES_USER: ${POSTGRES_USER:-sub2api_test}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-sub2api_test}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - sub2api_cangyuan_test_postgres:/var/lib/postgresql/data
+    networks:
+      - cangyuan-test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sub2api_test} -d ${POSTGRES_DB:-sub2api_test}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: >-
+      sh -c 'redis-server --save 60 1 --appendonly yes --appendfsync everysec
+      ${REDIS_PASSWORD:+--requirepass "$REDIS_PASSWORD"}'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-}
+    volumes:
+      - sub2api_cangyuan_test_redis:/data
+    networks:
+      - cangyuan-test
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sub2api-test}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    volumes:
+      - sub2api_cangyuan_test_minio:/data
+    networks:
+      - cangyuan-test
+
+  minio-init:
+    image: minio/mc:latest
+    restart: "no"
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sub2api-test}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      IMAGE_STORAGE_BUCKET: ${IMAGE_STORAGE_BUCKET:-sub2api-images}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}";
+        do sleep 2; done;
+        mc mb --ignore-existing "local/$${IMAGE_STORAGE_BUCKET}"
+    networks:
+      - cangyuan-test
+
+volumes:
+  sub2api_cangyuan_test_data:
+  sub2api_cangyuan_test_postgres:
+  sub2api_cangyuan_test_redis:
+  sub2api_cangyuan_test_minio:
+
+networks:
+  cangyuan-test:
+    driver: bridge
+

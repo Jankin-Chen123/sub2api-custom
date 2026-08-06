@@ -25,6 +25,14 @@ func (s *OpenAIGatewayService) openAIWSIngressInterTurnIdleTimeout() time.Durati
 	return time.Duration(s.cfg.Gateway.OpenAIWS.IngressInterTurnIdleTimeoutSeconds) * time.Second
 }
 
+func shouldUseCodexDedicatedImageBridgeForWebSocketTurn(sessionEnabled bool, body []byte) bool {
+	return sessionEnabled && !isOpenAIResponsesLiteWebSocketPayload(body)
+}
+
+func shouldRejectCodexDedicatedImageReplayInResponsesLite(body []byte) bool {
+	return isOpenAIResponsesLiteWebSocketPayload(body) && hasCodexDedicatedImageReplayReference(body)
+}
+
 func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	ctx context.Context,
 	c *gin.Context,
@@ -60,7 +68,14 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	}
 
 	wsDecision := s.getOpenAIWSProtocolResolver().Resolve(account)
-	forceHTTPBridge := account.Platform == PlatformGrok
+	dedicatedImageBridge := (*CodexDedicatedImageBridge)(nil)
+	if hooks != nil {
+		dedicatedImageBridge = hooks.DedicatedImageBridge
+	}
+	dedicatedImageBridgeEnabled := dedicatedImageBridge != nil && dedicatedImageBridge.ShouldHandleWebSocket(
+		c, firstClientMessage, getAPIKeyFromContext(c),
+	)
+	forceHTTPBridge := account.Platform == PlatformGrok || dedicatedImageBridgeEnabled
 	modeRouterV2Enabled := s != nil && s.cfg != nil && s.cfg.Gateway.OpenAIWS.ModeRouterV2Enabled
 	ingressMode := OpenAIWSIngressModeCtxPool
 	if modeRouterV2Enabled && !forceHTTPBridge {
@@ -260,6 +275,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			codexImageGenerationExplicitToolPolicy = account.CodexImageGenerationExplicitToolPolicy()
 		}
 		codexBridgeEnabled := isCodexCLI &&
+			!dedicatedImageBridgeEnabled &&
 			!isOpenAIResponsesLiteWebSocketPayload(normalized) &&
 			imageGenerationAllowed &&
 			codexImageGenerationExplicitToolPolicy != codexImageGenerationExplicitToolPolicyStrip &&
@@ -496,35 +512,57 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			bridgePayloadRaw := currentBridgePayload.payloadRaw
 			bridgePayloadBytes := currentBridgePayload.payloadBytes
-			needsBridgeReplay := currentBridgePayload.previousResponseID != "" || openAIWSRawPayloadHasToolCallOutput(currentBridgePayload.payloadRaw)
-			turnReplayInput, turnReplayInputExists, replayInputErr := buildOpenAIWSReplayInputSequence(
-				bridgeReplayInput,
-				bridgeReplayInputExists,
-				currentBridgePayload.payloadRaw,
-				needsBridgeReplay,
+			// The session-level decision keeps ordinary Codex conversations
+			// eligible for a later image turn, but Responses Lite is a per-frame
+			// transport signal. Never inject the dedicated planner into a Lite
+			// frame. A synthetic image response ID can only be resolved by that
+			// planner, so fail closed instead of forwarding an opaque ID to the
+			// ordinary HTTP bridge.
+			useDedicatedImageBridge := shouldUseCodexDedicatedImageBridgeForWebSocketTurn(
+				dedicatedImageBridgeEnabled,
+				bridgePayloadRaw,
 			)
-			if replayInputErr != nil {
-				return fmt.Errorf("build websocket http bridge replay input: %w", replayInputErr)
+			if dedicatedImageBridgeEnabled && shouldRejectCodexDedicatedImageReplayInResponsesLite(bridgePayloadRaw) {
+				return NewOpenAIWSClientCloseError(
+					coderws.StatusPolicyViolation,
+					"Responses Lite cannot continue a dedicated image response; please restart the conversation",
+					nil,
+				)
 			}
-			if needsBridgeReplay && turnReplayInputExists {
-				updatedPayload, setInputErr := setOpenAIWSPayloadInputSequence(
+			var turnReplayInput []json.RawMessage
+			var turnReplayInputExists bool
+			if !useDedicatedImageBridge {
+				needsBridgeReplay := currentBridgePayload.previousResponseID != "" || openAIWSRawPayloadHasToolCallOutput(currentBridgePayload.payloadRaw)
+				var replayInputErr error
+				turnReplayInput, turnReplayInputExists, replayInputErr = buildOpenAIWSReplayInputSequence(
+					bridgeReplayInput,
+					bridgeReplayInputExists,
 					currentBridgePayload.payloadRaw,
-					turnReplayInput,
-					true,
+					needsBridgeReplay,
 				)
-				if setInputErr != nil {
-					return fmt.Errorf("set websocket http bridge replay input: %w", setInputErr)
+				if replayInputErr != nil {
+					return fmt.Errorf("build websocket http bridge replay input: %w", replayInputErr)
 				}
-				bridgePayloadRaw = updatedPayload
-				bridgePayloadBytes = len(updatedPayload)
-				logOpenAIWSModeInfo(
-					"ingress_ws_http_bridge_replay_input account_id=%d turn=%d input_items=%d previous_response_id_present=%v has_tool_output=%v",
-					account.ID,
-					turn,
-					len(turnReplayInput),
-					currentBridgePayload.previousResponseID != "",
-					openAIWSRawPayloadHasToolCallOutput(currentBridgePayload.payloadRaw),
-				)
+				if needsBridgeReplay && turnReplayInputExists {
+					updatedPayload, setInputErr := setOpenAIWSPayloadInputSequence(
+						currentBridgePayload.payloadRaw,
+						turnReplayInput,
+						true,
+					)
+					if setInputErr != nil {
+						return fmt.Errorf("set websocket http bridge replay input: %w", setInputErr)
+					}
+					bridgePayloadRaw = updatedPayload
+					bridgePayloadBytes = len(updatedPayload)
+					logOpenAIWSModeInfo(
+						"ingress_ws_http_bridge_replay_input account_id=%d turn=%d input_items=%d previous_response_id_present=%v has_tool_output=%v",
+						account.ID,
+						turn,
+						len(turnReplayInput),
+						currentBridgePayload.previousResponseID != "",
+						openAIWSRawPayloadHasToolCallOutput(currentBridgePayload.payloadRaw),
+					)
+				}
 			}
 			grokCacheIdentity := ""
 			if account.Platform == PlatformGrok {
@@ -539,21 +577,51 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					return fmt.Errorf("resolve Grok websocket cache identity: %w", err)
 				}
 			}
-			result, bridgeErr := s.proxyOpenAIWSHTTPBridgeTurn(
-				ctx,
-				c,
-				account,
-				token,
-				bridgePayloadRaw,
-				bridgePayloadBytes,
-				currentBridgePayload.originalModel,
-				currentBridgePayload.imageBillingModel,
-				currentBridgePayload.imageSizeTier,
-				currentBridgePayload.imageInputSize,
-				grokCacheIdentity,
-				turn,
-				writeClientMessage,
-			)
+			var result *OpenAIForwardResult
+			var bridgeErr error
+			if useDedicatedImageBridge {
+				var events []json.RawMessage
+				var subscription *UserSubscription
+				if hooks != nil {
+					subscription = hooks.Subscription
+				}
+				result, events, bridgeErr = dedicatedImageBridge.ForwardWebSocket(
+					ctx,
+					c,
+					account,
+					getAPIKeyFromContext(c),
+					subscription,
+					bridgePayloadRaw,
+				)
+				if bridgeErr == nil {
+					for _, event := range events {
+						if err := writeClientMessage(event); err != nil {
+							bridgeErr = wrapOpenAIWSIngressTurnError(
+								"write_client",
+								fmt.Errorf("write Codex dedicated image bridge event: %w", err),
+								true,
+							)
+							break
+						}
+					}
+				}
+			} else {
+				result, bridgeErr = s.proxyOpenAIWSHTTPBridgeTurn(
+					ctx,
+					c,
+					account,
+					token,
+					bridgePayloadRaw,
+					bridgePayloadBytes,
+					currentBridgePayload.originalModel,
+					currentBridgePayload.imageBillingModel,
+					currentBridgePayload.imageSizeTier,
+					currentBridgePayload.imageInputSize,
+					grokCacheIdentity,
+					turn,
+					writeClientMessage,
+				)
+			}
 			if hooks != nil && hooks.AfterTurn != nil {
 				hooks.AfterTurn(turn, result, bridgeErr)
 			}
@@ -563,11 +631,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			if result == nil {
 				return errors.New("websocket http bridge turn result is nil")
 			}
-			bridgeReplayInput = cloneOpenAIWSRawMessages(turnReplayInput)
-			bridgeReplayInputExists = turnReplayInputExists
-			if result.wsReplayInputExists {
-				bridgeReplayInput = append(bridgeReplayInput, cloneOpenAIWSRawMessages(result.wsReplayInput)...)
-				bridgeReplayInputExists = true
+			if !useDedicatedImageBridge {
+				bridgeReplayInput = cloneOpenAIWSRawMessages(turnReplayInput)
+				bridgeReplayInputExists = turnReplayInputExists
+				if result.wsReplayInputExists {
+					bridgeReplayInput = append(bridgeReplayInput, cloneOpenAIWSRawMessages(result.wsReplayInput)...)
+					bridgeReplayInputExists = true
+				}
 			}
 			if bridgeTurnState := strings.TrimSpace(result.ResponseHeaders.Get(openAIWSTurnStateHeader)); bridgeTurnState != "" {
 				turnState = bridgeTurnState

@@ -98,6 +98,7 @@ type Config struct {
 	Update                  UpdateConfig                  `mapstructure:"update"`
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
+	DedicatedImage          DedicatedImageConfig          `mapstructure:"dedicated_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
 }
 
@@ -229,6 +230,35 @@ type BatchImageConfig struct {
 	VertexOutputRetentionHours   int    `mapstructure:"vertex_output_retention_hours"`
 	VertexBatchPredictionBaseURL string `mapstructure:"vertex_batch_prediction_base_url"`
 	VertexGCSBaseURL             string `mapstructure:"vertex_gcs_base_url"`
+}
+
+// DedicatedImageConfig controls the durable Cangyuan-only execution path.
+// Every switch defaults to false so upgrading cannot route existing text or
+// image traffic to a newly classified account without an explicit rollout.
+type DedicatedImageConfig struct {
+	Enabled                 bool   `mapstructure:"enabled"`
+	WorkerEnabled           bool   `mapstructure:"worker_enabled"`
+	CodexBridgeEnabled      bool   `mapstructure:"codex_bridge_enabled"`
+	FallbackToGeneral       bool   `mapstructure:"fallback_to_general"`
+	LeaseDurationSeconds    int    `mapstructure:"lease_duration_seconds"`
+	PollIntervalSeconds     int    `mapstructure:"poll_interval_seconds"`
+	RetryDelaySeconds       int    `mapstructure:"retry_delay_seconds"`
+	IdleDelayMilliseconds   int    `mapstructure:"idle_delay_milliseconds"`
+	RecoveryIntervalSeconds int    `mapstructure:"recovery_interval_seconds"`
+	SyncWaitTimeoutSeconds  int    `mapstructure:"sync_wait_timeout_seconds"`
+	PayloadTTLHours         int    `mapstructure:"payload_ttl_hours"`
+	MaxSubmitAttempts       int    `mapstructure:"max_submit_attempts"`
+	RecoveryLimit           int    `mapstructure:"recovery_limit"`
+	ResultPrefix            string `mapstructure:"result_prefix"`
+	MaxOutputBytes          int64  `mapstructure:"max_output_bytes"`
+	// TerminalRetentionHours controls how long completed/failed image jobs
+	// remain queryable for audit and user history. A value of zero disables
+	// automatic terminal-job deletion.
+	TerminalRetentionHours int `mapstructure:"terminal_retention_hours"`
+	// CleanupIntervalMinutes controls the durable image-job cleanup worker.
+	// A value of zero disables the worker even when the image worker is on.
+	CleanupIntervalMinutes int `mapstructure:"cleanup_interval_minutes"`
+	CleanupBatchSize       int `mapstructure:"cleanup_batch_size"`
 }
 
 // ImageStorageConfig 配置异步图片任务结果上传的 S3 兼容对象存储。
@@ -866,6 +896,13 @@ type ImageConcurrencyConfig struct {
 	Enabled bool `mapstructure:"enabled"`
 	// MaxConcurrentRequests: 当前进程允许同时处理的图片生成请求数，0表示不限制
 	MaxConcurrentRequests int `mapstructure:"max_concurrent_requests"`
+	// The following limits are distributed Redis dimensions. Zero means that
+	// dimension is disabled; they never affect ordinary text requests.
+	MaxPerUser      int `mapstructure:"max_per_user"`
+	MaxPerAPIKey    int `mapstructure:"max_per_api_key"`
+	MaxPerGroup     int `mapstructure:"max_per_group"`
+	MaxPerAccount   int `mapstructure:"max_per_account"`
+	Max4KConcurrent int `mapstructure:"max_4k_concurrent"`
 	// OverflowMode: 图片并发达到上限后的处理方式：reject/wait
 	OverflowMode string `mapstructure:"overflow_mode"`
 	// WaitTimeoutSeconds: overflow_mode=wait 时等待图片并发槽位的超时时间（秒）
@@ -2084,6 +2121,27 @@ func setDefaults() {
 	viper.SetDefault("batch_image.vertex_batch_prediction_base_url", "")
 	viper.SetDefault("batch_image.vertex_gcs_base_url", "")
 
+	// Durable dedicated Cangyuan image routing. Keep both routing and worker
+	// disabled until schema, object storage, and a test group are ready.
+	viper.SetDefault("dedicated_image.enabled", false)
+	viper.SetDefault("dedicated_image.worker_enabled", false)
+	viper.SetDefault("dedicated_image.codex_bridge_enabled", false)
+	viper.SetDefault("dedicated_image.fallback_to_general", false)
+	viper.SetDefault("dedicated_image.lease_duration_seconds", 60)
+	viper.SetDefault("dedicated_image.poll_interval_seconds", 2)
+	viper.SetDefault("dedicated_image.retry_delay_seconds", 10)
+	viper.SetDefault("dedicated_image.idle_delay_milliseconds", 500)
+	viper.SetDefault("dedicated_image.recovery_interval_seconds", 60)
+	viper.SetDefault("dedicated_image.sync_wait_timeout_seconds", 180)
+	viper.SetDefault("dedicated_image.payload_ttl_hours", 6)
+	viper.SetDefault("dedicated_image.max_submit_attempts", 3)
+	viper.SetDefault("dedicated_image.recovery_limit", 100)
+	viper.SetDefault("dedicated_image.result_prefix", "images/cangyuan")
+	viper.SetDefault("dedicated_image.max_output_bytes", 67108864)
+	viper.SetDefault("dedicated_image.terminal_retention_hours", 168)
+	viper.SetDefault("dedicated_image.cleanup_interval_minutes", 30)
+	viper.SetDefault("dedicated_image.cleanup_batch_size", 100)
+
 	// Image storage (async image task result offload to S3-compatible object storage)
 	viper.SetDefault("image_storage.enabled", false)
 	viper.SetDefault("image_storage.region", "auto")
@@ -2290,6 +2348,11 @@ func setDefaults() {
 	viper.SetDefault("gateway.openai_proxy_stream_circuit.ttl_seconds", 600)
 	viper.SetDefault("gateway.image_concurrency.enabled", false)
 	viper.SetDefault("gateway.image_concurrency.max_concurrent_requests", 0)
+	viper.SetDefault("gateway.image_concurrency.max_per_user", 0)
+	viper.SetDefault("gateway.image_concurrency.max_per_api_key", 0)
+	viper.SetDefault("gateway.image_concurrency.max_per_group", 0)
+	viper.SetDefault("gateway.image_concurrency.max_per_account", 0)
+	viper.SetDefault("gateway.image_concurrency.max_4k_concurrent", 0)
 	viper.SetDefault("gateway.image_concurrency.overflow_mode", ImageConcurrencyOverflowModeReject)
 	viper.SetDefault("gateway.image_concurrency.wait_timeout_seconds", 30)
 	viper.SetDefault("gateway.image_concurrency.max_waiting_requests", 100)
@@ -3066,6 +3129,18 @@ func (c *Config) Validate() error {
 	if c.Idempotency.DefaultTTLSeconds <= 0 {
 		return fmt.Errorf("idempotency.default_ttl_seconds must be positive")
 	}
+	if c.DedicatedImage.TerminalRetentionHours < 0 {
+		return fmt.Errorf("dedicated_image.terminal_retention_hours must be non-negative")
+	}
+	if c.DedicatedImage.CleanupIntervalMinutes < 0 {
+		return fmt.Errorf("dedicated_image.cleanup_interval_minutes must be non-negative")
+	}
+	if c.DedicatedImage.CleanupBatchSize < 0 {
+		return fmt.Errorf("dedicated_image.cleanup_batch_size must be non-negative")
+	}
+	if c.DedicatedImage.Enabled && c.DedicatedImage.WorkerEnabled && c.DedicatedImage.CleanupIntervalMinutes > 0 && c.DedicatedImage.CleanupBatchSize <= 0 {
+		return fmt.Errorf("dedicated_image.cleanup_batch_size must be positive when cleanup is enabled")
+	}
 	if c.Idempotency.SystemOperationTTLSeconds <= 0 {
 		return fmt.Errorf("idempotency.system_operation_ttl_seconds must be positive")
 	}
@@ -3123,6 +3198,21 @@ func (c *Config) Validate() error {
 	}
 	if c.Gateway.ImageConcurrency.MaxConcurrentRequests < 0 {
 		return fmt.Errorf("gateway.image_concurrency.max_concurrent_requests must be non-negative")
+	}
+	if c.Gateway.ImageConcurrency.MaxPerUser < 0 {
+		return fmt.Errorf("gateway.image_concurrency.max_per_user must be non-negative")
+	}
+	if c.Gateway.ImageConcurrency.MaxPerAPIKey < 0 {
+		return fmt.Errorf("gateway.image_concurrency.max_per_api_key must be non-negative")
+	}
+	if c.Gateway.ImageConcurrency.MaxPerGroup < 0 {
+		return fmt.Errorf("gateway.image_concurrency.max_per_group must be non-negative")
+	}
+	if c.Gateway.ImageConcurrency.MaxPerAccount < 0 {
+		return fmt.Errorf("gateway.image_concurrency.max_per_account must be non-negative")
+	}
+	if c.Gateway.ImageConcurrency.Max4KConcurrent < 0 {
+		return fmt.Errorf("gateway.image_concurrency.max_4k_concurrent must be non-negative")
 	}
 	switch strings.TrimSpace(c.Gateway.ImageConcurrency.OverflowMode) {
 	case "", ImageConcurrencyOverflowModeReject, ImageConcurrencyOverflowModeWait:

@@ -211,6 +211,15 @@ type OpenAIWSIngressHooks struct {
 	// before channel or account mapping. Ingress modes preserve it for usage
 	// attribution while MapRequestModel determines the upstream model.
 	InitialRequestModel string
+	// Subscription is the subscription context selected for this authenticated
+	// gateway request. Dedicated image jobs created from a WebSocket turn must
+	// use the same billing mode as HTTP turns.
+	Subscription *UserSubscription
+	// DedicatedImageBridge, when set, routes the whole Codex WebSocket
+	// session through the HTTP planner bridge. The planner receives the
+	// conversation context on a general account; durable image execution is
+	// performed separately by the bridge on an image_only account.
+	DedicatedImageBridge *CodexDedicatedImageBridge
 	// MaxReasoningEffort limits explicit reasoning effort values for this WS session.
 	MaxReasoningEffort string
 	// ReasoningEffortMappings rewrites explicit effort values for this WS session.

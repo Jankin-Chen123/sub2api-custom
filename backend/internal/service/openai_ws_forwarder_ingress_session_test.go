@@ -1277,6 +1277,19 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ModeOffReturnsPo
 	}
 }
 
+func TestCodexDedicatedImageBridgeWebSocketTurnRejectsResponsesLiteAndSyntheticReplay(t *testing.T) {
+	nonLite := []byte(`{"type":"response.create","model":"gpt-5","input":"draw a dog"}`)
+	lite := []byte(`{"type":"response.create","model":"gpt-5","client_metadata":{"ws_request_header_x_openai_internal_codex_responses_lite":"true"},"input":"write code"}`)
+	liteSynthetic := []byte(`{"type":"response.create","model":"gpt-5","client_metadata":{"ws_request_header_x_openai_internal_codex_responses_lite":"true"},"previous_response_id":"resp_img_123","input":"continue"}`)
+
+	require.True(t, shouldUseCodexDedicatedImageBridgeForWebSocketTurn(true, nonLite))
+	require.False(t, shouldUseCodexDedicatedImageBridgeForWebSocketTurn(true, lite))
+	require.False(t, shouldUseCodexDedicatedImageBridgeForWebSocketTurn(false, nonLite))
+	require.False(t, shouldRejectCodexDedicatedImageReplayInResponsesLite(nonLite))
+	require.False(t, shouldRejectCodexDedicatedImageReplayInResponsesLite(lite))
+	require.True(t, shouldRejectCodexDedicatedImageReplayInResponsesLite(liteSynthetic))
+}
+
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledPrevResponseStrictDropToFullCreate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

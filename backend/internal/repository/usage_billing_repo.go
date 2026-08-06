@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -209,7 +211,80 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 		result.QuotaState = quotaState
 	}
 
+	// Dedicated image settlement reaches this transaction through the same
+	// idempotent usage-billing key as balance/API-key/account accounting. Keep
+	// user × platform quota in the transaction so a crash after Apply cannot
+	// permanently lose the image usage increment.
+	if cmd.PlatformQuotaCost > 0 && cmd.BillingType != service.BillingTypeSubscription && strings.TrimSpace(cmd.Platform) != "" {
+		if err := incrementUsageBillingUserPlatformQuota(ctx, tx, cmd.UserID, cmd.Platform, cmd.PlatformQuotaCost, time.Now()); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func incrementUsageBillingUserPlatformQuota(ctx context.Context, tx *sql.Tx, userID int64, platform string, cost float64, now time.Time) error {
+	if tx == nil || userID <= 0 || strings.TrimSpace(platform) == "" || cost <= 0 {
+		return nil
+	}
+	var (
+		dailyUsage, weeklyUsage, monthlyUsage float64
+		dailyStart, weeklyStart, monthlyStart sql.NullTime
+		dailyLimit, weeklyLimit, monthlyLimit sql.NullFloat64
+	)
+	err := tx.QueryRowContext(ctx, `
+		SELECT daily_usage_usd, weekly_usage_usd, monthly_usage_usd,
+		       daily_window_start, weekly_window_start, monthly_window_start,
+		       daily_limit_usd, weekly_limit_usd, monthly_limit_usd
+		FROM user_platform_quotas
+		WHERE user_id = $1 AND platform = $2 AND deleted_at IS NULL
+		FOR UPDATE
+	`, userID, platform).Scan(
+		&dailyUsage, &weeklyUsage, &monthlyUsage,
+		&dailyStart, &weeklyStart, &monthlyStart,
+		&dailyLimit, &weeklyLimit, &monthlyLimit,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		// Match the normal preflight path: no quota row means no configured
+		// platform limit, so do not create an unbounded row here.
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !dailyLimit.Valid && !weeklyLimit.Valid && !monthlyLimit.Valid {
+		return nil
+	}
+
+	now = now.In(timezone.Location())
+	dailyWindow := timezone.StartOfDay(now)
+	weeklyWindow := timezone.StartOfWeek(now)
+	var dailyStartPtr, weeklyStartPtr, monthlyStartPtr *time.Time
+	if dailyStart.Valid {
+		dailyStartPtr = &dailyStart.Time
+	}
+	if weeklyStart.Valid {
+		weeklyStartPtr = &weeklyStart.Time
+	}
+	if monthlyStart.Valid {
+		monthlyStartPtr = &monthlyStart.Time
+	}
+	newDaily := maybeReset(dailyUsage, dailyStartPtr, dailyWindow, cost)
+	newWeekly := maybeReset(weeklyUsage, weeklyStartPtr, weeklyWindow, cost)
+	newMonthly, newMonthlyStart := monthlyMaybeReset(monthlyUsage, monthlyStartPtr, cost, now)
+	_, err = tx.ExecContext(ctx, `
+		UPDATE user_platform_quotas
+		SET daily_usage_usd = $1,
+		    weekly_usage_usd = $2,
+		    monthly_usage_usd = $3,
+		    daily_window_start = $4,
+		    weekly_window_start = $5,
+		    monthly_window_start = $6,
+		    updated_at = $7
+		WHERE user_id = $8 AND platform = $9 AND deleted_at IS NULL
+	`, newDaily, newWeekly, newMonthly, dailyWindow, weeklyWindow, newMonthlyStart, now, userID, platform)
+	return err
 }
 
 func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, costUSD float64) error {
@@ -337,7 +412,7 @@ func releaseUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 	}
 	// 释放前校验该 job 确实预留过 hold（hold request id 已被 claim），
 	// 防止从未成功冻结的 job 触发"幻影释放"，从其他用户的冻结资金池中凭空生成余额。
-	held, heldErr := batchImageHoldClaimExists(ctx, tx, service.BatchImageHoldRequestID(cmd.BatchID), cmd.APIKeyID)
+	held, heldErr := batchImageHoldClaimExists(ctx, tx, cmd.HoldRequestID, cmd.APIKeyID)
 	if heldErr != nil {
 		return nil, heldErr
 	}

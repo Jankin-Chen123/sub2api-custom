@@ -31,6 +31,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/imagegenerationjob"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -83,6 +84,7 @@ const (
 	TypeGroup                         = "Group"
 	TypeIdempotencyRecord             = "IdempotencyRecord"
 	TypeIdentityAdoptionDecision      = "IdentityAdoptionDecision"
+	TypeImageGenerationJob            = "ImageGenerationJob"
 	TypePaymentAuditLog               = "PaymentAuditLog"
 	TypePaymentOrder                  = "PaymentOrder"
 	TypePaymentProviderInstance       = "PaymentProviderInstance"
@@ -28459,6 +28461,3185 @@ func (m *IdentityAdoptionDecisionMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown IdentityAdoptionDecision edge %s", name)
+}
+
+// ImageGenerationJobMutation represents an operation that mutates the ImageGenerationJob nodes in the graph.
+type ImageGenerationJobMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int64
+	job_id                   *string
+	user_id                  *int64
+	adduser_id               *int64
+	api_key_id               *int64
+	addapi_key_id            *int64
+	group_id                 *int64
+	addgroup_id              *int64
+	subscription_id          *int64
+	addsubscription_id       *int64
+	account_id               *int64
+	addaccount_id            *int64
+	billing_type             *int8
+	addbilling_type          *int8
+	source                   *string
+	operation                *string
+	status                   *string
+	public_model             *string
+	upstream_model           *string
+	requested_size           *string
+	actual_size              *string
+	quality                  *string
+	response_format          *string
+	upstream_task_id         *string
+	idempotency_key          *string
+	request_hash             *string
+	prompt_hash              *string
+	payload_object_ref       *string
+	result_object_refs       *[]string
+	appendresult_object_refs []string
+	base_cost                *float64
+	addbase_cost             *float64
+	rate_multiplier          *float64
+	addrate_multiplier       *float64
+	estimated_cost           *float64
+	addestimated_cost        *float64
+	held_cost                *float64
+	addheld_cost             *float64
+	settled_cost             *float64
+	addsettled_cost          *float64
+	error_code               *string
+	error_message            *string
+	attempt_count            *int
+	addattempt_count         *int
+	claim_version            *int64
+	addclaim_version         *int64
+	lease_expires_at         *time.Time
+	next_attempt_at          *time.Time
+	created_at               *time.Time
+	updated_at               *time.Time
+	submitted_at             *time.Time
+	completed_at             *time.Time
+	settled_at               *time.Time
+	clearedFields            map[string]struct{}
+	done                     bool
+	oldValue                 func(context.Context) (*ImageGenerationJob, error)
+	predicates               []predicate.ImageGenerationJob
+}
+
+var _ ent.Mutation = (*ImageGenerationJobMutation)(nil)
+
+// imagegenerationjobOption allows management of the mutation configuration using functional options.
+type imagegenerationjobOption func(*ImageGenerationJobMutation)
+
+// newImageGenerationJobMutation creates new mutation for the ImageGenerationJob entity.
+func newImageGenerationJobMutation(c config, op Op, opts ...imagegenerationjobOption) *ImageGenerationJobMutation {
+	m := &ImageGenerationJobMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeImageGenerationJob,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withImageGenerationJobID sets the ID field of the mutation.
+func withImageGenerationJobID(id int64) imagegenerationjobOption {
+	return func(m *ImageGenerationJobMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ImageGenerationJob
+		)
+		m.oldValue = func(ctx context.Context) (*ImageGenerationJob, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ImageGenerationJob.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withImageGenerationJob sets the old ImageGenerationJob of the mutation.
+func withImageGenerationJob(node *ImageGenerationJob) imagegenerationjobOption {
+	return func(m *ImageGenerationJobMutation) {
+		m.oldValue = func(context.Context) (*ImageGenerationJob, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ImageGenerationJobMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ImageGenerationJobMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ImageGenerationJobMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ImageGenerationJobMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ImageGenerationJob.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetJobID sets the "job_id" field.
+func (m *ImageGenerationJobMutation) SetJobID(s string) {
+	m.job_id = &s
+}
+
+// JobID returns the value of the "job_id" field in the mutation.
+func (m *ImageGenerationJobMutation) JobID() (r string, exists bool) {
+	v := m.job_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldJobID returns the old "job_id" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldJobID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldJobID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldJobID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldJobID: %w", err)
+	}
+	return oldValue.JobID, nil
+}
+
+// ResetJobID resets all changes to the "job_id" field.
+func (m *ImageGenerationJobMutation) ResetJobID() {
+	m.job_id = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *ImageGenerationJobMutation) SetUserID(i int64) {
+	m.user_id = &i
+	m.adduser_id = nil
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *ImageGenerationJobMutation) UserID() (r int64, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// AddUserID adds i to the "user_id" field.
+func (m *ImageGenerationJobMutation) AddUserID(i int64) {
+	if m.adduser_id != nil {
+		*m.adduser_id += i
+	} else {
+		m.adduser_id = &i
+	}
+}
+
+// AddedUserID returns the value that was added to the "user_id" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedUserID() (r int64, exists bool) {
+	v := m.adduser_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (m *ImageGenerationJobMutation) ClearUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+	m.clearedFields[imagegenerationjob.FieldUserID] = struct{}{}
+}
+
+// UserIDCleared returns if the "user_id" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) UserIDCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldUserID]
+	return ok
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *ImageGenerationJobMutation) ResetUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+	delete(m.clearedFields, imagegenerationjob.FieldUserID)
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (m *ImageGenerationJobMutation) SetAPIKeyID(i int64) {
+	m.api_key_id = &i
+	m.addapi_key_id = nil
+}
+
+// APIKeyID returns the value of the "api_key_id" field in the mutation.
+func (m *ImageGenerationJobMutation) APIKeyID() (r int64, exists bool) {
+	v := m.api_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKeyID returns the old "api_key_id" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldAPIKeyID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKeyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKeyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKeyID: %w", err)
+	}
+	return oldValue.APIKeyID, nil
+}
+
+// AddAPIKeyID adds i to the "api_key_id" field.
+func (m *ImageGenerationJobMutation) AddAPIKeyID(i int64) {
+	if m.addapi_key_id != nil {
+		*m.addapi_key_id += i
+	} else {
+		m.addapi_key_id = &i
+	}
+}
+
+// AddedAPIKeyID returns the value that was added to the "api_key_id" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedAPIKeyID() (r int64, exists bool) {
+	v := m.addapi_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (m *ImageGenerationJobMutation) ClearAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+	m.clearedFields[imagegenerationjob.FieldAPIKeyID] = struct{}{}
+}
+
+// APIKeyIDCleared returns if the "api_key_id" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) APIKeyIDCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldAPIKeyID]
+	return ok
+}
+
+// ResetAPIKeyID resets all changes to the "api_key_id" field.
+func (m *ImageGenerationJobMutation) ResetAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+	delete(m.clearedFields, imagegenerationjob.FieldAPIKeyID)
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *ImageGenerationJobMutation) SetGroupID(i int64) {
+	m.group_id = &i
+	m.addgroup_id = nil
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *ImageGenerationJobMutation) GroupID() (r int64, exists bool) {
+	v := m.group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// AddGroupID adds i to the "group_id" field.
+func (m *ImageGenerationJobMutation) AddGroupID(i int64) {
+	if m.addgroup_id != nil {
+		*m.addgroup_id += i
+	} else {
+		m.addgroup_id = &i
+	}
+}
+
+// AddedGroupID returns the value that was added to the "group_id" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedGroupID() (r int64, exists bool) {
+	v := m.addgroup_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearGroupID clears the value of the "group_id" field.
+func (m *ImageGenerationJobMutation) ClearGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+	m.clearedFields[imagegenerationjob.FieldGroupID] = struct{}{}
+}
+
+// GroupIDCleared returns if the "group_id" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) GroupIDCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldGroupID]
+	return ok
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *ImageGenerationJobMutation) ResetGroupID() {
+	m.group_id = nil
+	m.addgroup_id = nil
+	delete(m.clearedFields, imagegenerationjob.FieldGroupID)
+}
+
+// SetSubscriptionID sets the "subscription_id" field.
+func (m *ImageGenerationJobMutation) SetSubscriptionID(i int64) {
+	m.subscription_id = &i
+	m.addsubscription_id = nil
+}
+
+// SubscriptionID returns the value of the "subscription_id" field in the mutation.
+func (m *ImageGenerationJobMutation) SubscriptionID() (r int64, exists bool) {
+	v := m.subscription_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubscriptionID returns the old "subscription_id" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldSubscriptionID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubscriptionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubscriptionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubscriptionID: %w", err)
+	}
+	return oldValue.SubscriptionID, nil
+}
+
+// AddSubscriptionID adds i to the "subscription_id" field.
+func (m *ImageGenerationJobMutation) AddSubscriptionID(i int64) {
+	if m.addsubscription_id != nil {
+		*m.addsubscription_id += i
+	} else {
+		m.addsubscription_id = &i
+	}
+}
+
+// AddedSubscriptionID returns the value that was added to the "subscription_id" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedSubscriptionID() (r int64, exists bool) {
+	v := m.addsubscription_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSubscriptionID clears the value of the "subscription_id" field.
+func (m *ImageGenerationJobMutation) ClearSubscriptionID() {
+	m.subscription_id = nil
+	m.addsubscription_id = nil
+	m.clearedFields[imagegenerationjob.FieldSubscriptionID] = struct{}{}
+}
+
+// SubscriptionIDCleared returns if the "subscription_id" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) SubscriptionIDCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldSubscriptionID]
+	return ok
+}
+
+// ResetSubscriptionID resets all changes to the "subscription_id" field.
+func (m *ImageGenerationJobMutation) ResetSubscriptionID() {
+	m.subscription_id = nil
+	m.addsubscription_id = nil
+	delete(m.clearedFields, imagegenerationjob.FieldSubscriptionID)
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *ImageGenerationJobMutation) SetAccountID(i int64) {
+	m.account_id = &i
+	m.addaccount_id = nil
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *ImageGenerationJobMutation) AccountID() (r int64, exists bool) {
+	v := m.account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldAccountID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// AddAccountID adds i to the "account_id" field.
+func (m *ImageGenerationJobMutation) AddAccountID(i int64) {
+	if m.addaccount_id != nil {
+		*m.addaccount_id += i
+	} else {
+		m.addaccount_id = &i
+	}
+}
+
+// AddedAccountID returns the value that was added to the "account_id" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedAccountID() (r int64, exists bool) {
+	v := m.addaccount_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAccountID clears the value of the "account_id" field.
+func (m *ImageGenerationJobMutation) ClearAccountID() {
+	m.account_id = nil
+	m.addaccount_id = nil
+	m.clearedFields[imagegenerationjob.FieldAccountID] = struct{}{}
+}
+
+// AccountIDCleared returns if the "account_id" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) AccountIDCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldAccountID]
+	return ok
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *ImageGenerationJobMutation) ResetAccountID() {
+	m.account_id = nil
+	m.addaccount_id = nil
+	delete(m.clearedFields, imagegenerationjob.FieldAccountID)
+}
+
+// SetBillingType sets the "billing_type" field.
+func (m *ImageGenerationJobMutation) SetBillingType(i int8) {
+	m.billing_type = &i
+	m.addbilling_type = nil
+}
+
+// BillingType returns the value of the "billing_type" field in the mutation.
+func (m *ImageGenerationJobMutation) BillingType() (r int8, exists bool) {
+	v := m.billing_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBillingType returns the old "billing_type" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldBillingType(ctx context.Context) (v int8, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBillingType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBillingType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBillingType: %w", err)
+	}
+	return oldValue.BillingType, nil
+}
+
+// AddBillingType adds i to the "billing_type" field.
+func (m *ImageGenerationJobMutation) AddBillingType(i int8) {
+	if m.addbilling_type != nil {
+		*m.addbilling_type += i
+	} else {
+		m.addbilling_type = &i
+	}
+}
+
+// AddedBillingType returns the value that was added to the "billing_type" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedBillingType() (r int8, exists bool) {
+	v := m.addbilling_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetBillingType resets all changes to the "billing_type" field.
+func (m *ImageGenerationJobMutation) ResetBillingType() {
+	m.billing_type = nil
+	m.addbilling_type = nil
+}
+
+// SetSource sets the "source" field.
+func (m *ImageGenerationJobMutation) SetSource(s string) {
+	m.source = &s
+}
+
+// Source returns the value of the "source" field in the mutation.
+func (m *ImageGenerationJobMutation) Source() (r string, exists bool) {
+	v := m.source
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSource returns the old "source" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldSource(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSource is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSource: %w", err)
+	}
+	return oldValue.Source, nil
+}
+
+// ResetSource resets all changes to the "source" field.
+func (m *ImageGenerationJobMutation) ResetSource() {
+	m.source = nil
+}
+
+// SetOperation sets the "operation" field.
+func (m *ImageGenerationJobMutation) SetOperation(s string) {
+	m.operation = &s
+}
+
+// Operation returns the value of the "operation" field in the mutation.
+func (m *ImageGenerationJobMutation) Operation() (r string, exists bool) {
+	v := m.operation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOperation returns the old "operation" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldOperation(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOperation is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOperation requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOperation: %w", err)
+	}
+	return oldValue.Operation, nil
+}
+
+// ResetOperation resets all changes to the "operation" field.
+func (m *ImageGenerationJobMutation) ResetOperation() {
+	m.operation = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *ImageGenerationJobMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ImageGenerationJobMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ImageGenerationJobMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetPublicModel sets the "public_model" field.
+func (m *ImageGenerationJobMutation) SetPublicModel(s string) {
+	m.public_model = &s
+}
+
+// PublicModel returns the value of the "public_model" field in the mutation.
+func (m *ImageGenerationJobMutation) PublicModel() (r string, exists bool) {
+	v := m.public_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicModel returns the old "public_model" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldPublicModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicModel: %w", err)
+	}
+	return oldValue.PublicModel, nil
+}
+
+// ResetPublicModel resets all changes to the "public_model" field.
+func (m *ImageGenerationJobMutation) ResetPublicModel() {
+	m.public_model = nil
+}
+
+// SetUpstreamModel sets the "upstream_model" field.
+func (m *ImageGenerationJobMutation) SetUpstreamModel(s string) {
+	m.upstream_model = &s
+}
+
+// UpstreamModel returns the value of the "upstream_model" field in the mutation.
+func (m *ImageGenerationJobMutation) UpstreamModel() (r string, exists bool) {
+	v := m.upstream_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpstreamModel returns the old "upstream_model" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldUpstreamModel(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpstreamModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpstreamModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpstreamModel: %w", err)
+	}
+	return oldValue.UpstreamModel, nil
+}
+
+// ClearUpstreamModel clears the value of the "upstream_model" field.
+func (m *ImageGenerationJobMutation) ClearUpstreamModel() {
+	m.upstream_model = nil
+	m.clearedFields[imagegenerationjob.FieldUpstreamModel] = struct{}{}
+}
+
+// UpstreamModelCleared returns if the "upstream_model" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) UpstreamModelCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldUpstreamModel]
+	return ok
+}
+
+// ResetUpstreamModel resets all changes to the "upstream_model" field.
+func (m *ImageGenerationJobMutation) ResetUpstreamModel() {
+	m.upstream_model = nil
+	delete(m.clearedFields, imagegenerationjob.FieldUpstreamModel)
+}
+
+// SetRequestedSize sets the "requested_size" field.
+func (m *ImageGenerationJobMutation) SetRequestedSize(s string) {
+	m.requested_size = &s
+}
+
+// RequestedSize returns the value of the "requested_size" field in the mutation.
+func (m *ImageGenerationJobMutation) RequestedSize() (r string, exists bool) {
+	v := m.requested_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestedSize returns the old "requested_size" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldRequestedSize(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestedSize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestedSize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestedSize: %w", err)
+	}
+	return oldValue.RequestedSize, nil
+}
+
+// ClearRequestedSize clears the value of the "requested_size" field.
+func (m *ImageGenerationJobMutation) ClearRequestedSize() {
+	m.requested_size = nil
+	m.clearedFields[imagegenerationjob.FieldRequestedSize] = struct{}{}
+}
+
+// RequestedSizeCleared returns if the "requested_size" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) RequestedSizeCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldRequestedSize]
+	return ok
+}
+
+// ResetRequestedSize resets all changes to the "requested_size" field.
+func (m *ImageGenerationJobMutation) ResetRequestedSize() {
+	m.requested_size = nil
+	delete(m.clearedFields, imagegenerationjob.FieldRequestedSize)
+}
+
+// SetActualSize sets the "actual_size" field.
+func (m *ImageGenerationJobMutation) SetActualSize(s string) {
+	m.actual_size = &s
+}
+
+// ActualSize returns the value of the "actual_size" field in the mutation.
+func (m *ImageGenerationJobMutation) ActualSize() (r string, exists bool) {
+	v := m.actual_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualSize returns the old "actual_size" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldActualSize(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualSize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualSize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualSize: %w", err)
+	}
+	return oldValue.ActualSize, nil
+}
+
+// ClearActualSize clears the value of the "actual_size" field.
+func (m *ImageGenerationJobMutation) ClearActualSize() {
+	m.actual_size = nil
+	m.clearedFields[imagegenerationjob.FieldActualSize] = struct{}{}
+}
+
+// ActualSizeCleared returns if the "actual_size" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) ActualSizeCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldActualSize]
+	return ok
+}
+
+// ResetActualSize resets all changes to the "actual_size" field.
+func (m *ImageGenerationJobMutation) ResetActualSize() {
+	m.actual_size = nil
+	delete(m.clearedFields, imagegenerationjob.FieldActualSize)
+}
+
+// SetQuality sets the "quality" field.
+func (m *ImageGenerationJobMutation) SetQuality(s string) {
+	m.quality = &s
+}
+
+// Quality returns the value of the "quality" field in the mutation.
+func (m *ImageGenerationJobMutation) Quality() (r string, exists bool) {
+	v := m.quality
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldQuality returns the old "quality" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldQuality(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldQuality is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldQuality requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldQuality: %w", err)
+	}
+	return oldValue.Quality, nil
+}
+
+// ClearQuality clears the value of the "quality" field.
+func (m *ImageGenerationJobMutation) ClearQuality() {
+	m.quality = nil
+	m.clearedFields[imagegenerationjob.FieldQuality] = struct{}{}
+}
+
+// QualityCleared returns if the "quality" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) QualityCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldQuality]
+	return ok
+}
+
+// ResetQuality resets all changes to the "quality" field.
+func (m *ImageGenerationJobMutation) ResetQuality() {
+	m.quality = nil
+	delete(m.clearedFields, imagegenerationjob.FieldQuality)
+}
+
+// SetResponseFormat sets the "response_format" field.
+func (m *ImageGenerationJobMutation) SetResponseFormat(s string) {
+	m.response_format = &s
+}
+
+// ResponseFormat returns the value of the "response_format" field in the mutation.
+func (m *ImageGenerationJobMutation) ResponseFormat() (r string, exists bool) {
+	v := m.response_format
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResponseFormat returns the old "response_format" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldResponseFormat(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResponseFormat is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResponseFormat requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResponseFormat: %w", err)
+	}
+	return oldValue.ResponseFormat, nil
+}
+
+// ClearResponseFormat clears the value of the "response_format" field.
+func (m *ImageGenerationJobMutation) ClearResponseFormat() {
+	m.response_format = nil
+	m.clearedFields[imagegenerationjob.FieldResponseFormat] = struct{}{}
+}
+
+// ResponseFormatCleared returns if the "response_format" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) ResponseFormatCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldResponseFormat]
+	return ok
+}
+
+// ResetResponseFormat resets all changes to the "response_format" field.
+func (m *ImageGenerationJobMutation) ResetResponseFormat() {
+	m.response_format = nil
+	delete(m.clearedFields, imagegenerationjob.FieldResponseFormat)
+}
+
+// SetUpstreamTaskID sets the "upstream_task_id" field.
+func (m *ImageGenerationJobMutation) SetUpstreamTaskID(s string) {
+	m.upstream_task_id = &s
+}
+
+// UpstreamTaskID returns the value of the "upstream_task_id" field in the mutation.
+func (m *ImageGenerationJobMutation) UpstreamTaskID() (r string, exists bool) {
+	v := m.upstream_task_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpstreamTaskID returns the old "upstream_task_id" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldUpstreamTaskID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpstreamTaskID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpstreamTaskID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpstreamTaskID: %w", err)
+	}
+	return oldValue.UpstreamTaskID, nil
+}
+
+// ClearUpstreamTaskID clears the value of the "upstream_task_id" field.
+func (m *ImageGenerationJobMutation) ClearUpstreamTaskID() {
+	m.upstream_task_id = nil
+	m.clearedFields[imagegenerationjob.FieldUpstreamTaskID] = struct{}{}
+}
+
+// UpstreamTaskIDCleared returns if the "upstream_task_id" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) UpstreamTaskIDCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldUpstreamTaskID]
+	return ok
+}
+
+// ResetUpstreamTaskID resets all changes to the "upstream_task_id" field.
+func (m *ImageGenerationJobMutation) ResetUpstreamTaskID() {
+	m.upstream_task_id = nil
+	delete(m.clearedFields, imagegenerationjob.FieldUpstreamTaskID)
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (m *ImageGenerationJobMutation) SetIdempotencyKey(s string) {
+	m.idempotency_key = &s
+}
+
+// IdempotencyKey returns the value of the "idempotency_key" field in the mutation.
+func (m *ImageGenerationJobMutation) IdempotencyKey() (r string, exists bool) {
+	v := m.idempotency_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIdempotencyKey returns the old "idempotency_key" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldIdempotencyKey(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIdempotencyKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIdempotencyKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIdempotencyKey: %w", err)
+	}
+	return oldValue.IdempotencyKey, nil
+}
+
+// ClearIdempotencyKey clears the value of the "idempotency_key" field.
+func (m *ImageGenerationJobMutation) ClearIdempotencyKey() {
+	m.idempotency_key = nil
+	m.clearedFields[imagegenerationjob.FieldIdempotencyKey] = struct{}{}
+}
+
+// IdempotencyKeyCleared returns if the "idempotency_key" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) IdempotencyKeyCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldIdempotencyKey]
+	return ok
+}
+
+// ResetIdempotencyKey resets all changes to the "idempotency_key" field.
+func (m *ImageGenerationJobMutation) ResetIdempotencyKey() {
+	m.idempotency_key = nil
+	delete(m.clearedFields, imagegenerationjob.FieldIdempotencyKey)
+}
+
+// SetRequestHash sets the "request_hash" field.
+func (m *ImageGenerationJobMutation) SetRequestHash(s string) {
+	m.request_hash = &s
+}
+
+// RequestHash returns the value of the "request_hash" field in the mutation.
+func (m *ImageGenerationJobMutation) RequestHash() (r string, exists bool) {
+	v := m.request_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestHash returns the old "request_hash" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldRequestHash(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestHash: %w", err)
+	}
+	return oldValue.RequestHash, nil
+}
+
+// ClearRequestHash clears the value of the "request_hash" field.
+func (m *ImageGenerationJobMutation) ClearRequestHash() {
+	m.request_hash = nil
+	m.clearedFields[imagegenerationjob.FieldRequestHash] = struct{}{}
+}
+
+// RequestHashCleared returns if the "request_hash" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) RequestHashCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldRequestHash]
+	return ok
+}
+
+// ResetRequestHash resets all changes to the "request_hash" field.
+func (m *ImageGenerationJobMutation) ResetRequestHash() {
+	m.request_hash = nil
+	delete(m.clearedFields, imagegenerationjob.FieldRequestHash)
+}
+
+// SetPromptHash sets the "prompt_hash" field.
+func (m *ImageGenerationJobMutation) SetPromptHash(s string) {
+	m.prompt_hash = &s
+}
+
+// PromptHash returns the value of the "prompt_hash" field in the mutation.
+func (m *ImageGenerationJobMutation) PromptHash() (r string, exists bool) {
+	v := m.prompt_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPromptHash returns the old "prompt_hash" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldPromptHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPromptHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPromptHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPromptHash: %w", err)
+	}
+	return oldValue.PromptHash, nil
+}
+
+// ResetPromptHash resets all changes to the "prompt_hash" field.
+func (m *ImageGenerationJobMutation) ResetPromptHash() {
+	m.prompt_hash = nil
+}
+
+// SetPayloadObjectRef sets the "payload_object_ref" field.
+func (m *ImageGenerationJobMutation) SetPayloadObjectRef(s string) {
+	m.payload_object_ref = &s
+}
+
+// PayloadObjectRef returns the value of the "payload_object_ref" field in the mutation.
+func (m *ImageGenerationJobMutation) PayloadObjectRef() (r string, exists bool) {
+	v := m.payload_object_ref
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPayloadObjectRef returns the old "payload_object_ref" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldPayloadObjectRef(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPayloadObjectRef is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPayloadObjectRef requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPayloadObjectRef: %w", err)
+	}
+	return oldValue.PayloadObjectRef, nil
+}
+
+// ClearPayloadObjectRef clears the value of the "payload_object_ref" field.
+func (m *ImageGenerationJobMutation) ClearPayloadObjectRef() {
+	m.payload_object_ref = nil
+	m.clearedFields[imagegenerationjob.FieldPayloadObjectRef] = struct{}{}
+}
+
+// PayloadObjectRefCleared returns if the "payload_object_ref" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) PayloadObjectRefCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldPayloadObjectRef]
+	return ok
+}
+
+// ResetPayloadObjectRef resets all changes to the "payload_object_ref" field.
+func (m *ImageGenerationJobMutation) ResetPayloadObjectRef() {
+	m.payload_object_ref = nil
+	delete(m.clearedFields, imagegenerationjob.FieldPayloadObjectRef)
+}
+
+// SetResultObjectRefs sets the "result_object_refs" field.
+func (m *ImageGenerationJobMutation) SetResultObjectRefs(s []string) {
+	m.result_object_refs = &s
+	m.appendresult_object_refs = nil
+}
+
+// ResultObjectRefs returns the value of the "result_object_refs" field in the mutation.
+func (m *ImageGenerationJobMutation) ResultObjectRefs() (r []string, exists bool) {
+	v := m.result_object_refs
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResultObjectRefs returns the old "result_object_refs" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldResultObjectRefs(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResultObjectRefs is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResultObjectRefs requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResultObjectRefs: %w", err)
+	}
+	return oldValue.ResultObjectRefs, nil
+}
+
+// AppendResultObjectRefs adds s to the "result_object_refs" field.
+func (m *ImageGenerationJobMutation) AppendResultObjectRefs(s []string) {
+	m.appendresult_object_refs = append(m.appendresult_object_refs, s...)
+}
+
+// AppendedResultObjectRefs returns the list of values that were appended to the "result_object_refs" field in this mutation.
+func (m *ImageGenerationJobMutation) AppendedResultObjectRefs() ([]string, bool) {
+	if len(m.appendresult_object_refs) == 0 {
+		return nil, false
+	}
+	return m.appendresult_object_refs, true
+}
+
+// ResetResultObjectRefs resets all changes to the "result_object_refs" field.
+func (m *ImageGenerationJobMutation) ResetResultObjectRefs() {
+	m.result_object_refs = nil
+	m.appendresult_object_refs = nil
+}
+
+// SetBaseCost sets the "base_cost" field.
+func (m *ImageGenerationJobMutation) SetBaseCost(f float64) {
+	m.base_cost = &f
+	m.addbase_cost = nil
+}
+
+// BaseCost returns the value of the "base_cost" field in the mutation.
+func (m *ImageGenerationJobMutation) BaseCost() (r float64, exists bool) {
+	v := m.base_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBaseCost returns the old "base_cost" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldBaseCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBaseCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBaseCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBaseCost: %w", err)
+	}
+	return oldValue.BaseCost, nil
+}
+
+// AddBaseCost adds f to the "base_cost" field.
+func (m *ImageGenerationJobMutation) AddBaseCost(f float64) {
+	if m.addbase_cost != nil {
+		*m.addbase_cost += f
+	} else {
+		m.addbase_cost = &f
+	}
+}
+
+// AddedBaseCost returns the value that was added to the "base_cost" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedBaseCost() (r float64, exists bool) {
+	v := m.addbase_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetBaseCost resets all changes to the "base_cost" field.
+func (m *ImageGenerationJobMutation) ResetBaseCost() {
+	m.base_cost = nil
+	m.addbase_cost = nil
+}
+
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (m *ImageGenerationJobMutation) SetRateMultiplier(f float64) {
+	m.rate_multiplier = &f
+	m.addrate_multiplier = nil
+}
+
+// RateMultiplier returns the value of the "rate_multiplier" field in the mutation.
+func (m *ImageGenerationJobMutation) RateMultiplier() (r float64, exists bool) {
+	v := m.rate_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRateMultiplier returns the old "rate_multiplier" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldRateMultiplier(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRateMultiplier is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRateMultiplier requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRateMultiplier: %w", err)
+	}
+	return oldValue.RateMultiplier, nil
+}
+
+// AddRateMultiplier adds f to the "rate_multiplier" field.
+func (m *ImageGenerationJobMutation) AddRateMultiplier(f float64) {
+	if m.addrate_multiplier != nil {
+		*m.addrate_multiplier += f
+	} else {
+		m.addrate_multiplier = &f
+	}
+}
+
+// AddedRateMultiplier returns the value that was added to the "rate_multiplier" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedRateMultiplier() (r float64, exists bool) {
+	v := m.addrate_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRateMultiplier resets all changes to the "rate_multiplier" field.
+func (m *ImageGenerationJobMutation) ResetRateMultiplier() {
+	m.rate_multiplier = nil
+	m.addrate_multiplier = nil
+}
+
+// SetEstimatedCost sets the "estimated_cost" field.
+func (m *ImageGenerationJobMutation) SetEstimatedCost(f float64) {
+	m.estimated_cost = &f
+	m.addestimated_cost = nil
+}
+
+// EstimatedCost returns the value of the "estimated_cost" field in the mutation.
+func (m *ImageGenerationJobMutation) EstimatedCost() (r float64, exists bool) {
+	v := m.estimated_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEstimatedCost returns the old "estimated_cost" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldEstimatedCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEstimatedCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEstimatedCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEstimatedCost: %w", err)
+	}
+	return oldValue.EstimatedCost, nil
+}
+
+// AddEstimatedCost adds f to the "estimated_cost" field.
+func (m *ImageGenerationJobMutation) AddEstimatedCost(f float64) {
+	if m.addestimated_cost != nil {
+		*m.addestimated_cost += f
+	} else {
+		m.addestimated_cost = &f
+	}
+}
+
+// AddedEstimatedCost returns the value that was added to the "estimated_cost" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedEstimatedCost() (r float64, exists bool) {
+	v := m.addestimated_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetEstimatedCost resets all changes to the "estimated_cost" field.
+func (m *ImageGenerationJobMutation) ResetEstimatedCost() {
+	m.estimated_cost = nil
+	m.addestimated_cost = nil
+}
+
+// SetHeldCost sets the "held_cost" field.
+func (m *ImageGenerationJobMutation) SetHeldCost(f float64) {
+	m.held_cost = &f
+	m.addheld_cost = nil
+}
+
+// HeldCost returns the value of the "held_cost" field in the mutation.
+func (m *ImageGenerationJobMutation) HeldCost() (r float64, exists bool) {
+	v := m.held_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHeldCost returns the old "held_cost" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldHeldCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHeldCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHeldCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHeldCost: %w", err)
+	}
+	return oldValue.HeldCost, nil
+}
+
+// AddHeldCost adds f to the "held_cost" field.
+func (m *ImageGenerationJobMutation) AddHeldCost(f float64) {
+	if m.addheld_cost != nil {
+		*m.addheld_cost += f
+	} else {
+		m.addheld_cost = &f
+	}
+}
+
+// AddedHeldCost returns the value that was added to the "held_cost" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedHeldCost() (r float64, exists bool) {
+	v := m.addheld_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetHeldCost resets all changes to the "held_cost" field.
+func (m *ImageGenerationJobMutation) ResetHeldCost() {
+	m.held_cost = nil
+	m.addheld_cost = nil
+}
+
+// SetSettledCost sets the "settled_cost" field.
+func (m *ImageGenerationJobMutation) SetSettledCost(f float64) {
+	m.settled_cost = &f
+	m.addsettled_cost = nil
+}
+
+// SettledCost returns the value of the "settled_cost" field in the mutation.
+func (m *ImageGenerationJobMutation) SettledCost() (r float64, exists bool) {
+	v := m.settled_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSettledCost returns the old "settled_cost" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldSettledCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSettledCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSettledCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSettledCost: %w", err)
+	}
+	return oldValue.SettledCost, nil
+}
+
+// AddSettledCost adds f to the "settled_cost" field.
+func (m *ImageGenerationJobMutation) AddSettledCost(f float64) {
+	if m.addsettled_cost != nil {
+		*m.addsettled_cost += f
+	} else {
+		m.addsettled_cost = &f
+	}
+}
+
+// AddedSettledCost returns the value that was added to the "settled_cost" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedSettledCost() (r float64, exists bool) {
+	v := m.addsettled_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSettledCost resets all changes to the "settled_cost" field.
+func (m *ImageGenerationJobMutation) ResetSettledCost() {
+	m.settled_cost = nil
+	m.addsettled_cost = nil
+}
+
+// SetErrorCode sets the "error_code" field.
+func (m *ImageGenerationJobMutation) SetErrorCode(s string) {
+	m.error_code = &s
+}
+
+// ErrorCode returns the value of the "error_code" field in the mutation.
+func (m *ImageGenerationJobMutation) ErrorCode() (r string, exists bool) {
+	v := m.error_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorCode returns the old "error_code" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldErrorCode(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorCode: %w", err)
+	}
+	return oldValue.ErrorCode, nil
+}
+
+// ClearErrorCode clears the value of the "error_code" field.
+func (m *ImageGenerationJobMutation) ClearErrorCode() {
+	m.error_code = nil
+	m.clearedFields[imagegenerationjob.FieldErrorCode] = struct{}{}
+}
+
+// ErrorCodeCleared returns if the "error_code" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) ErrorCodeCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldErrorCode]
+	return ok
+}
+
+// ResetErrorCode resets all changes to the "error_code" field.
+func (m *ImageGenerationJobMutation) ResetErrorCode() {
+	m.error_code = nil
+	delete(m.clearedFields, imagegenerationjob.FieldErrorCode)
+}
+
+// SetErrorMessage sets the "error_message" field.
+func (m *ImageGenerationJobMutation) SetErrorMessage(s string) {
+	m.error_message = &s
+}
+
+// ErrorMessage returns the value of the "error_message" field in the mutation.
+func (m *ImageGenerationJobMutation) ErrorMessage() (r string, exists bool) {
+	v := m.error_message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorMessage returns the old "error_message" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldErrorMessage(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorMessage: %w", err)
+	}
+	return oldValue.ErrorMessage, nil
+}
+
+// ClearErrorMessage clears the value of the "error_message" field.
+func (m *ImageGenerationJobMutation) ClearErrorMessage() {
+	m.error_message = nil
+	m.clearedFields[imagegenerationjob.FieldErrorMessage] = struct{}{}
+}
+
+// ErrorMessageCleared returns if the "error_message" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) ErrorMessageCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldErrorMessage]
+	return ok
+}
+
+// ResetErrorMessage resets all changes to the "error_message" field.
+func (m *ImageGenerationJobMutation) ResetErrorMessage() {
+	m.error_message = nil
+	delete(m.clearedFields, imagegenerationjob.FieldErrorMessage)
+}
+
+// SetAttemptCount sets the "attempt_count" field.
+func (m *ImageGenerationJobMutation) SetAttemptCount(i int) {
+	m.attempt_count = &i
+	m.addattempt_count = nil
+}
+
+// AttemptCount returns the value of the "attempt_count" field in the mutation.
+func (m *ImageGenerationJobMutation) AttemptCount() (r int, exists bool) {
+	v := m.attempt_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttemptCount returns the old "attempt_count" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldAttemptCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttemptCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttemptCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttemptCount: %w", err)
+	}
+	return oldValue.AttemptCount, nil
+}
+
+// AddAttemptCount adds i to the "attempt_count" field.
+func (m *ImageGenerationJobMutation) AddAttemptCount(i int) {
+	if m.addattempt_count != nil {
+		*m.addattempt_count += i
+	} else {
+		m.addattempt_count = &i
+	}
+}
+
+// AddedAttemptCount returns the value that was added to the "attempt_count" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedAttemptCount() (r int, exists bool) {
+	v := m.addattempt_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAttemptCount resets all changes to the "attempt_count" field.
+func (m *ImageGenerationJobMutation) ResetAttemptCount() {
+	m.attempt_count = nil
+	m.addattempt_count = nil
+}
+
+// SetClaimVersion sets the "claim_version" field.
+func (m *ImageGenerationJobMutation) SetClaimVersion(i int64) {
+	m.claim_version = &i
+	m.addclaim_version = nil
+}
+
+// ClaimVersion returns the value of the "claim_version" field in the mutation.
+func (m *ImageGenerationJobMutation) ClaimVersion() (r int64, exists bool) {
+	v := m.claim_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClaimVersion returns the old "claim_version" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldClaimVersion(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClaimVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClaimVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClaimVersion: %w", err)
+	}
+	return oldValue.ClaimVersion, nil
+}
+
+// AddClaimVersion adds i to the "claim_version" field.
+func (m *ImageGenerationJobMutation) AddClaimVersion(i int64) {
+	if m.addclaim_version != nil {
+		*m.addclaim_version += i
+	} else {
+		m.addclaim_version = &i
+	}
+}
+
+// AddedClaimVersion returns the value that was added to the "claim_version" field in this mutation.
+func (m *ImageGenerationJobMutation) AddedClaimVersion() (r int64, exists bool) {
+	v := m.addclaim_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetClaimVersion resets all changes to the "claim_version" field.
+func (m *ImageGenerationJobMutation) ResetClaimVersion() {
+	m.claim_version = nil
+	m.addclaim_version = nil
+}
+
+// SetLeaseExpiresAt sets the "lease_expires_at" field.
+func (m *ImageGenerationJobMutation) SetLeaseExpiresAt(t time.Time) {
+	m.lease_expires_at = &t
+}
+
+// LeaseExpiresAt returns the value of the "lease_expires_at" field in the mutation.
+func (m *ImageGenerationJobMutation) LeaseExpiresAt() (r time.Time, exists bool) {
+	v := m.lease_expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLeaseExpiresAt returns the old "lease_expires_at" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldLeaseExpiresAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLeaseExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLeaseExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLeaseExpiresAt: %w", err)
+	}
+	return oldValue.LeaseExpiresAt, nil
+}
+
+// ClearLeaseExpiresAt clears the value of the "lease_expires_at" field.
+func (m *ImageGenerationJobMutation) ClearLeaseExpiresAt() {
+	m.lease_expires_at = nil
+	m.clearedFields[imagegenerationjob.FieldLeaseExpiresAt] = struct{}{}
+}
+
+// LeaseExpiresAtCleared returns if the "lease_expires_at" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) LeaseExpiresAtCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldLeaseExpiresAt]
+	return ok
+}
+
+// ResetLeaseExpiresAt resets all changes to the "lease_expires_at" field.
+func (m *ImageGenerationJobMutation) ResetLeaseExpiresAt() {
+	m.lease_expires_at = nil
+	delete(m.clearedFields, imagegenerationjob.FieldLeaseExpiresAt)
+}
+
+// SetNextAttemptAt sets the "next_attempt_at" field.
+func (m *ImageGenerationJobMutation) SetNextAttemptAt(t time.Time) {
+	m.next_attempt_at = &t
+}
+
+// NextAttemptAt returns the value of the "next_attempt_at" field in the mutation.
+func (m *ImageGenerationJobMutation) NextAttemptAt() (r time.Time, exists bool) {
+	v := m.next_attempt_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNextAttemptAt returns the old "next_attempt_at" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldNextAttemptAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNextAttemptAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNextAttemptAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNextAttemptAt: %w", err)
+	}
+	return oldValue.NextAttemptAt, nil
+}
+
+// ClearNextAttemptAt clears the value of the "next_attempt_at" field.
+func (m *ImageGenerationJobMutation) ClearNextAttemptAt() {
+	m.next_attempt_at = nil
+	m.clearedFields[imagegenerationjob.FieldNextAttemptAt] = struct{}{}
+}
+
+// NextAttemptAtCleared returns if the "next_attempt_at" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) NextAttemptAtCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldNextAttemptAt]
+	return ok
+}
+
+// ResetNextAttemptAt resets all changes to the "next_attempt_at" field.
+func (m *ImageGenerationJobMutation) ResetNextAttemptAt() {
+	m.next_attempt_at = nil
+	delete(m.clearedFields, imagegenerationjob.FieldNextAttemptAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ImageGenerationJobMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ImageGenerationJobMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ImageGenerationJobMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ImageGenerationJobMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ImageGenerationJobMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ImageGenerationJobMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetSubmittedAt sets the "submitted_at" field.
+func (m *ImageGenerationJobMutation) SetSubmittedAt(t time.Time) {
+	m.submitted_at = &t
+}
+
+// SubmittedAt returns the value of the "submitted_at" field in the mutation.
+func (m *ImageGenerationJobMutation) SubmittedAt() (r time.Time, exists bool) {
+	v := m.submitted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubmittedAt returns the old "submitted_at" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldSubmittedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubmittedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubmittedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubmittedAt: %w", err)
+	}
+	return oldValue.SubmittedAt, nil
+}
+
+// ClearSubmittedAt clears the value of the "submitted_at" field.
+func (m *ImageGenerationJobMutation) ClearSubmittedAt() {
+	m.submitted_at = nil
+	m.clearedFields[imagegenerationjob.FieldSubmittedAt] = struct{}{}
+}
+
+// SubmittedAtCleared returns if the "submitted_at" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) SubmittedAtCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldSubmittedAt]
+	return ok
+}
+
+// ResetSubmittedAt resets all changes to the "submitted_at" field.
+func (m *ImageGenerationJobMutation) ResetSubmittedAt() {
+	m.submitted_at = nil
+	delete(m.clearedFields, imagegenerationjob.FieldSubmittedAt)
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (m *ImageGenerationJobMutation) SetCompletedAt(t time.Time) {
+	m.completed_at = &t
+}
+
+// CompletedAt returns the value of the "completed_at" field in the mutation.
+func (m *ImageGenerationJobMutation) CompletedAt() (r time.Time, exists bool) {
+	v := m.completed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletedAt returns the old "completed_at" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldCompletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletedAt: %w", err)
+	}
+	return oldValue.CompletedAt, nil
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (m *ImageGenerationJobMutation) ClearCompletedAt() {
+	m.completed_at = nil
+	m.clearedFields[imagegenerationjob.FieldCompletedAt] = struct{}{}
+}
+
+// CompletedAtCleared returns if the "completed_at" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) CompletedAtCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldCompletedAt]
+	return ok
+}
+
+// ResetCompletedAt resets all changes to the "completed_at" field.
+func (m *ImageGenerationJobMutation) ResetCompletedAt() {
+	m.completed_at = nil
+	delete(m.clearedFields, imagegenerationjob.FieldCompletedAt)
+}
+
+// SetSettledAt sets the "settled_at" field.
+func (m *ImageGenerationJobMutation) SetSettledAt(t time.Time) {
+	m.settled_at = &t
+}
+
+// SettledAt returns the value of the "settled_at" field in the mutation.
+func (m *ImageGenerationJobMutation) SettledAt() (r time.Time, exists bool) {
+	v := m.settled_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSettledAt returns the old "settled_at" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldSettledAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSettledAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSettledAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSettledAt: %w", err)
+	}
+	return oldValue.SettledAt, nil
+}
+
+// ClearSettledAt clears the value of the "settled_at" field.
+func (m *ImageGenerationJobMutation) ClearSettledAt() {
+	m.settled_at = nil
+	m.clearedFields[imagegenerationjob.FieldSettledAt] = struct{}{}
+}
+
+// SettledAtCleared returns if the "settled_at" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) SettledAtCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldSettledAt]
+	return ok
+}
+
+// ResetSettledAt resets all changes to the "settled_at" field.
+func (m *ImageGenerationJobMutation) ResetSettledAt() {
+	m.settled_at = nil
+	delete(m.clearedFields, imagegenerationjob.FieldSettledAt)
+}
+
+// Where appends a list predicates to the ImageGenerationJobMutation builder.
+func (m *ImageGenerationJobMutation) Where(ps ...predicate.ImageGenerationJob) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ImageGenerationJobMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ImageGenerationJobMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ImageGenerationJob, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ImageGenerationJobMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ImageGenerationJobMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ImageGenerationJob).
+func (m *ImageGenerationJobMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ImageGenerationJobMutation) Fields() []string {
+	fields := make([]string, 0, 38)
+	if m.job_id != nil {
+		fields = append(fields, imagegenerationjob.FieldJobID)
+	}
+	if m.user_id != nil {
+		fields = append(fields, imagegenerationjob.FieldUserID)
+	}
+	if m.api_key_id != nil {
+		fields = append(fields, imagegenerationjob.FieldAPIKeyID)
+	}
+	if m.group_id != nil {
+		fields = append(fields, imagegenerationjob.FieldGroupID)
+	}
+	if m.subscription_id != nil {
+		fields = append(fields, imagegenerationjob.FieldSubscriptionID)
+	}
+	if m.account_id != nil {
+		fields = append(fields, imagegenerationjob.FieldAccountID)
+	}
+	if m.billing_type != nil {
+		fields = append(fields, imagegenerationjob.FieldBillingType)
+	}
+	if m.source != nil {
+		fields = append(fields, imagegenerationjob.FieldSource)
+	}
+	if m.operation != nil {
+		fields = append(fields, imagegenerationjob.FieldOperation)
+	}
+	if m.status != nil {
+		fields = append(fields, imagegenerationjob.FieldStatus)
+	}
+	if m.public_model != nil {
+		fields = append(fields, imagegenerationjob.FieldPublicModel)
+	}
+	if m.upstream_model != nil {
+		fields = append(fields, imagegenerationjob.FieldUpstreamModel)
+	}
+	if m.requested_size != nil {
+		fields = append(fields, imagegenerationjob.FieldRequestedSize)
+	}
+	if m.actual_size != nil {
+		fields = append(fields, imagegenerationjob.FieldActualSize)
+	}
+	if m.quality != nil {
+		fields = append(fields, imagegenerationjob.FieldQuality)
+	}
+	if m.response_format != nil {
+		fields = append(fields, imagegenerationjob.FieldResponseFormat)
+	}
+	if m.upstream_task_id != nil {
+		fields = append(fields, imagegenerationjob.FieldUpstreamTaskID)
+	}
+	if m.idempotency_key != nil {
+		fields = append(fields, imagegenerationjob.FieldIdempotencyKey)
+	}
+	if m.request_hash != nil {
+		fields = append(fields, imagegenerationjob.FieldRequestHash)
+	}
+	if m.prompt_hash != nil {
+		fields = append(fields, imagegenerationjob.FieldPromptHash)
+	}
+	if m.payload_object_ref != nil {
+		fields = append(fields, imagegenerationjob.FieldPayloadObjectRef)
+	}
+	if m.result_object_refs != nil {
+		fields = append(fields, imagegenerationjob.FieldResultObjectRefs)
+	}
+	if m.base_cost != nil {
+		fields = append(fields, imagegenerationjob.FieldBaseCost)
+	}
+	if m.rate_multiplier != nil {
+		fields = append(fields, imagegenerationjob.FieldRateMultiplier)
+	}
+	if m.estimated_cost != nil {
+		fields = append(fields, imagegenerationjob.FieldEstimatedCost)
+	}
+	if m.held_cost != nil {
+		fields = append(fields, imagegenerationjob.FieldHeldCost)
+	}
+	if m.settled_cost != nil {
+		fields = append(fields, imagegenerationjob.FieldSettledCost)
+	}
+	if m.error_code != nil {
+		fields = append(fields, imagegenerationjob.FieldErrorCode)
+	}
+	if m.error_message != nil {
+		fields = append(fields, imagegenerationjob.FieldErrorMessage)
+	}
+	if m.attempt_count != nil {
+		fields = append(fields, imagegenerationjob.FieldAttemptCount)
+	}
+	if m.claim_version != nil {
+		fields = append(fields, imagegenerationjob.FieldClaimVersion)
+	}
+	if m.lease_expires_at != nil {
+		fields = append(fields, imagegenerationjob.FieldLeaseExpiresAt)
+	}
+	if m.next_attempt_at != nil {
+		fields = append(fields, imagegenerationjob.FieldNextAttemptAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, imagegenerationjob.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, imagegenerationjob.FieldUpdatedAt)
+	}
+	if m.submitted_at != nil {
+		fields = append(fields, imagegenerationjob.FieldSubmittedAt)
+	}
+	if m.completed_at != nil {
+		fields = append(fields, imagegenerationjob.FieldCompletedAt)
+	}
+	if m.settled_at != nil {
+		fields = append(fields, imagegenerationjob.FieldSettledAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ImageGenerationJobMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case imagegenerationjob.FieldJobID:
+		return m.JobID()
+	case imagegenerationjob.FieldUserID:
+		return m.UserID()
+	case imagegenerationjob.FieldAPIKeyID:
+		return m.APIKeyID()
+	case imagegenerationjob.FieldGroupID:
+		return m.GroupID()
+	case imagegenerationjob.FieldSubscriptionID:
+		return m.SubscriptionID()
+	case imagegenerationjob.FieldAccountID:
+		return m.AccountID()
+	case imagegenerationjob.FieldBillingType:
+		return m.BillingType()
+	case imagegenerationjob.FieldSource:
+		return m.Source()
+	case imagegenerationjob.FieldOperation:
+		return m.Operation()
+	case imagegenerationjob.FieldStatus:
+		return m.Status()
+	case imagegenerationjob.FieldPublicModel:
+		return m.PublicModel()
+	case imagegenerationjob.FieldUpstreamModel:
+		return m.UpstreamModel()
+	case imagegenerationjob.FieldRequestedSize:
+		return m.RequestedSize()
+	case imagegenerationjob.FieldActualSize:
+		return m.ActualSize()
+	case imagegenerationjob.FieldQuality:
+		return m.Quality()
+	case imagegenerationjob.FieldResponseFormat:
+		return m.ResponseFormat()
+	case imagegenerationjob.FieldUpstreamTaskID:
+		return m.UpstreamTaskID()
+	case imagegenerationjob.FieldIdempotencyKey:
+		return m.IdempotencyKey()
+	case imagegenerationjob.FieldRequestHash:
+		return m.RequestHash()
+	case imagegenerationjob.FieldPromptHash:
+		return m.PromptHash()
+	case imagegenerationjob.FieldPayloadObjectRef:
+		return m.PayloadObjectRef()
+	case imagegenerationjob.FieldResultObjectRefs:
+		return m.ResultObjectRefs()
+	case imagegenerationjob.FieldBaseCost:
+		return m.BaseCost()
+	case imagegenerationjob.FieldRateMultiplier:
+		return m.RateMultiplier()
+	case imagegenerationjob.FieldEstimatedCost:
+		return m.EstimatedCost()
+	case imagegenerationjob.FieldHeldCost:
+		return m.HeldCost()
+	case imagegenerationjob.FieldSettledCost:
+		return m.SettledCost()
+	case imagegenerationjob.FieldErrorCode:
+		return m.ErrorCode()
+	case imagegenerationjob.FieldErrorMessage:
+		return m.ErrorMessage()
+	case imagegenerationjob.FieldAttemptCount:
+		return m.AttemptCount()
+	case imagegenerationjob.FieldClaimVersion:
+		return m.ClaimVersion()
+	case imagegenerationjob.FieldLeaseExpiresAt:
+		return m.LeaseExpiresAt()
+	case imagegenerationjob.FieldNextAttemptAt:
+		return m.NextAttemptAt()
+	case imagegenerationjob.FieldCreatedAt:
+		return m.CreatedAt()
+	case imagegenerationjob.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case imagegenerationjob.FieldSubmittedAt:
+		return m.SubmittedAt()
+	case imagegenerationjob.FieldCompletedAt:
+		return m.CompletedAt()
+	case imagegenerationjob.FieldSettledAt:
+		return m.SettledAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ImageGenerationJobMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case imagegenerationjob.FieldJobID:
+		return m.OldJobID(ctx)
+	case imagegenerationjob.FieldUserID:
+		return m.OldUserID(ctx)
+	case imagegenerationjob.FieldAPIKeyID:
+		return m.OldAPIKeyID(ctx)
+	case imagegenerationjob.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case imagegenerationjob.FieldSubscriptionID:
+		return m.OldSubscriptionID(ctx)
+	case imagegenerationjob.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case imagegenerationjob.FieldBillingType:
+		return m.OldBillingType(ctx)
+	case imagegenerationjob.FieldSource:
+		return m.OldSource(ctx)
+	case imagegenerationjob.FieldOperation:
+		return m.OldOperation(ctx)
+	case imagegenerationjob.FieldStatus:
+		return m.OldStatus(ctx)
+	case imagegenerationjob.FieldPublicModel:
+		return m.OldPublicModel(ctx)
+	case imagegenerationjob.FieldUpstreamModel:
+		return m.OldUpstreamModel(ctx)
+	case imagegenerationjob.FieldRequestedSize:
+		return m.OldRequestedSize(ctx)
+	case imagegenerationjob.FieldActualSize:
+		return m.OldActualSize(ctx)
+	case imagegenerationjob.FieldQuality:
+		return m.OldQuality(ctx)
+	case imagegenerationjob.FieldResponseFormat:
+		return m.OldResponseFormat(ctx)
+	case imagegenerationjob.FieldUpstreamTaskID:
+		return m.OldUpstreamTaskID(ctx)
+	case imagegenerationjob.FieldIdempotencyKey:
+		return m.OldIdempotencyKey(ctx)
+	case imagegenerationjob.FieldRequestHash:
+		return m.OldRequestHash(ctx)
+	case imagegenerationjob.FieldPromptHash:
+		return m.OldPromptHash(ctx)
+	case imagegenerationjob.FieldPayloadObjectRef:
+		return m.OldPayloadObjectRef(ctx)
+	case imagegenerationjob.FieldResultObjectRefs:
+		return m.OldResultObjectRefs(ctx)
+	case imagegenerationjob.FieldBaseCost:
+		return m.OldBaseCost(ctx)
+	case imagegenerationjob.FieldRateMultiplier:
+		return m.OldRateMultiplier(ctx)
+	case imagegenerationjob.FieldEstimatedCost:
+		return m.OldEstimatedCost(ctx)
+	case imagegenerationjob.FieldHeldCost:
+		return m.OldHeldCost(ctx)
+	case imagegenerationjob.FieldSettledCost:
+		return m.OldSettledCost(ctx)
+	case imagegenerationjob.FieldErrorCode:
+		return m.OldErrorCode(ctx)
+	case imagegenerationjob.FieldErrorMessage:
+		return m.OldErrorMessage(ctx)
+	case imagegenerationjob.FieldAttemptCount:
+		return m.OldAttemptCount(ctx)
+	case imagegenerationjob.FieldClaimVersion:
+		return m.OldClaimVersion(ctx)
+	case imagegenerationjob.FieldLeaseExpiresAt:
+		return m.OldLeaseExpiresAt(ctx)
+	case imagegenerationjob.FieldNextAttemptAt:
+		return m.OldNextAttemptAt(ctx)
+	case imagegenerationjob.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case imagegenerationjob.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case imagegenerationjob.FieldSubmittedAt:
+		return m.OldSubmittedAt(ctx)
+	case imagegenerationjob.FieldCompletedAt:
+		return m.OldCompletedAt(ctx)
+	case imagegenerationjob.FieldSettledAt:
+		return m.OldSettledAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ImageGenerationJob field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ImageGenerationJobMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case imagegenerationjob.FieldJobID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetJobID(v)
+		return nil
+	case imagegenerationjob.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case imagegenerationjob.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKeyID(v)
+		return nil
+	case imagegenerationjob.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case imagegenerationjob.FieldSubscriptionID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubscriptionID(v)
+		return nil
+	case imagegenerationjob.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case imagegenerationjob.FieldBillingType:
+		v, ok := value.(int8)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBillingType(v)
+		return nil
+	case imagegenerationjob.FieldSource:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSource(v)
+		return nil
+	case imagegenerationjob.FieldOperation:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOperation(v)
+		return nil
+	case imagegenerationjob.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case imagegenerationjob.FieldPublicModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicModel(v)
+		return nil
+	case imagegenerationjob.FieldUpstreamModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpstreamModel(v)
+		return nil
+	case imagegenerationjob.FieldRequestedSize:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestedSize(v)
+		return nil
+	case imagegenerationjob.FieldActualSize:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualSize(v)
+		return nil
+	case imagegenerationjob.FieldQuality:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetQuality(v)
+		return nil
+	case imagegenerationjob.FieldResponseFormat:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResponseFormat(v)
+		return nil
+	case imagegenerationjob.FieldUpstreamTaskID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpstreamTaskID(v)
+		return nil
+	case imagegenerationjob.FieldIdempotencyKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIdempotencyKey(v)
+		return nil
+	case imagegenerationjob.FieldRequestHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestHash(v)
+		return nil
+	case imagegenerationjob.FieldPromptHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPromptHash(v)
+		return nil
+	case imagegenerationjob.FieldPayloadObjectRef:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPayloadObjectRef(v)
+		return nil
+	case imagegenerationjob.FieldResultObjectRefs:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResultObjectRefs(v)
+		return nil
+	case imagegenerationjob.FieldBaseCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBaseCost(v)
+		return nil
+	case imagegenerationjob.FieldRateMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRateMultiplier(v)
+		return nil
+	case imagegenerationjob.FieldEstimatedCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEstimatedCost(v)
+		return nil
+	case imagegenerationjob.FieldHeldCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHeldCost(v)
+		return nil
+	case imagegenerationjob.FieldSettledCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSettledCost(v)
+		return nil
+	case imagegenerationjob.FieldErrorCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorCode(v)
+		return nil
+	case imagegenerationjob.FieldErrorMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorMessage(v)
+		return nil
+	case imagegenerationjob.FieldAttemptCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttemptCount(v)
+		return nil
+	case imagegenerationjob.FieldClaimVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClaimVersion(v)
+		return nil
+	case imagegenerationjob.FieldLeaseExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLeaseExpiresAt(v)
+		return nil
+	case imagegenerationjob.FieldNextAttemptAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNextAttemptAt(v)
+		return nil
+	case imagegenerationjob.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case imagegenerationjob.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case imagegenerationjob.FieldSubmittedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubmittedAt(v)
+		return nil
+	case imagegenerationjob.FieldCompletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletedAt(v)
+		return nil
+	case imagegenerationjob.FieldSettledAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSettledAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ImageGenerationJob field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ImageGenerationJobMutation) AddedFields() []string {
+	var fields []string
+	if m.adduser_id != nil {
+		fields = append(fields, imagegenerationjob.FieldUserID)
+	}
+	if m.addapi_key_id != nil {
+		fields = append(fields, imagegenerationjob.FieldAPIKeyID)
+	}
+	if m.addgroup_id != nil {
+		fields = append(fields, imagegenerationjob.FieldGroupID)
+	}
+	if m.addsubscription_id != nil {
+		fields = append(fields, imagegenerationjob.FieldSubscriptionID)
+	}
+	if m.addaccount_id != nil {
+		fields = append(fields, imagegenerationjob.FieldAccountID)
+	}
+	if m.addbilling_type != nil {
+		fields = append(fields, imagegenerationjob.FieldBillingType)
+	}
+	if m.addbase_cost != nil {
+		fields = append(fields, imagegenerationjob.FieldBaseCost)
+	}
+	if m.addrate_multiplier != nil {
+		fields = append(fields, imagegenerationjob.FieldRateMultiplier)
+	}
+	if m.addestimated_cost != nil {
+		fields = append(fields, imagegenerationjob.FieldEstimatedCost)
+	}
+	if m.addheld_cost != nil {
+		fields = append(fields, imagegenerationjob.FieldHeldCost)
+	}
+	if m.addsettled_cost != nil {
+		fields = append(fields, imagegenerationjob.FieldSettledCost)
+	}
+	if m.addattempt_count != nil {
+		fields = append(fields, imagegenerationjob.FieldAttemptCount)
+	}
+	if m.addclaim_version != nil {
+		fields = append(fields, imagegenerationjob.FieldClaimVersion)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ImageGenerationJobMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case imagegenerationjob.FieldUserID:
+		return m.AddedUserID()
+	case imagegenerationjob.FieldAPIKeyID:
+		return m.AddedAPIKeyID()
+	case imagegenerationjob.FieldGroupID:
+		return m.AddedGroupID()
+	case imagegenerationjob.FieldSubscriptionID:
+		return m.AddedSubscriptionID()
+	case imagegenerationjob.FieldAccountID:
+		return m.AddedAccountID()
+	case imagegenerationjob.FieldBillingType:
+		return m.AddedBillingType()
+	case imagegenerationjob.FieldBaseCost:
+		return m.AddedBaseCost()
+	case imagegenerationjob.FieldRateMultiplier:
+		return m.AddedRateMultiplier()
+	case imagegenerationjob.FieldEstimatedCost:
+		return m.AddedEstimatedCost()
+	case imagegenerationjob.FieldHeldCost:
+		return m.AddedHeldCost()
+	case imagegenerationjob.FieldSettledCost:
+		return m.AddedSettledCost()
+	case imagegenerationjob.FieldAttemptCount:
+		return m.AddedAttemptCount()
+	case imagegenerationjob.FieldClaimVersion:
+		return m.AddedClaimVersion()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ImageGenerationJobMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case imagegenerationjob.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserID(v)
+		return nil
+	case imagegenerationjob.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAPIKeyID(v)
+		return nil
+	case imagegenerationjob.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddGroupID(v)
+		return nil
+	case imagegenerationjob.FieldSubscriptionID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSubscriptionID(v)
+		return nil
+	case imagegenerationjob.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAccountID(v)
+		return nil
+	case imagegenerationjob.FieldBillingType:
+		v, ok := value.(int8)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBillingType(v)
+		return nil
+	case imagegenerationjob.FieldBaseCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBaseCost(v)
+		return nil
+	case imagegenerationjob.FieldRateMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRateMultiplier(v)
+		return nil
+	case imagegenerationjob.FieldEstimatedCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddEstimatedCost(v)
+		return nil
+	case imagegenerationjob.FieldHeldCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddHeldCost(v)
+		return nil
+	case imagegenerationjob.FieldSettledCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSettledCost(v)
+		return nil
+	case imagegenerationjob.FieldAttemptCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAttemptCount(v)
+		return nil
+	case imagegenerationjob.FieldClaimVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddClaimVersion(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ImageGenerationJob numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ImageGenerationJobMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(imagegenerationjob.FieldUserID) {
+		fields = append(fields, imagegenerationjob.FieldUserID)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldAPIKeyID) {
+		fields = append(fields, imagegenerationjob.FieldAPIKeyID)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldGroupID) {
+		fields = append(fields, imagegenerationjob.FieldGroupID)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldSubscriptionID) {
+		fields = append(fields, imagegenerationjob.FieldSubscriptionID)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldAccountID) {
+		fields = append(fields, imagegenerationjob.FieldAccountID)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldUpstreamModel) {
+		fields = append(fields, imagegenerationjob.FieldUpstreamModel)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldRequestedSize) {
+		fields = append(fields, imagegenerationjob.FieldRequestedSize)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldActualSize) {
+		fields = append(fields, imagegenerationjob.FieldActualSize)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldQuality) {
+		fields = append(fields, imagegenerationjob.FieldQuality)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldResponseFormat) {
+		fields = append(fields, imagegenerationjob.FieldResponseFormat)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldUpstreamTaskID) {
+		fields = append(fields, imagegenerationjob.FieldUpstreamTaskID)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldIdempotencyKey) {
+		fields = append(fields, imagegenerationjob.FieldIdempotencyKey)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldRequestHash) {
+		fields = append(fields, imagegenerationjob.FieldRequestHash)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldPayloadObjectRef) {
+		fields = append(fields, imagegenerationjob.FieldPayloadObjectRef)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldErrorCode) {
+		fields = append(fields, imagegenerationjob.FieldErrorCode)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldErrorMessage) {
+		fields = append(fields, imagegenerationjob.FieldErrorMessage)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldLeaseExpiresAt) {
+		fields = append(fields, imagegenerationjob.FieldLeaseExpiresAt)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldNextAttemptAt) {
+		fields = append(fields, imagegenerationjob.FieldNextAttemptAt)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldSubmittedAt) {
+		fields = append(fields, imagegenerationjob.FieldSubmittedAt)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldCompletedAt) {
+		fields = append(fields, imagegenerationjob.FieldCompletedAt)
+	}
+	if m.FieldCleared(imagegenerationjob.FieldSettledAt) {
+		fields = append(fields, imagegenerationjob.FieldSettledAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ImageGenerationJobMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ImageGenerationJobMutation) ClearField(name string) error {
+	switch name {
+	case imagegenerationjob.FieldUserID:
+		m.ClearUserID()
+		return nil
+	case imagegenerationjob.FieldAPIKeyID:
+		m.ClearAPIKeyID()
+		return nil
+	case imagegenerationjob.FieldGroupID:
+		m.ClearGroupID()
+		return nil
+	case imagegenerationjob.FieldSubscriptionID:
+		m.ClearSubscriptionID()
+		return nil
+	case imagegenerationjob.FieldAccountID:
+		m.ClearAccountID()
+		return nil
+	case imagegenerationjob.FieldUpstreamModel:
+		m.ClearUpstreamModel()
+		return nil
+	case imagegenerationjob.FieldRequestedSize:
+		m.ClearRequestedSize()
+		return nil
+	case imagegenerationjob.FieldActualSize:
+		m.ClearActualSize()
+		return nil
+	case imagegenerationjob.FieldQuality:
+		m.ClearQuality()
+		return nil
+	case imagegenerationjob.FieldResponseFormat:
+		m.ClearResponseFormat()
+		return nil
+	case imagegenerationjob.FieldUpstreamTaskID:
+		m.ClearUpstreamTaskID()
+		return nil
+	case imagegenerationjob.FieldIdempotencyKey:
+		m.ClearIdempotencyKey()
+		return nil
+	case imagegenerationjob.FieldRequestHash:
+		m.ClearRequestHash()
+		return nil
+	case imagegenerationjob.FieldPayloadObjectRef:
+		m.ClearPayloadObjectRef()
+		return nil
+	case imagegenerationjob.FieldErrorCode:
+		m.ClearErrorCode()
+		return nil
+	case imagegenerationjob.FieldErrorMessage:
+		m.ClearErrorMessage()
+		return nil
+	case imagegenerationjob.FieldLeaseExpiresAt:
+		m.ClearLeaseExpiresAt()
+		return nil
+	case imagegenerationjob.FieldNextAttemptAt:
+		m.ClearNextAttemptAt()
+		return nil
+	case imagegenerationjob.FieldSubmittedAt:
+		m.ClearSubmittedAt()
+		return nil
+	case imagegenerationjob.FieldCompletedAt:
+		m.ClearCompletedAt()
+		return nil
+	case imagegenerationjob.FieldSettledAt:
+		m.ClearSettledAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ImageGenerationJob nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ImageGenerationJobMutation) ResetField(name string) error {
+	switch name {
+	case imagegenerationjob.FieldJobID:
+		m.ResetJobID()
+		return nil
+	case imagegenerationjob.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case imagegenerationjob.FieldAPIKeyID:
+		m.ResetAPIKeyID()
+		return nil
+	case imagegenerationjob.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case imagegenerationjob.FieldSubscriptionID:
+		m.ResetSubscriptionID()
+		return nil
+	case imagegenerationjob.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case imagegenerationjob.FieldBillingType:
+		m.ResetBillingType()
+		return nil
+	case imagegenerationjob.FieldSource:
+		m.ResetSource()
+		return nil
+	case imagegenerationjob.FieldOperation:
+		m.ResetOperation()
+		return nil
+	case imagegenerationjob.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case imagegenerationjob.FieldPublicModel:
+		m.ResetPublicModel()
+		return nil
+	case imagegenerationjob.FieldUpstreamModel:
+		m.ResetUpstreamModel()
+		return nil
+	case imagegenerationjob.FieldRequestedSize:
+		m.ResetRequestedSize()
+		return nil
+	case imagegenerationjob.FieldActualSize:
+		m.ResetActualSize()
+		return nil
+	case imagegenerationjob.FieldQuality:
+		m.ResetQuality()
+		return nil
+	case imagegenerationjob.FieldResponseFormat:
+		m.ResetResponseFormat()
+		return nil
+	case imagegenerationjob.FieldUpstreamTaskID:
+		m.ResetUpstreamTaskID()
+		return nil
+	case imagegenerationjob.FieldIdempotencyKey:
+		m.ResetIdempotencyKey()
+		return nil
+	case imagegenerationjob.FieldRequestHash:
+		m.ResetRequestHash()
+		return nil
+	case imagegenerationjob.FieldPromptHash:
+		m.ResetPromptHash()
+		return nil
+	case imagegenerationjob.FieldPayloadObjectRef:
+		m.ResetPayloadObjectRef()
+		return nil
+	case imagegenerationjob.FieldResultObjectRefs:
+		m.ResetResultObjectRefs()
+		return nil
+	case imagegenerationjob.FieldBaseCost:
+		m.ResetBaseCost()
+		return nil
+	case imagegenerationjob.FieldRateMultiplier:
+		m.ResetRateMultiplier()
+		return nil
+	case imagegenerationjob.FieldEstimatedCost:
+		m.ResetEstimatedCost()
+		return nil
+	case imagegenerationjob.FieldHeldCost:
+		m.ResetHeldCost()
+		return nil
+	case imagegenerationjob.FieldSettledCost:
+		m.ResetSettledCost()
+		return nil
+	case imagegenerationjob.FieldErrorCode:
+		m.ResetErrorCode()
+		return nil
+	case imagegenerationjob.FieldErrorMessage:
+		m.ResetErrorMessage()
+		return nil
+	case imagegenerationjob.FieldAttemptCount:
+		m.ResetAttemptCount()
+		return nil
+	case imagegenerationjob.FieldClaimVersion:
+		m.ResetClaimVersion()
+		return nil
+	case imagegenerationjob.FieldLeaseExpiresAt:
+		m.ResetLeaseExpiresAt()
+		return nil
+	case imagegenerationjob.FieldNextAttemptAt:
+		m.ResetNextAttemptAt()
+		return nil
+	case imagegenerationjob.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case imagegenerationjob.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case imagegenerationjob.FieldSubmittedAt:
+		m.ResetSubmittedAt()
+		return nil
+	case imagegenerationjob.FieldCompletedAt:
+		m.ResetCompletedAt()
+		return nil
+	case imagegenerationjob.FieldSettledAt:
+		m.ResetSettledAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ImageGenerationJob field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ImageGenerationJobMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ImageGenerationJobMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ImageGenerationJobMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ImageGenerationJobMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ImageGenerationJobMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ImageGenerationJobMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ImageGenerationJobMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown ImageGenerationJob unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ImageGenerationJobMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown ImageGenerationJob edge %s", name)
 }
 
 // PaymentAuditLogMutation represents an operation that mutates the PaymentAuditLog nodes in the graph.

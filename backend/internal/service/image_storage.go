@@ -27,6 +27,29 @@ type ImageStorage interface {
 	Save(ctx context.Context, key, contentType string, data []byte) (url string, err error)
 }
 
+// ImageStorageStreamWriter is an optional zero-copy-ish upload path for large
+// image results. Implementations should consume the reader once and must not
+// retain it after returning. Stores that do not implement this interface keep
+// the byte-slice fallback for backwards compatibility.
+type ImageStorageStreamWriter interface {
+	SaveStream(ctx context.Context, key, contentType string, body io.Reader, contentLength int64) (url string, err error)
+}
+
+// ImageStorageReader is implemented by object stores that can serve a stored
+// object through an authenticated application endpoint. The public API keeps
+// object keys private and never persists expiring signed URLs in PostgreSQL.
+type ImageStorageReader interface {
+	Open(ctx context.Context, key string) (body io.ReadCloser, contentType string, contentLength int64, err error)
+}
+
+// ImageStorageDeleter is implemented by object stores that can remove a
+// private image result after its retention window. It is deliberately a
+// separate optional interface so existing storage adapters remain source
+// compatible while cleanup can fail closed when deletion is unavailable.
+type ImageStorageDeleter interface {
+	Delete(ctx context.Context, key string) error
+}
+
 // ImageResultUploader 是 ImageStorage 的上层编排器（与具体厂商无关）：
 // 把上游生图响应里的每张图片（b64_json 解码 / url 下载）转存到对象存储，
 // 并把响应结果改写为只含短链接的紧凑 JSON，从而避免大 base64 落 Redis。

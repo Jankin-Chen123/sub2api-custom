@@ -15,6 +15,7 @@ import (
 
 const stickySessionPrefix = "sticky_session:"
 const liveCallPrefix = "live:call:"
+const codexDedicatedImageReplayPrefix = "codex:dedicated_image:replay:"
 
 type gatewayCache struct {
 	rdb *redis.Client
@@ -64,9 +65,34 @@ func (c *gatewayCache) DeleteSessionAccountID(ctx context.Context, groupID int64
 	return c.rdb.Del(ctx, key).Err()
 }
 
+func codexDedicatedImageReplayKey(responseID string) string {
+	sum := sha256.Sum256([]byte(responseID))
+	return codexDedicatedImageReplayPrefix + hex.EncodeToString(sum[:])
+}
+
+func (c *gatewayCache) GetCodexDedicatedImageReplay(ctx context.Context, responseID string) ([]byte, error) {
+	value, err := c.rdb.Get(ctx, codexDedicatedImageReplayKey(responseID)).Bytes()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil, service.ErrCodexDedicatedImageReplayNotFound
+		}
+		return nil, err
+	}
+	return value, nil
+}
+
+func (c *gatewayCache) SetCodexDedicatedImageReplay(ctx context.Context, responseID string, value []byte, ttl time.Duration) error {
+	return c.rdb.Set(ctx, codexDedicatedImageReplayKey(responseID), value, ttl).Err()
+}
+
+func (c *gatewayCache) DeleteCodexDedicatedImageReplay(ctx context.Context, responseID string) error {
+	return c.rdb.Del(ctx, codexDedicatedImageReplayKey(responseID)).Err()
+}
+
 // Compile-time assertion: gatewayCache must implement CyberSessionBlockStore.
 var _ service.CyberSessionBlockStore = (*gatewayCache)(nil)
 var _ service.LiveCallStore = (*gatewayCache)(nil)
+var _ service.CodexDedicatedImageReplayStore = (*gatewayCache)(nil)
 
 const cyberSessionBlockPrefix = "cyber_session_block:"
 

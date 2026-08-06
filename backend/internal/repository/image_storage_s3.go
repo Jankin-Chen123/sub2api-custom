@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -23,6 +24,9 @@ type S3ImageStorage struct {
 }
 
 var _ service.ImageStorage = (*S3ImageStorage)(nil)
+var _ service.ImageStorageStreamWriter = (*S3ImageStorage)(nil)
+var _ service.ImageStorageReader = (*S3ImageStorage)(nil)
+var _ service.ImageStorageDeleter = (*S3ImageStorage)(nil)
 
 // NewS3ImageStorage 依据配置构造 S3 图片存储（调用方应先确认 cfg.Active()）。
 func NewS3ImageStorage(ctx context.Context, cfg *config.ImageStorageConfig) (*S3ImageStorage, error) {
@@ -52,12 +56,28 @@ func NewS3ImageStorage(ctx context.Context, cfg *config.ImageStorageConfig) (*S3
 
 // Save 上传图片字节，返回可访问 URL：配了 public_base_url 则返回公开直链，否则返回 presigned 临时链接。
 func (s *S3ImageStorage) Save(ctx context.Context, key, contentType string, data []byte) (string, error) {
+	return s.saveReader(ctx, key, contentType, bytes.NewReader(data), int64(len(data)))
+}
+
+func (s *S3ImageStorage) SaveStream(ctx context.Context, key, contentType string, body io.Reader, contentLength int64) (string, error) {
+	if body == nil || contentLength < 0 {
+		return "", fmt.Errorf("S3 image stream is invalid")
+	}
+	return s.saveReader(ctx, key, contentType, body, contentLength)
+}
+
+func (s *S3ImageStorage) saveReader(ctx context.Context, key, contentType string, body io.Reader, contentLength int64) (string, error) {
+	if s == nil || s.client == nil || body == nil || strings.TrimSpace(key) == "" {
+		return "", fmt.Errorf("S3 image object is invalid")
+	}
 	finish := servertiming.ObserveDependency(ctx, "s3")
+	length := contentLength
 	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      &s.bucket,
-		Key:         &key,
-		Body:        bytes.NewReader(data),
-		ContentType: &contentType,
+		Bucket:        &s.bucket,
+		Key:           &key,
+		Body:          body,
+		ContentLength: &length,
+		ContentType:   &contentType,
 	})
 	finish()
 	if err != nil {
@@ -77,4 +97,38 @@ func (s *S3ImageStorage) Save(ctx context.Context, key, contentType string, data
 		return "", fmt.Errorf("presign url: %w", err)
 	}
 	return result.URL, nil
+}
+
+func (s *S3ImageStorage) Open(ctx context.Context, key string) (io.ReadCloser, string, int64, error) {
+	if s == nil || s.client == nil || strings.TrimSpace(key) == "" {
+		return nil, "", 0, fmt.Errorf("S3 image object reference is invalid")
+	}
+	finish := servertiming.ObserveDependency(ctx, "s3")
+	result, err := s.client.GetObject(ctx, &s3.GetObjectInput{Bucket: &s.bucket, Key: &key})
+	finish()
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("S3 GetObject: %w", err)
+	}
+	contentType := "application/octet-stream"
+	if result.ContentType != nil && strings.TrimSpace(*result.ContentType) != "" {
+		contentType = strings.TrimSpace(*result.ContentType)
+	}
+	contentLength := int64(-1)
+	if result.ContentLength != nil {
+		contentLength = *result.ContentLength
+	}
+	return result.Body, contentType, contentLength, nil
+}
+
+func (s *S3ImageStorage) Delete(ctx context.Context, key string) error {
+	if s == nil || s.client == nil || strings.TrimSpace(key) == "" {
+		return fmt.Errorf("S3 image object key is invalid")
+	}
+	finish := servertiming.ObserveDependency(ctx, "s3")
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: &s.bucket, Key: &key})
+	finish()
+	if err != nil {
+		return fmt.Errorf("S3 DeleteObject: %w", err)
+	}
+	return nil
 }

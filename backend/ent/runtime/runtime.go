@@ -24,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/imagegenerationjob"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -1255,6 +1256,120 @@ func init() {
 	identityadoptiondecisionDescDecidedAt := identityadoptiondecisionFields[4].Descriptor()
 	// identityadoptiondecision.DefaultDecidedAt holds the default value on creation for the decided_at field.
 	identityadoptiondecision.DefaultDecidedAt = identityadoptiondecisionDescDecidedAt.Default.(func() time.Time)
+	imagegenerationjobFields := schema.ImageGenerationJob{}.Fields()
+	_ = imagegenerationjobFields
+	// imagegenerationjobDescJobID is the schema descriptor for job_id field.
+	imagegenerationjobDescJobID := imagegenerationjobFields[0].Descriptor()
+	// imagegenerationjob.JobIDValidator is a validator for the "job_id" field. It is called by the builders before save.
+	imagegenerationjob.JobIDValidator = imagegenerationjobDescJobID.Validators[0].(func(string) error)
+	// imagegenerationjobDescBillingType is the schema descriptor for billing_type field.
+	imagegenerationjobDescBillingType := imagegenerationjobFields[6].Descriptor()
+	// imagegenerationjob.DefaultBillingType holds the default value on creation for the billing_type field.
+	imagegenerationjob.DefaultBillingType = imagegenerationjobDescBillingType.Default.(int8)
+	// imagegenerationjobDescSource is the schema descriptor for source field.
+	imagegenerationjobDescSource := imagegenerationjobFields[7].Descriptor()
+	// imagegenerationjob.SourceValidator is a validator for the "source" field. It is called by the builders before save.
+	imagegenerationjob.SourceValidator = imagegenerationjobDescSource.Validators[0].(func(string) error)
+	// imagegenerationjobDescOperation is the schema descriptor for operation field.
+	imagegenerationjobDescOperation := imagegenerationjobFields[8].Descriptor()
+	// imagegenerationjob.OperationValidator is a validator for the "operation" field. It is called by the builders before save.
+	imagegenerationjob.OperationValidator = imagegenerationjobDescOperation.Validators[0].(func(string) error)
+	// imagegenerationjobDescStatus is the schema descriptor for status field.
+	imagegenerationjobDescStatus := imagegenerationjobFields[9].Descriptor()
+	// imagegenerationjob.DefaultStatus holds the default value on creation for the status field.
+	imagegenerationjob.DefaultStatus = imagegenerationjobDescStatus.Default.(string)
+	// imagegenerationjob.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	imagegenerationjob.StatusValidator = imagegenerationjobDescStatus.Validators[0].(func(string) error)
+	// imagegenerationjobDescPublicModel is the schema descriptor for public_model field.
+	imagegenerationjobDescPublicModel := imagegenerationjobFields[10].Descriptor()
+	// imagegenerationjob.PublicModelValidator is a validator for the "public_model" field. It is called by the builders before save.
+	imagegenerationjob.PublicModelValidator = imagegenerationjobDescPublicModel.Validators[0].(func(string) error)
+	// imagegenerationjobDescUpstreamModel is the schema descriptor for upstream_model field.
+	imagegenerationjobDescUpstreamModel := imagegenerationjobFields[11].Descriptor()
+	// imagegenerationjob.UpstreamModelValidator is a validator for the "upstream_model" field. It is called by the builders before save.
+	imagegenerationjob.UpstreamModelValidator = imagegenerationjobDescUpstreamModel.Validators[0].(func(string) error)
+	// imagegenerationjobDescRequestedSize is the schema descriptor for requested_size field.
+	imagegenerationjobDescRequestedSize := imagegenerationjobFields[12].Descriptor()
+	// imagegenerationjob.RequestedSizeValidator is a validator for the "requested_size" field. It is called by the builders before save.
+	imagegenerationjob.RequestedSizeValidator = imagegenerationjobDescRequestedSize.Validators[0].(func(string) error)
+	// imagegenerationjobDescActualSize is the schema descriptor for actual_size field.
+	imagegenerationjobDescActualSize := imagegenerationjobFields[13].Descriptor()
+	// imagegenerationjob.ActualSizeValidator is a validator for the "actual_size" field. It is called by the builders before save.
+	imagegenerationjob.ActualSizeValidator = imagegenerationjobDescActualSize.Validators[0].(func(string) error)
+	// imagegenerationjobDescQuality is the schema descriptor for quality field.
+	imagegenerationjobDescQuality := imagegenerationjobFields[14].Descriptor()
+	// imagegenerationjob.QualityValidator is a validator for the "quality" field. It is called by the builders before save.
+	imagegenerationjob.QualityValidator = imagegenerationjobDescQuality.Validators[0].(func(string) error)
+	// imagegenerationjobDescResponseFormat is the schema descriptor for response_format field.
+	imagegenerationjobDescResponseFormat := imagegenerationjobFields[15].Descriptor()
+	// imagegenerationjob.ResponseFormatValidator is a validator for the "response_format" field. It is called by the builders before save.
+	imagegenerationjob.ResponseFormatValidator = imagegenerationjobDescResponseFormat.Validators[0].(func(string) error)
+	// imagegenerationjobDescUpstreamTaskID is the schema descriptor for upstream_task_id field.
+	imagegenerationjobDescUpstreamTaskID := imagegenerationjobFields[16].Descriptor()
+	// imagegenerationjob.UpstreamTaskIDValidator is a validator for the "upstream_task_id" field. It is called by the builders before save.
+	imagegenerationjob.UpstreamTaskIDValidator = imagegenerationjobDescUpstreamTaskID.Validators[0].(func(string) error)
+	// imagegenerationjobDescIdempotencyKey is the schema descriptor for idempotency_key field.
+	imagegenerationjobDescIdempotencyKey := imagegenerationjobFields[17].Descriptor()
+	// imagegenerationjob.IdempotencyKeyValidator is a validator for the "idempotency_key" field. It is called by the builders before save.
+	imagegenerationjob.IdempotencyKeyValidator = imagegenerationjobDescIdempotencyKey.Validators[0].(func(string) error)
+	// imagegenerationjobDescRequestHash is the schema descriptor for request_hash field.
+	imagegenerationjobDescRequestHash := imagegenerationjobFields[18].Descriptor()
+	// imagegenerationjob.RequestHashValidator is a validator for the "request_hash" field. It is called by the builders before save.
+	imagegenerationjob.RequestHashValidator = imagegenerationjobDescRequestHash.Validators[0].(func(string) error)
+	// imagegenerationjobDescPromptHash is the schema descriptor for prompt_hash field.
+	imagegenerationjobDescPromptHash := imagegenerationjobFields[19].Descriptor()
+	// imagegenerationjob.PromptHashValidator is a validator for the "prompt_hash" field. It is called by the builders before save.
+	imagegenerationjob.PromptHashValidator = imagegenerationjobDescPromptHash.Validators[0].(func(string) error)
+	// imagegenerationjobDescPayloadObjectRef is the schema descriptor for payload_object_ref field.
+	imagegenerationjobDescPayloadObjectRef := imagegenerationjobFields[20].Descriptor()
+	// imagegenerationjob.PayloadObjectRefValidator is a validator for the "payload_object_ref" field. It is called by the builders before save.
+	imagegenerationjob.PayloadObjectRefValidator = imagegenerationjobDescPayloadObjectRef.Validators[0].(func(string) error)
+	// imagegenerationjobDescResultObjectRefs is the schema descriptor for result_object_refs field.
+	imagegenerationjobDescResultObjectRefs := imagegenerationjobFields[21].Descriptor()
+	// imagegenerationjob.DefaultResultObjectRefs holds the default value on creation for the result_object_refs field.
+	imagegenerationjob.DefaultResultObjectRefs = imagegenerationjobDescResultObjectRefs.Default.([]string)
+	// imagegenerationjobDescBaseCost is the schema descriptor for base_cost field.
+	imagegenerationjobDescBaseCost := imagegenerationjobFields[22].Descriptor()
+	// imagegenerationjob.DefaultBaseCost holds the default value on creation for the base_cost field.
+	imagegenerationjob.DefaultBaseCost = imagegenerationjobDescBaseCost.Default.(float64)
+	// imagegenerationjobDescRateMultiplier is the schema descriptor for rate_multiplier field.
+	imagegenerationjobDescRateMultiplier := imagegenerationjobFields[23].Descriptor()
+	// imagegenerationjob.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
+	imagegenerationjob.DefaultRateMultiplier = imagegenerationjobDescRateMultiplier.Default.(float64)
+	// imagegenerationjobDescEstimatedCost is the schema descriptor for estimated_cost field.
+	imagegenerationjobDescEstimatedCost := imagegenerationjobFields[24].Descriptor()
+	// imagegenerationjob.DefaultEstimatedCost holds the default value on creation for the estimated_cost field.
+	imagegenerationjob.DefaultEstimatedCost = imagegenerationjobDescEstimatedCost.Default.(float64)
+	// imagegenerationjobDescHeldCost is the schema descriptor for held_cost field.
+	imagegenerationjobDescHeldCost := imagegenerationjobFields[25].Descriptor()
+	// imagegenerationjob.DefaultHeldCost holds the default value on creation for the held_cost field.
+	imagegenerationjob.DefaultHeldCost = imagegenerationjobDescHeldCost.Default.(float64)
+	// imagegenerationjobDescSettledCost is the schema descriptor for settled_cost field.
+	imagegenerationjobDescSettledCost := imagegenerationjobFields[26].Descriptor()
+	// imagegenerationjob.DefaultSettledCost holds the default value on creation for the settled_cost field.
+	imagegenerationjob.DefaultSettledCost = imagegenerationjobDescSettledCost.Default.(float64)
+	// imagegenerationjobDescErrorCode is the schema descriptor for error_code field.
+	imagegenerationjobDescErrorCode := imagegenerationjobFields[27].Descriptor()
+	// imagegenerationjob.ErrorCodeValidator is a validator for the "error_code" field. It is called by the builders before save.
+	imagegenerationjob.ErrorCodeValidator = imagegenerationjobDescErrorCode.Validators[0].(func(string) error)
+	// imagegenerationjobDescAttemptCount is the schema descriptor for attempt_count field.
+	imagegenerationjobDescAttemptCount := imagegenerationjobFields[29].Descriptor()
+	// imagegenerationjob.DefaultAttemptCount holds the default value on creation for the attempt_count field.
+	imagegenerationjob.DefaultAttemptCount = imagegenerationjobDescAttemptCount.Default.(int)
+	// imagegenerationjobDescClaimVersion is the schema descriptor for claim_version field.
+	imagegenerationjobDescClaimVersion := imagegenerationjobFields[30].Descriptor()
+	// imagegenerationjob.DefaultClaimVersion holds the default value on creation for the claim_version field.
+	imagegenerationjob.DefaultClaimVersion = imagegenerationjobDescClaimVersion.Default.(int64)
+	// imagegenerationjobDescCreatedAt is the schema descriptor for created_at field.
+	imagegenerationjobDescCreatedAt := imagegenerationjobFields[33].Descriptor()
+	// imagegenerationjob.DefaultCreatedAt holds the default value on creation for the created_at field.
+	imagegenerationjob.DefaultCreatedAt = imagegenerationjobDescCreatedAt.Default.(func() time.Time)
+	// imagegenerationjobDescUpdatedAt is the schema descriptor for updated_at field.
+	imagegenerationjobDescUpdatedAt := imagegenerationjobFields[34].Descriptor()
+	// imagegenerationjob.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	imagegenerationjob.DefaultUpdatedAt = imagegenerationjobDescUpdatedAt.Default.(func() time.Time)
+	// imagegenerationjob.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	imagegenerationjob.UpdateDefaultUpdatedAt = imagegenerationjobDescUpdatedAt.UpdateDefault.(func() time.Time)
 	paymentauditlogFields := schema.PaymentAuditLog{}.Fields()
 	_ = paymentauditlogFields
 	// paymentauditlogDescOrderID is the schema descriptor for order_id field.

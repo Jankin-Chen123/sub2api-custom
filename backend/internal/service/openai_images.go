@@ -47,6 +47,10 @@ type OpenAIImagesCapability string
 const (
 	OpenAIImagesCapabilityBasic  OpenAIImagesCapability = "images-basic"
 	OpenAIImagesCapabilityNative OpenAIImagesCapability = "images-native"
+	// OpenAIImagesCapabilityCangyuan is used only by the opt-in general
+	// account fallback for the Cangyuan adapter. It is stricter than the
+	// generic native Images capability.
+	OpenAIImagesCapabilityCangyuan OpenAIImagesCapability = "images-cangyuan"
 )
 
 type OpenAIImagesUpload struct {
@@ -66,8 +70,10 @@ type OpenAIImagesRequest struct {
 	ExplicitModel      bool
 	Prompt             string
 	Stream             bool
+	Async              bool
 	N                  int
 	Size               string
+	AspectRatio        string
 	ExplicitSize       bool
 	SizeTier           string
 	ResponseFormat     string
@@ -236,6 +242,12 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		}
 		req.Stream = streamResult.Bool()
 	}
+	if asyncResult := gjson.GetBytes(body, "async"); asyncResult.Exists() {
+		if asyncResult.Type != gjson.True && asyncResult.Type != gjson.False {
+			return fmt.Errorf("invalid async field type")
+		}
+		req.Async = asyncResult.Bool()
+	}
 
 	if nResult := gjson.GetBytes(body, "n"); nResult.Exists() {
 		if nResult.Type != gjson.Number {
@@ -251,6 +263,7 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		req.Size = strings.TrimSpace(sizeResult.String())
 		req.ExplicitSize = req.Size != ""
 	}
+	req.AspectRatio = strings.TrimSpace(gjson.GetBytes(body, "aspect_ratio").String())
 	req.ResponseFormat = strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "response_format").String()))
 	req.Quality = strings.TrimSpace(gjson.GetBytes(body, "quality").String())
 	req.Background = strings.TrimSpace(gjson.GetBytes(body, "background").String())
@@ -273,6 +286,11 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		v := int(partialImages.Int())
 		req.PartialImages = &v
 	}
+	// Cangyuan accepts several JSON reference-image aliases on both the
+	// generations and edits endpoints. Resolve those aliases before the edits
+	// endpoint's required-image check; otherwise a valid request such as
+	// {"image": "https://..."} is rejected before the alias parser can see it.
+	appendOpenAIImagesJSONAliases(body, req)
 	if req.IsEdits() {
 		images := gjson.GetBytes(body, "images")
 		if images.Exists() {
@@ -281,7 +299,6 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 			}
 			for _, item := range images.Array() {
 				if imageURL := strings.TrimSpace(item.Get("image_url").String()); imageURL != "" {
-					req.InputImageURLs = append(req.InputImageURLs, imageURL)
 					continue
 				}
 				if item.Get("file_id").Exists() {
@@ -298,6 +315,16 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		}
 		if len(req.InputImageURLs) == 0 {
 			return fmt.Errorf("images[].image_url is required")
+		}
+	}
+	if req.MaskImageURL == "" {
+		mask := strings.TrimSpace(gjson.GetBytes(body, "mask.image_url").String())
+		if mask == "" {
+			mask = strings.TrimSpace(gjson.GetBytes(body, "mask").String())
+		}
+		if mask != "" && !strings.HasPrefix(mask, "{") {
+			req.MaskImageURL = mask
+			req.HasMask = true
 		}
 	}
 	req.HasNativeOptions = hasOpenAINativeImageOptions(func(path string) bool {
@@ -385,6 +412,14 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 				return fmt.Errorf("invalid stream field value")
 			}
 			req.Stream = parsed
+		case "async":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return fmt.Errorf("invalid async field value")
+			}
+			req.Async = parsed
+		case "aspect_ratio":
+			req.AspectRatio = value
 		case "n":
 			n, err := strconv.Atoi(value)
 			if err != nil || n <= 0 {
@@ -434,6 +469,52 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 		return fmt.Errorf("image file is required")
 	}
 	return nil
+}
+
+func appendOpenAIImagesJSONAliases(body []byte, req *OpenAIImagesRequest) {
+	if req == nil || len(body) == 0 {
+		return
+	}
+	for _, field := range []string{"image", "images", "imageUrls", "image_urls", "reference_images", "referenceImages", "image_refs"} {
+		appendOpenAIImagesJSONValue(gjson.GetBytes(body, field), req)
+	}
+}
+
+func appendOpenAIImagesJSONValue(value gjson.Result, req *OpenAIImagesRequest) {
+	if req == nil || !value.Exists() {
+		return
+	}
+	if value.IsArray() {
+		for _, item := range value.Array() {
+			appendOpenAIImagesJSONValue(item, req)
+		}
+		return
+	}
+	if value.Type == gjson.String {
+		appendUniqueOpenAIImageURL(req, value.String())
+		return
+	}
+	if value.Type != gjson.JSON {
+		return
+	}
+	for _, path := range []string{"image_url", "url", "image", "value"} {
+		if nested := value.Get(path); nested.Exists() {
+			appendOpenAIImagesJSONValue(nested, req)
+		}
+	}
+}
+
+func appendUniqueOpenAIImageURL(req *OpenAIImagesRequest, value string) {
+	value = strings.TrimSpace(value)
+	if value == "" || req == nil {
+		return
+	}
+	for _, existing := range req.InputImageURLs {
+		if strings.TrimSpace(existing) == value {
+			return
+		}
+	}
+	req.InputImageURLs = append(req.InputImageURLs, value)
 }
 
 func parseOpenAIImageDimensions(_ textproto.MIMEHeader) (int, int) {

@@ -82,6 +82,13 @@ export default {
       notes: 'Notes',
       notesPlaceholder: 'Enter notes',
       notesHint: 'Notes are optional',
+      accountPurpose: {
+        label: 'Account purpose',
+        general: 'General account',
+        imageOnly: 'Dedicated image account (Cangyuan)',
+        generalHint: 'Used for chat, coding, tools, and normal compatible requests.',
+        imageOnlyHint: 'Used only for image execution and never receives chat or Responses conversations. Configure the Cangyuan URL and 1K/2K/4K model mappings.'
+      },
       allPlatforms: 'All Platforms',
       allTypes: 'All Types',
       allStatus: 'All Status',
@@ -1299,6 +1306,10 @@ export default {
       imageTestMode: 'Mode: Image generation test',
       imagePreview: 'Generated images:',
       imageReceived: 'Received test image #{count}',
+      imageTestCostConfirm: 'I understand this test will create a billable upstream image.',
+      imageTestCostHint: 'The test uses the selected Cangyuan tier. The result metadata is shown without exposing provider credentials or task IDs.',
+      dedicatedImageTestCompleted: 'Cangyuan image test completed in {duration} ms.',
+      dedicatedImageTestFailed: 'Cangyuan image test failed. Check the account endpoint and key.',
       // Stats Modal
       viewStats: 'View Stats',
       usageStatistics: 'Usage Statistics',

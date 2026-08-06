@@ -402,6 +402,7 @@ type PublicSettings struct {
 	RiskControlEnabled bool `json:"risk_control_enabled"`
 
 	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
+	DedicatedImageEnabled      bool `json:"dedicated_image_enabled"`
 }
 
 type LoginAgreementDocument struct {

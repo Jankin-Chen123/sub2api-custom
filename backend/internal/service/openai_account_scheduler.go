@@ -82,9 +82,19 @@ type OpenAIAccountScheduleRequest struct {
 	RequiredTransport       OpenAIUpstreamTransport
 	RequiredCapability      OpenAIEndpointCapability
 	RequiredImageCapability OpenAIImagesCapability
+	RequestStage            OpenAIRequestStage
+	RequiredAccountPurpose  string
 	RequireCompact          bool
 	ExcludedIDs             map[int64]struct{}
 }
+
+type OpenAIRequestStage string
+
+const (
+	OpenAIRequestStageText           OpenAIRequestStage = "text"
+	OpenAIRequestStageImagePlanning  OpenAIRequestStage = "image_planning"
+	OpenAIRequestStageImageExecution OpenAIRequestStage = "image_execution"
+)
 
 type OpenAIAccountScheduleDecision struct {
 	Layer               string
@@ -1709,7 +1719,7 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatibleReason(ctx con
 		s.service.isUpstreamModelRestrictedByChannel(ctx, *req.GroupID, account, req.RequestedModel, req.RequireCompact) {
 		return false, "channel_upstream_restricted"
 	}
-	if !accountSupportsOpenAICapabilities(account, req.RequiredCapability, req.RequiredImageCapability) {
+	if !accountSupportsOpenAIRequest(account, req.RequestedModel, req.RequiredCapability, req.RequiredImageCapability, req.RequiredAccountPurpose) {
 		return false, "capability_mismatch"
 	}
 	// 分组利润控制：不合格账号在候选过滤与抢槽后终检阶段即被排除，
@@ -1995,7 +2005,7 @@ func (s *OpenAIGatewayService) SelectAccountWithScheduler(
 	requiredTransport OpenAIUpstreamTransport,
 	requireCompact bool,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
-	return s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", "", requireCompact, PlatformOpenAI, false, true)
+	return s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", "", OpenAIRequestStageText, AccountPurposeGeneral, requireCompact, PlatformOpenAI, false, true)
 }
 
 // SelectAccountWithSchedulerForCapability 按能力要求调度账号。
@@ -2019,7 +2029,43 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForCapability(
 	if len(platformOverride) > 0 {
 		platform = platformOverride[0]
 	}
-	return s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, "", requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+	return s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, "", OpenAIRequestStageText, AccountPurposeGeneral, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+}
+
+// SelectAccountWithSchedulerForImagePlanning selects a general account for
+// the first stage of the dedicated Codex image bridge. The stage is kept
+// distinct from ordinary text scheduling so capacity and routing metrics can
+// distinguish planning from the later image_only execution job.
+func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImagePlanning(
+	ctx context.Context,
+	groupID *int64,
+	previousResponseID string,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requiredCapability OpenAIEndpointCapability,
+	requireCompact bool,
+	previousResponseCanMove bool,
+	useUpstreamTokenCost bool,
+	platform string,
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	return s.selectAccountWithScheduler(
+		ctx,
+		groupID,
+		previousResponseID,
+		sessionHash,
+		requestedModel,
+		excludedIDs,
+		OpenAIUpstreamTransportAny,
+		requiredCapability,
+		"",
+		OpenAIRequestStageImagePlanning,
+		AccountPurposeGeneral,
+		requireCompact,
+		platform,
+		previousResponseCanMove,
+		useUpstreamTokenCost,
+	)
 }
 
 func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
@@ -2030,15 +2076,79 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 	excludedIDs map[int64]struct{},
 	requiredCapability OpenAIImagesCapability,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
-	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", requiredCapability, false, PlatformOpenAI, false, false)
+	// The legacy Images handler is an OpenAI-compatible passthrough. It must
+	// remain general-only even when durable Cangyuan routing is enabled: the
+	// dedicated handler intercepts the explicit Cangyuan tier models and sends
+	// them through the durable image_execution path. Letting this selector pick
+	// image_only would forward unrelated image requests directly to an account
+	// that cannot speak the OpenAI Images protocol.
+	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", requiredCapability, OpenAIRequestStageImageExecution, AccountPurposeGeneral, false, PlatformOpenAI, false, false)
 	if err == nil && selection != nil && selection.Account != nil {
 		return selection, decision, nil
 	}
 	// 如果要求 native 能力（如指定了模型）但没有可用的 APIKey 账号，回退到 basic（OAuth 账号）
 	if requiredCapability == OpenAIImagesCapabilityNative {
-		return s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", OpenAIImagesCapabilityBasic, false, PlatformOpenAI, false, false)
+		return s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", OpenAIImagesCapabilityBasic, OpenAIRequestStageImageExecution, AccountPurposeGeneral, false, PlatformOpenAI, false, false)
 	}
 	return selection, decision, err
+}
+
+// SelectAccountWithSchedulerForDedicatedImages selects only image_only accounts.
+// The optional general fallback is explicit and one-way: text requests never use
+// image_only accounts, while a dedicated image request may use the legacy image
+// pool only when the caller has enabled that policy.
+func (s *OpenAIGatewayService) SelectAccountWithSchedulerForDedicatedImages(
+	ctx context.Context,
+	groupID *int64,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requiredCapability OpenAIImagesCapability,
+	allowGeneralFallback bool,
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	selection, decision, err := s.selectAccountWithScheduler(
+		ctx,
+		groupID,
+		"",
+		sessionHash,
+		requestedModel,
+		excludedIDs,
+		OpenAIUpstreamTransportHTTPSSE,
+		"",
+		requiredCapability,
+		OpenAIRequestStageImageExecution,
+		AccountPurposeImageOnly,
+		false,
+		PlatformOpenAI,
+		false,
+		false,
+	)
+	if err == nil && selection != nil && selection.Account != nil {
+		return selection, decision, nil
+	}
+	if !allowGeneralFallback {
+		return selection, decision, err
+	}
+	// General fallback is not a generic OpenAI Images fallback. The worker
+	// still uses the Cangyuan adapter, so select only accounts that explicitly
+	// provide Cangyuan credentials and a Cangyuan model mapping.
+	return s.selectAccountWithScheduler(
+		ctx,
+		groupID,
+		"",
+		sessionHash,
+		requestedModel,
+		excludedIDs,
+		OpenAIUpstreamTransportHTTPSSE,
+		"",
+		OpenAIImagesCapabilityCangyuan,
+		OpenAIRequestStageImageExecution,
+		AccountPurposeGeneral,
+		false,
+		PlatformOpenAI,
+		false,
+		false,
+	)
 }
 
 // selectAccountWithScheduler wraps selectAccountWithSchedulerOnce with a
@@ -2058,12 +2168,14 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	requiredTransport OpenAIUpstreamTransport,
 	requiredCapability OpenAIEndpointCapability,
 	requiredImageCapability OpenAIImagesCapability,
+	requestStage OpenAIRequestStage,
+	requiredAccountPurpose string,
 	requireCompact bool,
 	platform string,
 	previousResponseCanMove bool,
 	useUpstreamTokenCost bool,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
-	selection, decision, err := s.selectAccountWithSchedulerOnce(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+	selection, decision, err := s.selectAccountWithSchedulerOnce(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requestStage, requiredAccountPurpose, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
 	if err == nil || openAIProxyStreamQuarantineBypassed(ctx) {
 		return selection, decision, err
 	}
@@ -2079,7 +2191,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 		return selection, decision, err
 	}
 	s.logOpenAIProxyStreamQuarantineFailOpen(requestedModel, blocked)
-	return s.selectAccountWithSchedulerOnce(withOpenAIProxyStreamQuarantineBypass(ctx), groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
+	return s.selectAccountWithSchedulerOnce(withOpenAIProxyStreamQuarantineBypass(ctx), groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requestStage, requiredAccountPurpose, requireCompact, platform, previousResponseCanMove, useUpstreamTokenCost)
 }
 
 func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
@@ -2092,6 +2204,8 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 	requiredTransport OpenAIUpstreamTransport,
 	requiredCapability OpenAIEndpointCapability,
 	requiredImageCapability OpenAIImagesCapability,
+	requestStage OpenAIRequestStage,
+	requiredAccountPurpose string,
 	requireCompact bool,
 	platform string,
 	previousResponseCanMove bool,
@@ -2124,7 +2238,7 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 				if selection == nil || selection.Account == nil {
 					return selection, decision, nil
 				}
-				if accountSupportsOpenAICapabilities(selection.Account, requiredCapability, requiredImageCapability) {
+				if accountSupportsOpenAIRequest(selection.Account, requestedModel, requiredCapability, requiredImageCapability, requiredAccountPurpose) {
 					return selection, decision, nil
 				}
 				if selection.ReleaseFunc != nil {
@@ -2150,7 +2264,7 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 				return selection, decision, nil
 			}
 			if s.isOpenAIAccountTransportCompatible(selection.Account, requiredTransport) &&
-				accountSupportsOpenAICapabilities(selection.Account, requiredCapability, requiredImageCapability) {
+				accountSupportsOpenAIRequest(selection.Account, requestedModel, requiredCapability, requiredImageCapability, requiredAccountPurpose) {
 				return selection, decision, nil
 			}
 			if selection.ReleaseFunc != nil {
@@ -2201,14 +2315,35 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 		RequiredTransport:       requiredTransport,
 		RequiredCapability:      requiredCapability,
 		RequiredImageCapability: requiredImageCapability,
+		RequestStage:            requestStage,
+		RequiredAccountPurpose:  requiredAccountPurpose,
 		RequireCompact:          requireCompact,
 		ExcludedIDs:             excludedIDs,
 	})
 }
 
-func accountSupportsOpenAICapabilities(account *Account, requiredCapability OpenAIEndpointCapability, requiredImageCapability OpenAIImagesCapability) bool {
+func accountSupportsOpenAIRequest(account *Account, requestedModel string, requiredCapability OpenAIEndpointCapability, requiredImageCapability OpenAIImagesCapability, requiredAccountPurpose string) bool {
 	if account == nil {
 		return false
+	}
+	if requiredAccountPurpose == AccountPurposeImageOnly {
+		if !account.IsImageOnly() {
+			return false
+		}
+	} else if account.IsImageOnly() {
+		// Missing/empty requirement is deliberately treated as general. This
+		// protects every legacy call path, including newly added ones that have
+		// not yet learned about request stages.
+		return false
+	}
+	if requiredAccountPurpose == AccountPurposeImageOnly || requiredImageCapability == OpenAIImagesCapabilityCangyuan {
+		mappedModel, matched := account.ResolveMappedModel(requestedModel)
+		if !matched {
+			return false
+		}
+		if _, supported := cangyuanImageModels[strings.TrimSpace(mappedModel)]; !supported {
+			return false
+		}
 	}
 	return account.SupportsOpenAIEndpointCapability(requiredCapability) &&
 		account.SupportsOpenAIImageCapability(requiredImageCapability)

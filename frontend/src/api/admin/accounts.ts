@@ -246,6 +246,30 @@ export async function testAccount(id: number): Promise<{
 }
 
 /**
+ * Run one explicitly confirmed, billable Cangyuan image test for an image_only account.
+ * The server response intentionally contains no provider task ID, signed URL, or key.
+ */
+export async function testImageAccount(
+  id: number,
+  payload: { confirm: true; model?: string; prompt?: string }
+): Promise<{
+  success: boolean
+  model: string
+  status: string
+  completed: boolean
+  duration_ms: number
+}> {
+  const { data } = await apiClient.post<{
+    success: boolean
+    model: string
+    status: string
+    completed: boolean
+    duration_ms: number
+  }>(`/admin/accounts/${id}/test-image`, payload, { timeout: 210000 })
+  return data
+}
+
+/**
  * Refresh account credentials
  * @param id - Account ID
  * @returns Updated account
@@ -951,6 +975,7 @@ export const accountsAPI = {
   delete: deleteAccount,
   toggleStatus,
   testAccount,
+  testImageAccount,
   refreshCredentials,
   applyOAuthCredentials,
   getStats,

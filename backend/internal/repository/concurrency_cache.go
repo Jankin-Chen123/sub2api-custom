@@ -29,7 +29,11 @@ const (
 	// 格式: concurrency:user:{userID}
 	userSlotKeyPrefix = "concurrency:user:"
 	// 格式: concurrency:api_key:{apiKeyID}
-	apiKeySlotKeyPrefix      = "concurrency:api_key:"
+	apiKeySlotKeyPrefix = "concurrency:api_key:"
+	// All image dimensions share a Redis hash tag so the multi-key Lua
+	// transaction also works when Redis Cluster is enabled.
+	imageSlotKeyPrefix       = "concurrency:image:{image}:"
+	imageLiveSlotKeyPrefix   = "concurrency:image_live:{image}:"
 	liveAccountSlotKeyPrefix = "concurrency:live:account:"
 	liveUserSlotKeyPrefix    = "concurrency:live:user:"
 	liveAPIKeySlotKeyPrefix  = "concurrency:live:api_key:"
@@ -226,6 +230,58 @@ var (
 		return 0
 	`)
 
+	acquireImageSlotsScript = redis.NewScript(`
+		redis.replicate_commands()
+		local requestID = ARGV[1]
+		local ttl = tonumber(ARGV[2])
+		local now = tonumber(redis.call('TIME')[1])
+		local expireBefore = now - ttl
+		local dimensionCount = #KEYS / 2
+		local allExisting = 1
+
+		for i = 1, dimensionCount do
+			local slotKey = KEYS[(i - 1) * 2 + 1]
+			local liveKey = KEYS[(i - 1) * 2 + 2]
+			redis.call('ZREMRANGEBYSCORE', slotKey, '-inf', expireBefore)
+			redis.call('ZREMRANGEBYSCORE', liveKey, '-inf', expireBefore)
+			if redis.call('ZSCORE', slotKey, requestID) == false then
+				allExisting = 0
+			end
+		end
+		if allExisting == 1 then
+			return 1
+		end
+
+		-- Remove a partial retry before checking capacity.
+		for i = 1, dimensionCount do
+			redis.call('ZREM', KEYS[(i - 1) * 2 + 1], requestID)
+			redis.call('ZREM', KEYS[(i - 1) * 2 + 2], requestID)
+		end
+		for i = 1, dimensionCount do
+			local slotKey = KEYS[(i - 1) * 2 + 1]
+			local liveKey = KEYS[(i - 1) * 2 + 2]
+			local maxConcurrency = tonumber(ARGV[i + 2])
+			if maxConcurrency > 0 and (redis.call('ZCARD', slotKey) + redis.call('ZCARD', liveKey)) >= maxConcurrency then
+				return 0
+			end
+		end
+		for i = 1, dimensionCount do
+			local slotKey = KEYS[(i - 1) * 2 + 1]
+			local liveKey = KEYS[(i - 1) * 2 + 2]
+			redis.call('ZADD', slotKey, now, requestID)
+			redis.call('EXPIRE', slotKey, ttl)
+			redis.call('EXPIRE', liveKey, ttl)
+		end
+		return 1
+	`)
+
+	releaseImageSlotsScript = redis.NewScript(`
+		for i = 1, #KEYS do
+			redis.call('ZREM', KEYS[i], ARGV[1])
+		end
+		return 1
+	`)
+
 	// refreshOpenAIWSIngressLeaseScript does not recreate a missing member: a
 	// process that lost its lease must terminate its local WebSocket instead of
 	// silently continuing beyond the distributed cap.
@@ -360,6 +416,8 @@ type concurrencyCache struct {
 	waitQueueTTLSeconds int // 等待队列过期时间（秒）
 }
 
+var _ service.ImageConcurrencyCache = (*concurrencyCache)(nil)
+
 // NewConcurrencyCache 创建并发控制缓存
 // slotTTLMinutes: 槽位过期时间（分钟），0 或负数使用默认值 15 分钟
 // waitQueueTTLSeconds: 等待队列过期时间（秒），0 或负数使用 slot TTL
@@ -388,6 +446,14 @@ func userSlotKey(userID int64) string {
 
 func apiKeySlotKey(apiKeyID int64) string {
 	return fmt.Sprintf("%s%d", apiKeySlotKeyPrefix, apiKeyID)
+}
+
+func imageSlotKey(dimension service.ImageConcurrencyDimension) string {
+	return fmt.Sprintf("%s%s:%d", imageSlotKeyPrefix, dimension.Name, dimension.ID)
+}
+
+func imageLiveSlotKey(dimension service.ImageConcurrencyDimension) string {
+	return fmt.Sprintf("%s%s:%d", imageLiveSlotKeyPrefix, dimension.Name, dimension.ID)
 }
 
 func liveAccountSlotKey(accountID int64) string {
@@ -748,6 +814,50 @@ func (c *concurrencyCache) TrackAPIKeySlot(ctx context.Context, apiKeyID int64, 
 func (c *concurrencyCache) ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error {
 	key := apiKeySlotKey(apiKeyID)
 	return c.rdb.ZRem(ctx, key, requestID).Err()
+}
+
+// AcquireImageSlots atomically acquires every configured image dimension.
+// The dimensions use a common Redis hash tag, which keeps the Lua operation
+// valid on Redis Cluster while avoiding partial user/key/group/4K leases.
+func (c *concurrencyCache) AcquireImageSlots(ctx context.Context, dimensions []service.ImageConcurrencyDimension, requestID string) (bool, error) {
+	if c == nil || c.rdb == nil || len(dimensions) == 0 || requestID == "" {
+		return false, nil
+	}
+	keys := make([]string, 0, len(dimensions)*2)
+	args := make([]any, 0, len(dimensions)+2)
+	args = append(args, requestID, c.slotTTLSeconds)
+	for _, dimension := range dimensions {
+		if dimension.ID <= 0 || dimension.Max <= 0 || dimension.Name == "" {
+			return false, fmt.Errorf("invalid image concurrency dimension")
+		}
+		keys = append(keys, imageSlotKey(dimension), imageLiveSlotKey(dimension))
+	}
+	for _, dimension := range dimensions {
+		args = append(args, dimension.Max)
+	}
+	result, err := acquireImageSlotsScript.Run(ctx, c.rdb, keys, args...).Int()
+	if err != nil {
+		return false, err
+	}
+	return result == 1, nil
+}
+
+func (c *concurrencyCache) ReleaseImageSlots(ctx context.Context, dimensions []service.ImageConcurrencyDimension, requestID string) error {
+	if c == nil || c.rdb == nil || len(dimensions) == 0 || requestID == "" {
+		return nil
+	}
+	keys := make([]string, 0, len(dimensions)*2)
+	for _, dimension := range dimensions {
+		if dimension.ID <= 0 || dimension.Name == "" {
+			continue
+		}
+		keys = append(keys, imageSlotKey(dimension), imageLiveSlotKey(dimension))
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	_, err := releaseImageSlotsScript.Run(ctx, c.rdb, keys, requestID).Result()
+	return err
 }
 
 func (c *concurrencyCache) AcquireOpenAIWSIngressLease(ctx context.Context, apiKeyID int64, maxConnections int, leaseID string) (bool, error) {

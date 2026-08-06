@@ -55,7 +55,7 @@
         />
       </div>
 
-      <div v-if="isOpenAIAccount" class="space-y-1.5">
+      <div v-if="isOpenAIAccount && !isDedicatedImageAccount" class="space-y-1.5">
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
           {{ t('admin.accounts.openai.testMode') }}
         </label>
@@ -75,6 +75,22 @@
           :disabled="status === 'connecting'"
           rows="3"
         />
+      </div>
+
+      <div
+        v-if="isDedicatedImageAccount"
+        class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+      >
+        <label class="flex cursor-pointer items-start gap-2">
+          <input
+            v-model="imageTestCostConfirmed"
+            type="checkbox"
+            class="mt-0.5 rounded border-amber-400 text-primary-600 focus:ring-primary-500"
+            :disabled="status === 'connecting'"
+          />
+          <span class="font-medium">{{ t('admin.accounts.imageTestCostConfirm') }}</span>
+        </label>
+        <p class="mt-1 pl-6 text-xs opacity-80">{{ t('admin.accounts.imageTestCostHint') }}</p>
       </div>
 
       <!-- Terminal Output -->
@@ -205,7 +221,7 @@
         </button>
         <button
           @click="startTest"
-          :disabled="status === 'connecting' || !selectedModelId"
+          :disabled="status === 'connecting' || !selectedModelId || (isDedicatedImageAccount && !imageTestCostConfirmed)"
           :class="[
             'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
             status === 'connecting' || !selectedModelId
@@ -289,7 +305,9 @@ let abortController: AbortController | null = null
 const generatedImages = ref<PreviewImage[]>([])
 const previewImageUrl = ref('')
 const testMode = ref<'default' | 'compact'>('default')
+const imageTestCostConfirmed = ref(false)
 const isOpenAIAccount = computed(() => props.account?.platform === 'openai')
+const isDedicatedImageAccount = computed(() => props.account?.extra?.account_purpose === 'image_only')
 const openAITestModeOptions = computed(() => [
   { value: 'default', label: t('admin.accounts.openai.testModeDefault') },
   { value: 'compact', label: t('admin.accounts.openai.testModeCompact') }
@@ -308,7 +326,13 @@ const supportsOpenAIImageTest = computed(() => {
   return props.account?.platform === 'openai'
 })
 
-const supportsImageTest = computed(() => supportsGeminiImageTest.value || supportsOpenAIImageTest.value)
+const supportsImageTest = computed(() => isDedicatedImageAccount.value || supportsGeminiImageTest.value || supportsOpenAIImageTest.value)
+
+const dedicatedImageModels: ClaudeModel[] = [
+  { id: 'gpt-image-2-1k', type: 'model', display_name: 'Cangyuan GPT Image 2 · 1K', created_at: '' },
+  { id: 'gpt-image-2-2k', type: 'model', display_name: 'Cangyuan GPT Image 2 · 2K', created_at: '' },
+  { id: 'gpt-image-2-4k', type: 'model', display_name: 'Cangyuan GPT Image 2 · 4K', created_at: '' }
+]
 
 const sortTestModels = (models: ClaudeModel[]) => {
   const priorityMap = new Map(prioritizedGeminiModels.map((id, index) => [id, index]))
@@ -328,6 +352,7 @@ watch(
     if (newVal && props.account) {
       testPrompt.value = ''
       testMode.value = 'default'
+      imageTestCostConfirmed.value = false
       resetState()
       await loadAvailableModels()
     } else {
@@ -347,6 +372,12 @@ const loadAvailableModels = async () => {
 
   loadingModels.value = true
   selectedModelId.value = '' // Reset selection before loading
+  if (isDedicatedImageAccount.value) {
+    availableModels.value = dedicatedImageModels
+    selectedModelId.value = dedicatedImageModels[0].id
+    loadingModels.value = false
+    return
+  }
   try {
     const models = await adminAPI.accounts.getAvailableModels(props.account.id)
     availableModels.value = props.account.platform === 'gemini' || props.account.platform === 'antigravity'
@@ -406,13 +437,32 @@ const scrollToBottom = async () => {
 }
 
 const startTest = async () => {
-  if (!props.account || !selectedModelId.value) return
+  if (!props.account || !selectedModelId.value || (isDedicatedImageAccount.value && !imageTestCostConfirmed.value)) return
 
   resetState()
   status.value = 'connecting'
   addLine(t('admin.accounts.startingTestForAccount', { name: props.account.name }), 'text-blue-400')
   addLine(t('admin.accounts.testAccountTypeLabel', { type: props.account.type }), 'text-gray-400')
   addLine('', 'text-gray-300')
+
+  if (isDedicatedImageAccount.value) {
+    try {
+      addLine(t('admin.accounts.sendingImageRequest'), 'text-gray-400')
+      const result = await adminAPI.accounts.testImageAccount(props.account.id, {
+        confirm: true,
+        model: selectedModelId.value,
+        prompt: testPrompt.value.trim()
+      })
+      addLine(t('admin.accounts.usingModel', { model: result.model }), 'text-cyan-400')
+      addLine(t('admin.accounts.dedicatedImageTestCompleted', { duration: result.duration_ms }), 'text-green-300')
+      status.value = 'success'
+    } catch {
+      status.value = 'error'
+      errorMessage.value = t('admin.accounts.dedicatedImageTestFailed')
+      addLine(errorMessage.value, 'text-red-400')
+    }
+    return
+  }
 
   abortStream()
 

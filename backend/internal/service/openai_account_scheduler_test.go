@@ -668,6 +668,168 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_ResponsesCapabilityExcl
 	})
 }
 
+func TestOpenAIGatewayService_AccountPurposeIsolation(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(10121)
+	general := Account{
+		ID: 37101, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10,
+		Credentials: map[string]any{
+			"api_key":       "test-general-key",
+			"base_url":      "https://cangyuan-fallback.example.test/v1",
+			"model_mapping": map[string]any{"gpt-image-2-1k": "gpt-image-2-1k", "gpt-5.1": "gpt-5.1"},
+		},
+	}
+	imageOnly := Account{
+		ID: 37102, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{"gpt-image-2-1k": "gpt-image-2-1k", "gpt-5.1": "gpt-5.1"},
+		},
+		Extra: map[string]any{AccountPurposeExtraKey: AccountPurposeImageOnly},
+	}
+	newSvc := func(accounts []Account) *OpenAIGatewayService {
+		cfg := &config.Config{}
+		cfg.Gateway.Scheduling.LoadBatchEnabled = false
+		return &OpenAIGatewayService{
+			accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
+			cache:              &schedulerTestGatewayCache{},
+			cfg:                cfg,
+			concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
+		}
+	}
+
+	t.Run("text excludes higher-priority image-only account", func(t *testing.T) {
+		selection, _, err := newSvc([]Account{imageOnly, general}).SelectAccountWithSchedulerForCapability(
+			ctx, &groupID, "", "", "gpt-5.1", nil,
+			OpenAIUpstreamTransportHTTPSSE, OpenAIEndpointCapabilityChatCompletions,
+			false, false, true,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.Equal(t, general.ID, selection.Account.ID)
+	})
+
+	t.Run("image planning remains on a general account", func(t *testing.T) {
+		selection, _, err := newSvc([]Account{imageOnly, general}).SelectAccountWithSchedulerForImagePlanning(
+			ctx, &groupID, "", "", "gpt-5.1", nil,
+			OpenAIEndpointCapabilityChatCompletions, false, false, true, PlatformOpenAI,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.Equal(t, general.ID, selection.Account.ID)
+	})
+
+	t.Run("text fails when the group contains only image-only accounts", func(t *testing.T) {
+		selection, _, err := newSvc([]Account{imageOnly}).SelectAccountWithSchedulerForCapability(
+			ctx, &groupID, "", "", "gpt-5.1", nil,
+			OpenAIUpstreamTransportHTTPSSE, OpenAIEndpointCapabilityChatCompletions,
+			false, false, true,
+		)
+		require.Error(t, err)
+		require.Nil(t, selection)
+	})
+
+	t.Run("dedicated image execution selects only image-only", func(t *testing.T) {
+		selection, _, err := newSvc([]Account{general, imageOnly}).SelectAccountWithSchedulerForDedicatedImages(
+			ctx, &groupID, "", "gpt-image-2-1k", nil, OpenAIImagesCapabilityNative, false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.Equal(t, imageOnly.ID, selection.Account.ID)
+	})
+
+	t.Run("dedicated image execution skips image-only account without model mapping", func(t *testing.T) {
+		badMapping := imageOnly
+		badMapping.ID = 37104
+		badMapping.Credentials = map[string]any{
+			"model_mapping": map[string]any{"gpt-image-2-4k": CangyuanImageModel4K},
+		}
+		selection, _, err := newSvc([]Account{badMapping, imageOnly}).SelectAccountWithSchedulerForDedicatedImages(
+			ctx, &groupID, "", "gpt-image-2-1k", nil, OpenAIImagesCapabilityNative, false,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.Equal(t, imageOnly.ID, selection.Account.ID)
+	})
+
+	t.Run("legacy direct Images execution remains general-only", func(t *testing.T) {
+		svc := newSvc([]Account{general, imageOnly})
+		svc.cfg.DedicatedImage.Enabled = true
+		svc.cfg.DedicatedImage.WorkerEnabled = true
+		selection, _, err := svc.SelectAccountWithSchedulerForImages(
+			ctx, &groupID, "", "gpt-image-2-1k", nil, OpenAIImagesCapabilityNative,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.Equal(t, general.ID, selection.Account.ID)
+	})
+
+	t.Run("direct Images does not enter image-only when dedicated routing is disabled", func(t *testing.T) {
+		selection, _, err := newSvc([]Account{imageOnly, general}).SelectAccountWithSchedulerForImages(
+			ctx, &groupID, "", "gpt-image-2-1k", nil, OpenAIImagesCapabilityNative,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.Equal(t, general.ID, selection.Account.ID)
+	})
+
+	t.Run("direct Images falls back to general when image-only is absent", func(t *testing.T) {
+		selection, _, err := newSvc([]Account{general}).SelectAccountWithSchedulerForImages(
+			ctx, &groupID, "", "gpt-image-2-1k", nil, OpenAIImagesCapabilityNative,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.Equal(t, general.ID, selection.Account.ID)
+	})
+
+	t.Run("legacy direct Images does not bypass the durable handler", func(t *testing.T) {
+		svc := newSvc([]Account{general, imageOnly})
+		svc.cfg.DedicatedImage.Enabled = true
+		svc.cfg.DedicatedImage.WorkerEnabled = true
+		selection, _, err := svc.SelectAccountWithSchedulerForImages(
+			ctx, &groupID, "", "gpt-image-2-1k", nil, OpenAIImagesCapabilityNative,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.Equal(t, general.ID, selection.Account.ID)
+	})
+
+	t.Run("dedicated image execution fails closed without explicit fallback", func(t *testing.T) {
+		selection, _, err := newSvc([]Account{general}).SelectAccountWithSchedulerForDedicatedImages(
+			ctx, &groupID, "", "gpt-image-2-1k", nil, OpenAIImagesCapabilityNative, false,
+		)
+		require.Error(t, err)
+		require.Nil(t, selection)
+	})
+
+	t.Run("dedicated image execution may explicitly fall back to general", func(t *testing.T) {
+		selection, _, err := newSvc([]Account{general}).SelectAccountWithSchedulerForDedicatedImages(
+			ctx, &groupID, "", "gpt-image-2-1k", nil, OpenAIImagesCapabilityNative, true,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.Equal(t, general.ID, selection.Account.ID)
+	})
+
+	t.Run("general fallback excludes an ordinary OpenAI account", func(t *testing.T) {
+		ordinary := general
+		ordinary.ID = 37103
+		ordinary.Credentials = map[string]any{
+			"api_key":       "test-openai-key",
+			"base_url":      "https://api.openai.example.test/v1",
+			"model_mapping": map[string]any{"gpt-image-2-1k": "gpt-image-1"},
+		}
+		selection, _, err := newSvc([]Account{ordinary}).SelectAccountWithSchedulerForDedicatedImages(
+			ctx, &groupID, "", "gpt-image-2-1k", nil, OpenAIImagesCapabilityNative, true,
+		)
+		require.Error(t, err)
+		require.Nil(t, selection)
+	})
+}
+
 // alpha/search 调度必须同时放行 OAuth 与 APIKey 账号：v0.1.157 曾因 OAuth-only
 // 门控把 APIKey 账号从候选池剔除，纯 APIKey 分组的独立搜索请求在选号阶段就
 // 报无可用账号，Codex 网页搜索整体失效（转发层其实一直支持 APIKey 路径）。

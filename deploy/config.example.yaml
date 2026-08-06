@@ -479,6 +479,13 @@ gateway:
     # Max concurrent image generation requests in this process, 0=unlimited
     # 当前进程允许同时处理的图片生成请求数，0=不限制
     max_concurrent_requests: 0
+    # Optional Redis-distributed dimensions; zero disables each dimension.
+    # 可选的 Redis 分布式维度；0=不限制该维度。
+    max_per_user: 0
+    max_per_api_key: 0
+    max_per_group: 0
+    max_per_account: 0
+    max_4k_concurrent: 0
     # Overflow mode when the image concurrency limit is full: reject/wait
     # 图片并发满时的处理方式：reject=立即拒绝，wait=等待槽位
     overflow_mode: "reject"
@@ -1259,6 +1266,35 @@ update:
   # Leave empty for direct connection (recommended for overseas servers)
   # 留空表示直连（适用于海外服务器）
   proxy_url: ""
+
+# =============================================================================
+# Dedicated Cangyuan image routing (专用沧源生图路由)
+# =============================================================================
+# All switches are disabled by default. Enable only after configuring an
+# image_only account, object storage, billing prices, and a local fake-upstream
+# or paid provider smoke test. Ordinary text traffic never uses image_only.
+dedicated_image:
+  enabled: false
+  worker_enabled: false
+  codex_bridge_enabled: false
+  # Optional and explicit: allow the durable image worker to use a general
+  # account only when it has HTTPS/API-key credentials and an explicit mapping
+  # to a Cangyuan gpt-image-2-1k/2k/4k model. This is not generic OpenAI Images.
+  fallback_to_general: false
+  lease_duration_seconds: 60
+  poll_interval_seconds: 2
+  retry_delay_seconds: 10
+  idle_delay_milliseconds: 500
+  recovery_interval_seconds: 60
+  sync_wait_timeout_seconds: 180
+  payload_ttl_hours: 6
+  max_submit_attempts: 3
+  recovery_limit: 100
+  result_prefix: "images/cangyuan"
+  max_output_bytes: 67108864
+  terminal_retention_hours: 168
+  cleanup_interval_minutes: 30
+  cleanup_batch_size: 100
 
 # =============================================================================
 # Image Storage (异步图片任务结果对象存储)

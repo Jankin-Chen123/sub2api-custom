@@ -41,6 +41,8 @@ type OpenAIGatewayHandler struct {
 	opsService                 *service.OpsService
 	concurrencyHelper          *ConcurrencyHelper
 	imageLimiter               *imageConcurrencyLimiter
+	imageAdmission             *service.ImageGenerationAdmission
+	codexImageBridge           *service.CodexDedicatedImageBridge
 	maxAccountSwitches         int
 	cfg                        *config.Config
 }
@@ -207,6 +209,7 @@ func NewOpenAIGatewayHandler(
 	contentModerationService *service.ContentModerationService,
 	opsService *service.OpsService,
 	cfg *config.Config,
+	codexImageBridges ...*service.CodexDedicatedImageBridge,
 ) *OpenAIGatewayHandler {
 	pingInterval := time.Duration(0)
 	maxAccountSwitches := 3
@@ -214,6 +217,25 @@ func NewOpenAIGatewayHandler(
 		pingInterval = time.Duration(cfg.Concurrency.PingInterval) * time.Second
 		if cfg.Gateway.MaxAccountSwitches > 0 {
 			maxAccountSwitches = cfg.Gateway.MaxAccountSwitches
+		}
+	}
+	var codexImageBridge *service.CodexDedicatedImageBridge
+	if len(codexImageBridges) > 0 {
+		codexImageBridge = codexImageBridges[0]
+	}
+	imageAdmissionConfig := service.ImageGenerationAdmissionConfig{}
+	if cfg != nil {
+		imageConcurrency := cfg.Gateway.ImageConcurrency
+		imageAdmissionConfig = service.ImageGenerationAdmissionConfig{
+			Enabled:            imageConcurrency.Enabled,
+			MaxPerUser:         imageConcurrency.MaxPerUser,
+			MaxPerAPIKey:       imageConcurrency.MaxPerAPIKey,
+			MaxPerGroup:        imageConcurrency.MaxPerGroup,
+			MaxPerAccount:      imageConcurrency.MaxPerAccount,
+			Max4KConcurrent:    imageConcurrency.Max4KConcurrent,
+			OverflowMode:       imageConcurrency.OverflowMode,
+			WaitTimeout:        time.Duration(imageConcurrency.WaitTimeoutSeconds) * time.Second,
+			MaxWaitingRequests: imageConcurrency.MaxWaitingRequests,
 		}
 	}
 	return &OpenAIGatewayHandler{
@@ -226,6 +248,8 @@ func NewOpenAIGatewayHandler(
 		opsService:               opsService,
 		concurrencyHelper:        NewConcurrencyHelper(concurrencyService, SSEPingFormatComment, pingInterval),
 		imageLimiter:             &imageConcurrencyLimiter{},
+		imageAdmission:           service.NewImageGenerationAdmission(concurrencyService, imageAdmissionConfig),
+		codexImageBridge:         codexImageBridge,
 		maxAccountSwitches:       maxAccountSwitches,
 		cfg:                      cfg,
 	}
@@ -326,6 +350,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	}
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 	previousResponseID := strings.TrimSpace(gjson.GetBytes(body, "previous_response_id").String())
+	allowDedicatedImageContinuation := h.codexImageBridge != nil && h.codexImageBridge.AllowsHTTPContinuation(c, body, apiKey)
 	if previousResponseID != "" {
 		previousResponseIDKind := service.ClassifyOpenAIPreviousResponseIDKind(previousResponseID)
 		reqLog = reqLog.With(
@@ -340,11 +365,17 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "previous_response_id must be a response.id (resp_*), not a message id")
 			return
 		}
-		reqLog.Warn("openai.request_validation_failed",
-			zap.String("reason", "previous_response_id_requires_wsv2"),
-		)
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "previous_response_id is only supported on Responses WebSocket v2")
-		return
+		if allowDedicatedImageContinuation {
+			reqLog.Debug("openai.synthetic_image_response_replay_allowed",
+				zap.String("previous_response_id_kind", previousResponseIDKind),
+			)
+		} else {
+			reqLog.Warn("openai.request_validation_failed",
+				zap.String("reason", "previous_response_id_requires_wsv2"),
+			)
+			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "previous_response_id is only supported on Responses WebSocket v2")
+			return
+		}
 	}
 
 	setOpsRequestContext(c, reqModel, reqStream)
@@ -366,7 +397,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	var imageReleaseFunc func()
 	if imageIntent {
 		var imageAcquired bool
-		imageReleaseFunc, imageAcquired = h.acquireImageGenerationSlot(c, streamStarted)
+		imageReleaseFunc, imageAcquired = h.acquireImageGenerationSlot(c, streamStarted, reqModel)
 		if !imageAcquired {
 			return
 		}
@@ -440,6 +471,14 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	// 复用前置权限与并发阶段在未修改 body 上确认的显式生图意图，避免大 tools 请求重复扫描。
 	// 该判断已排除 Codex 被动 image_gen namespace，避免 CC-only 账号被误过滤（#4476）。
 	requiredCapability := openAIResponsesRequiredCapability(imageIntent, requestPlatform)
+	codexDedicatedImageBridgeCandidate := h.codexImageBridge != nil && h.codexImageBridge.ShouldHandle(c, forwardBody, apiKey)
+	if codexDedicatedImageBridgeCandidate {
+		// The planner is a normal Responses turn, not native image execution.
+		// Responses is still required so previous_response_id remains usable
+		// throughout a long Codex conversation; image_only is selected later by
+		// the durable image worker.
+		requiredCapability = service.OpenAIEndpointCapabilityResponses
+	}
 
 	// 分组利润控制：请求级装配定价上下文——pricingAt 固定本请求的
 	// D 与计费高峰因子，选号、槽位终检与全部 failover 重入共用同一门与阈值。
@@ -457,20 +496,22 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		}
 		// Select account supporting the requested model
 		reqLog.Debug("openai.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			c.Request.Context(),
-			apiKey.GroupID,
-			previousResponseID,
-			sessionHash,
-			reqModel,
-			failedAccountIDs,
-			service.OpenAIUpstreamTransportAny,
-			requiredCapability,
-			requireCompact,
-			false,
-			!imageIntent,
-			requestPlatform,
-		)
+		var selection *service.AccountSelectionResult
+		var scheduleDecision service.OpenAIAccountScheduleDecision
+		var err error
+		if codexDedicatedImageBridgeCandidate {
+			selection, scheduleDecision, err = h.gatewayService.SelectAccountWithSchedulerForImagePlanning(
+				c.Request.Context(), apiKey.GroupID, previousResponseID, sessionHash,
+				reqModel, failedAccountIDs, requiredCapability, requireCompact,
+				false, !imageIntent, requestPlatform,
+			)
+		} else {
+			selection, scheduleDecision, err = h.gatewayService.SelectAccountWithSchedulerForCapability(
+				c.Request.Context(), apiKey.GroupID, previousResponseID, sessionHash,
+				reqModel, failedAccountIDs, service.OpenAIUpstreamTransportAny,
+				requiredCapability, requireCompact, false, !imageIntent, requestPlatform,
+			)
+		}
 		if err != nil {
 			if failoverClientGone(c) {
 				reqLog.Info("openai.account_select_aborted_client_disconnected", zap.Error(err))
@@ -555,6 +596,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					accountReleaseFunc()
 				}
 			}()
+			if h.codexImageBridge != nil && h.codexImageBridge.ShouldHandle(c, attemptBody, apiKey) {
+				return h.codexImageBridge.Forward(c.Request.Context(), c, account, apiKey, subscription, attemptBody)
+			}
 			return h.gatewayService.Forward(c.Request.Context(), c, account, attemptBody)
 		}()
 		cyberBlockKeyHTTP := ""
@@ -580,6 +624,10 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					zap.Error(err),
 				)
 			} else {
+				if status, errType, code, message, ok := codexDedicatedImageErrorDetails(err); ok {
+					h.handleStreamingAwareErrorWithCode(c, status, errType, code, message, streamStarted, false)
+					return
+				}
 				var failoverErr *service.UpstreamFailoverError
 				if errors.As(err, &failoverErr) {
 					if failoverClientGone(c) {
@@ -1731,6 +1779,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, service.ImageGenerationPermissionMessage())
 		return
 	}
+	codexDedicatedImageBridgeCandidate := h.codexImageBridge != nil && h.codexImageBridge.ShouldHandleWebSocket(c, firstMessage, apiKey)
 
 	// F5a: 握手层会话屏蔽检查。WS 握手无 body，显式标识仅来自握手 header
 	// （session_id / conversation_id）；无标识则放行，连接内仍有本地 flag 兜底。
@@ -1799,6 +1848,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	if requestPlatform == service.PlatformGrok {
 		requiredTransport = service.OpenAIUpstreamTransportHTTPSSE
 	}
+	if codexDedicatedImageBridgeCandidate {
+		// The planner is a normal Responses HTTP turn. The selected account
+		// therefore only needs a general text capability; the image_only
+		// account is selected later by the durable image worker.
+		requiredTransport = service.OpenAIUpstreamTransportAny
+	}
 	if err := h.billingCacheService.CheckBillingEligibility(ctx, apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		reqLog.Info("openai.websocket_billing_eligibility_check_failed", zap.Error(err))
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "billing check failed")
@@ -1862,6 +1917,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	if service.IsExplicitImageGenerationIntent("/v1/responses", reqModel, firstMessage) && requestPlatform == service.PlatformOpenAI {
 		requiredCapability = service.OpenAIEndpointCapabilityResponses
 	}
+	if codexDedicatedImageBridgeCandidate {
+		// The planner is a normal Responses turn, not native image execution.
+		// Keep Responses capability so previous_response_id remains usable for
+		// every turn; image_only is selected later by the durable image worker.
+		requiredCapability = service.OpenAIEndpointCapabilityResponses
+	}
 
 	// 分组利润控制：WS 桥按连接装配定价上下文并装门（选号与抢槽共用该
 	// ctx）。连接内不重选号，但每个 turn 开始经 BeforeTurn 重新冻结 pricingAt
@@ -1876,20 +1937,31 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			return
 		}
 		reqLog.Debug("openai.websocket_account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			ctx,
-			apiKey.GroupID,
-			previousResponseID,
-			sessionHash,
-			reqModel,
-			failedAccountIDs,
-			requiredTransport,
-			requiredCapability,
-			false,
-			previousResponseCanMove,
-			!imageIntent,
-			requestPlatform,
-		)
+		var selection *service.AccountSelectionResult
+		var scheduleDecision service.OpenAIAccountScheduleDecision
+		var err error
+		if codexDedicatedImageBridgeCandidate {
+			selection, scheduleDecision, err = h.gatewayService.SelectAccountWithSchedulerForImagePlanning(
+				ctx, apiKey.GroupID, previousResponseID, sessionHash, reqModel,
+				failedAccountIDs, requiredCapability, false, previousResponseCanMove,
+				!imageIntent, requestPlatform,
+			)
+		} else {
+			selection, scheduleDecision, err = h.gatewayService.SelectAccountWithSchedulerForCapability(
+				ctx,
+				apiKey.GroupID,
+				previousResponseID,
+				sessionHash,
+				reqModel,
+				failedAccountIDs,
+				requiredTransport,
+				requiredCapability,
+				false,
+				previousResponseCanMove,
+				!imageIntent,
+				requestPlatform,
+			)
+		}
 		if err != nil {
 			reqLog.Warn("openai.websocket_account_select_failed",
 				zap.Error(openAICompatibleSelectionErrorForLog(err, requestPlatform)),
@@ -2023,7 +2095,14 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		// openAIWSTurnPricing 的注释——绝不能用建连时刻初始化。
 		var turnPricing openAIWSTurnPricing
 		hooks := &service.OpenAIWSIngressHooks{
-			InitialRequestModel:     reqModel,
+			InitialRequestModel: reqModel,
+			Subscription:        subscription,
+			DedicatedImageBridge: func() *service.CodexDedicatedImageBridge {
+				if codexDedicatedImageBridgeCandidate {
+					return h.codexImageBridge
+				}
+				return nil
+			}(),
 			MaxReasoningEffort:      maxReasoningEffort,
 			ReasoningEffortMappings: reasoningEffortMappings,
 			BeforeRequest: func(turn int, payload []byte, originalModel string) error {
@@ -2230,6 +2309,10 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				if handleWSFailover(account, failoverErr) {
 					continue
 				}
+				return
+			}
+			if code, ok := codexDedicatedImageWebSocketErrorCode(err); ok {
+				closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, code)
 				return
 			}
 
@@ -2452,25 +2535,116 @@ func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(parent context.Con
 	task(ctx)
 }
 
-func (h *OpenAIGatewayHandler) acquireImageGenerationSlot(c *gin.Context, streamStarted bool) (func(), bool) {
-	if h == nil || h.cfg == nil || h.imageLimiter == nil {
+func (h *OpenAIGatewayHandler) acquireImageGenerationSlot(c *gin.Context, streamStarted bool, models ...string) (func(), bool) {
+	if h == nil {
 		return nil, true
 	}
-	imageConcurrency := h.cfg.Gateway.ImageConcurrency
-	wait := strings.TrimSpace(imageConcurrency.OverflowMode) == config.ImageConcurrencyOverflowModeWait
-	release, acquired := h.imageLimiter.Acquire(
-		c.Request.Context(),
-		imageConcurrency.Enabled,
-		imageConcurrency.MaxConcurrentRequests,
-		wait,
-		time.Duration(imageConcurrency.WaitTimeoutSeconds)*time.Second,
-		imageConcurrency.MaxWaitingRequests,
-	)
-	if acquired {
-		return release, true
+	model := ""
+	if len(models) > 0 {
+		model = models[0]
 	}
+	var release func()
+	acquired := true
+	if h.cfg != nil && h.imageLimiter != nil {
+		imageConcurrency := h.cfg.Gateway.ImageConcurrency
+		wait := strings.TrimSpace(imageConcurrency.OverflowMode) == config.ImageConcurrencyOverflowModeWait
+		release, acquired = h.imageLimiter.Acquire(
+			c.Request.Context(),
+			imageConcurrency.Enabled,
+			imageConcurrency.MaxConcurrentRequests,
+			wait,
+			time.Duration(imageConcurrency.WaitTimeoutSeconds)*time.Second,
+			imageConcurrency.MaxWaitingRequests,
+		)
+	}
+	if acquired {
+		apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+		subject, _ := middleware2.GetAuthSubjectFromContext(c)
+		var userID, apiKeyID, groupID int64
+		if subject.UserID > 0 {
+			userID = subject.UserID
+		}
+		if apiKey != nil {
+			apiKeyID = apiKey.ID
+			if apiKey.GroupID != nil {
+				groupID = *apiKey.GroupID
+			} else if apiKey.Group != nil {
+				groupID = apiKey.Group.ID
+			}
+			if userID <= 0 {
+				userID = apiKey.UserID
+			}
+		}
+		return h.acquireImageGenerationAdmission(c, release, model, userID, apiKeyID, groupID, 0, streamStarted)
+	}
+	c.Header("Retry-After", "2")
 	h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Image generation concurrency limit exceeded, please retry later", streamStarted)
 	return nil, false
+}
+
+func (h *OpenAIGatewayHandler) acquireImageGenerationSlotForIdentity(
+	c *gin.Context, streamStarted bool, model string, userID, apiKeyID, groupID int64,
+) (func(), bool) {
+	if h == nil {
+		return nil, true
+	}
+	var release func()
+	acquired := true
+	if h.cfg != nil && h.imageLimiter != nil {
+		imageConcurrency := h.cfg.Gateway.ImageConcurrency
+		wait := strings.TrimSpace(imageConcurrency.OverflowMode) == config.ImageConcurrencyOverflowModeWait
+		release, acquired = h.imageLimiter.Acquire(
+			c.Request.Context(), imageConcurrency.Enabled, imageConcurrency.MaxConcurrentRequests,
+			wait, time.Duration(imageConcurrency.WaitTimeoutSeconds)*time.Second,
+			imageConcurrency.MaxWaitingRequests,
+		)
+	}
+	if !acquired {
+		c.Header("Retry-After", "2")
+		h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Image generation concurrency limit exceeded, please retry later", streamStarted)
+		return nil, false
+	}
+	return h.acquireImageGenerationAdmission(c, release, model, userID, apiKeyID, groupID, 0, streamStarted)
+}
+
+func (h *OpenAIGatewayHandler) acquireImageGenerationAdmission(
+	c *gin.Context, release func(), model string, userID, apiKeyID, groupID, accountID int64, streamStarted bool,
+) (func(), bool) {
+	if h == nil || h.imageAdmission == nil {
+		return release, true
+	}
+	tier := ""
+	if strings.Contains(strings.ToLower(strings.TrimSpace(model)), "4k") {
+		tier = service.ImageConcurrencyTier4K
+	}
+	admissionRelease, acquired, err := h.imageAdmission.Acquire(c.Request.Context(), service.ImageGenerationAdmissionRequest{
+		UserID: userID, APIKeyID: apiKeyID, GroupID: groupID, AccountID: accountID, Tier: tier,
+	})
+	if err != nil {
+		if release != nil {
+			release()
+		}
+		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "rate_limit_error", "Image concurrency service is temporarily unavailable, please retry later", streamStarted)
+		return nil, false
+	}
+	if !acquired {
+		if release != nil {
+			release()
+		}
+		c.Header("Retry-After", "2")
+		h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Image generation concurrency limit exceeded, please retry later", streamStarted)
+		return nil, false
+	}
+	if release == nil {
+		return admissionRelease, true
+	}
+	if admissionRelease == nil {
+		return release, true
+	}
+	return func() {
+		admissionRelease()
+		release()
+	}, true
 }
 
 // handleConcurrencyError handles concurrency-related acquire errors.

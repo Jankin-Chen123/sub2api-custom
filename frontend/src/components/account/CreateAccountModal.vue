@@ -1114,6 +1114,24 @@
 
       <!-- API Key input (only for apikey type, excluding Antigravity which has its own fields) -->
       <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="space-y-4">
+        <div v-if="form.platform === 'openai'">
+          <label class="input-label">{{ t('admin.accounts.accountPurpose.label') }}</label>
+          <select
+            v-model="accountPurpose"
+            class="input"
+            data-testid="account-purpose-select"
+          >
+            <option value="general">{{ t('admin.accounts.accountPurpose.general') }}</option>
+            <option value="image_only">{{ t('admin.accounts.accountPurpose.imageOnly') }}</option>
+          </select>
+          <p class="input-hint">
+            {{
+              accountPurpose === 'image_only'
+                ? t('admin.accounts.accountPurpose.imageOnlyHint')
+                : t('admin.accounts.accountPurpose.generalHint')
+            }}
+          </p>
+        </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
           <input
@@ -3570,6 +3588,7 @@ import type {
   AdminGroup,
   AccountPlatform,
   AccountType,
+  AccountPurpose,
   CheckMixedChannelResponse,
   CreateAccountRequest,
   CodexSessionImportMessage,
@@ -3577,6 +3596,12 @@ import type {
   OpenAIResponsesMode,
   OpenAIEndpointCapability
 } from '@/types'
+import {
+  CANGYUAN_BASE_URL,
+  CANGYUAN_IMAGE_MODEL_MAPPINGS,
+  applyCreatedAccountPurpose,
+  applyAccountPurpose
+} from '@/components/account/accountPurpose'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
@@ -4117,6 +4142,7 @@ const form = reactive({
   group_ids: [] as number[],
   expires_at: null as number | null
 })
+const accountPurpose = ref<AccountPurpose>('general')
 
 // Helper to check if current type needs OAuth flow
 const isOAuthFlow = computed(() => {
@@ -4277,6 +4303,7 @@ watch(
       interceptWarmupRequests.value = false
     }
     if (newPlatform !== 'openai') {
+      accountPurpose.value = 'general'
       openaiPassthroughEnabled.value = false
       openaiFlattenNamespacesEnabled.value = false
       openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
@@ -4337,6 +4364,16 @@ watch(
   },
   { immediate: true }
 )
+
+watch(accountPurpose, (purpose) => {
+  if (purpose !== 'image_only') return
+  apiKeyBaseUrl.value = CANGYUAN_BASE_URL
+  modelRestrictionMode.value = 'mapping'
+  allowedModels.value = []
+  modelMappings.value = CANGYUAN_IMAGE_MODEL_MAPPINGS.map(mapping => ({ ...mapping }))
+  openaiPassthroughEnabled.value = false
+  upstreamBillingAutoProbeEnabled.value = false
+})
 
 const handleSelectGeminiOAuthType = (oauthType: 'code_assist' | 'google_one' | 'ai_studio') => {
   if (oauthType === 'ai_studio' && !geminiAIStudioOAuthEnabled.value) {
@@ -4670,6 +4707,7 @@ const resetForm = () => {
   addMethod.value = 'oauth'
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
   apiKeyValue.value = ''
+  accountPurpose.value = 'general'
   upstreamBillingAutoProbeEnabled.value = true
   editQuotaLimit.value = null
   editQuotaDailyLimit.value = null
@@ -5129,7 +5167,7 @@ const handleSubmit = async () => {
       credentials.model_mapping = modelMapping
     }
   }
-  if (form.platform === 'openai') {
+  if (form.platform === 'openai' && accountPurpose.value !== 'image_only') {
     applyOpenAIEndpointCapabilities(credentials)
     const compactModelMapping = buildOpenAICompactModelMapping()
     if (compactModelMapping) {
@@ -5171,7 +5209,11 @@ const handleSubmit = async () => {
   }
 
   form.credentials = credentials
-  const extra = buildAnthropicExtra(buildOpenAIExtra())
+  const extra = applyCreatedAccountPurpose(
+    buildAnthropicExtra(buildOpenAIExtra()),
+    form.platform,
+    accountPurpose.value
+  )
 
   await doCreateAccount({
     ...form,
@@ -5271,7 +5313,7 @@ const createAccountAndFinish = async (
     }
   }
   if (platform === 'openai') {
-    if (type === 'apikey') {
+    if (type === 'apikey' && accountPurpose.value !== 'image_only') {
       applyOpenAIEndpointCapabilities(credentials)
     }
     const compactModelMapping = buildOpenAICompactModelMapping()
@@ -5292,6 +5334,10 @@ const createAccountAndFinish = async (
       delete credentials.model_mapping
     }
   }
+  finalExtra = applyAccountPurpose(
+    finalExtra,
+    platform === 'openai' && type === 'apikey' ? accountPurpose.value : 'general'
+  )
   await doCreateAccount({
     name: form.name,
     notes: form.notes,

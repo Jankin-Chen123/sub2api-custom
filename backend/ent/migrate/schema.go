@@ -1078,6 +1078,96 @@ var (
 			},
 		},
 	}
+	// ImageGenerationJobsColumns holds the columns for the "image_generation_jobs" table.
+	ImageGenerationJobsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "job_id", Type: field.TypeString, Size: 64},
+		{Name: "user_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "api_key_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "subscription_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "account_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "billing_type", Type: field.TypeInt8, Default: 0},
+		{Name: "source", Type: field.TypeString, Size: 32},
+		{Name: "operation", Type: field.TypeString, Size: 32},
+		{Name: "status", Type: field.TypeString, Size: 32, Default: "created"},
+		{Name: "public_model", Type: field.TypeString, Size: 128},
+		{Name: "upstream_model", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "requested_size", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "actual_size", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "quality", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "response_format", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "upstream_task_id", Type: field.TypeString, Nullable: true, Size: 512},
+		{Name: "idempotency_key", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "request_hash", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "prompt_hash", Type: field.TypeString, Size: 128},
+		{Name: "payload_object_ref", Type: field.TypeString, Nullable: true, Size: 1024},
+		{Name: "result_object_refs", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "base_cost", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
+		{Name: "rate_multiplier", Type: field.TypeFloat64, Default: 1, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
+		{Name: "estimated_cost", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
+		{Name: "held_cost", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
+		{Name: "settled_cost", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
+		{Name: "error_code", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "error_message", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "attempt_count", Type: field.TypeInt, Default: 0},
+		{Name: "claim_version", Type: field.TypeInt64, Default: 0},
+		{Name: "lease_expires_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "next_attempt_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "submitted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "settled_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// ImageGenerationJobsTable holds the schema information for the "image_generation_jobs" table.
+	ImageGenerationJobsTable = &schema.Table{
+		Name:       "image_generation_jobs",
+		Columns:    ImageGenerationJobsColumns,
+		PrimaryKey: []*schema.Column{ImageGenerationJobsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "imagegenerationjob_job_id",
+				Unique:  true,
+				Columns: []*schema.Column{ImageGenerationJobsColumns[1]},
+			},
+			{
+				Name:    "imagegenerationjob_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ImageGenerationJobsColumns[2], ImageGenerationJobsColumns[34]},
+			},
+			{
+				Name:    "imagegenerationjob_api_key_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ImageGenerationJobsColumns[3], ImageGenerationJobsColumns[34]},
+			},
+			{
+				Name:    "imagegenerationjob_account_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{ImageGenerationJobsColumns[6], ImageGenerationJobsColumns[10]},
+			},
+			{
+				Name:    "imagegenerationjob_status_next_attempt_at_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ImageGenerationJobsColumns[10], ImageGenerationJobsColumns[33], ImageGenerationJobsColumns[34]},
+			},
+			{
+				Name:    "imagegenerationjob_lease_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{ImageGenerationJobsColumns[32]},
+			},
+			{
+				Name:    "imagegenerationjob_account_id_upstream_task_id",
+				Unique:  false,
+				Columns: []*schema.Column{ImageGenerationJobsColumns[6], ImageGenerationJobsColumns[17]},
+			},
+			{
+				Name:    "imagegenerationjob_completed_at",
+				Unique:  false,
+				Columns: []*schema.Column{ImageGenerationJobsColumns[37]},
+			},
+		},
+	}
 	// PaymentAuditLogsColumns holds the columns for the "payment_audit_logs" table.
 	PaymentAuditLogsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2085,6 +2175,7 @@ var (
 		GroupsTable,
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
+		ImageGenerationJobsTable,
 		PaymentAuditLogsTable,
 		PaymentOrdersTable,
 		PaymentProviderInstancesTable,
@@ -2181,6 +2272,9 @@ func init() {
 	IdentityAdoptionDecisionsTable.ForeignKeys[1].RefTable = PendingAuthSessionsTable
 	IdentityAdoptionDecisionsTable.Annotation = &entsql.Annotation{
 		Table: "identity_adoption_decisions",
+	}
+	ImageGenerationJobsTable.Annotation = &entsql.Annotation{
+		Table: "image_generation_jobs",
 	}
 	PaymentAuditLogsTable.Annotation = &entsql.Annotation{
 		Table: "payment_audit_logs",

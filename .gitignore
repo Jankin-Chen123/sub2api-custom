@@ -136,10 +136,15 @@ docs/*
 !docs/PAYMENT_CN.md
 !docs/ADMIN_PAYMENT_INTEGRATION_API.md
 !docs/ASYNC_IMAGE_TASKS.md
+!docs/CANGYUAN_IMAGE_INTEGRATION.md
+!docs/CANGYUAN_DEDICATED_IMAGE_API.md
+!docs/CANGYUAN_ADMIN_IMAGE_TEST_API.md
+!docs/CANGYUAN_REAL_POC_RESULTS.md
 !docs/legal/
 !docs/legal/*.md
 .serena/
 .codex/
+.codex-local-poc/
 frontend/coverage/
 aicodex
 output/

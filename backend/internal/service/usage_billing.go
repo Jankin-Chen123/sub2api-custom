@@ -33,6 +33,8 @@ type UsageBillingCommand struct {
 	CacheReadTokens     int
 	ImageCount          int
 	MediaType           string
+	Platform            string
+	PlatformQuotaCost   float64
 
 	BalanceCost         float64
 	SubscriptionCost    float64
@@ -56,7 +58,7 @@ func buildUsageBillingFingerprint(c *UsageBillingCommand) string {
 		return ""
 	}
 	raw := fmt.Sprintf(
-		"%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%s|%d|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f",
+		"%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%s|%s|%d|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f",
 		c.UserID,
 		c.AccountID,
 		c.APIKeyID,
@@ -71,12 +73,14 @@ func buildUsageBillingFingerprint(c *UsageBillingCommand) string {
 		c.CacheReadTokens,
 		c.ImageCount,
 		strings.TrimSpace(c.MediaType),
+		strings.TrimSpace(c.Platform),
 		valueOrZero(c.SubscriptionID),
 		c.BalanceCost,
 		c.SubscriptionCost,
 		c.APIKeyQuotaCost,
 		c.APIKeyRateLimitCost,
 		c.AccountQuotaCost,
+		c.PlatformQuotaCost,
 	)
 	if payloadHash := strings.TrimSpace(c.RequestPayloadHash); payloadHash != "" {
 		raw += "|" + payloadHash
@@ -122,6 +126,7 @@ type UsageBillingApplyResult struct {
 // BatchImageBalanceHoldCommand describes an idempotent balance hold operation.
 type BatchImageBalanceHoldCommand struct {
 	RequestID          string
+	HoldRequestID      string
 	APIKeyID           int64
 	RequestFingerprint string
 	RequestPayloadHash string
@@ -136,7 +141,11 @@ func (c *BatchImageBalanceHoldCommand) Normalize() {
 		return
 	}
 	c.RequestID = strings.TrimSpace(c.RequestID)
+	c.HoldRequestID = strings.TrimSpace(c.HoldRequestID)
 	c.BatchID = strings.TrimSpace(c.BatchID)
+	if c.HoldRequestID == "" {
+		c.HoldRequestID = BatchImageHoldRequestID(c.BatchID)
+	}
 	if strings.TrimSpace(c.RequestFingerprint) == "" {
 		c.RequestFingerprint = buildBatchImageBalanceHoldFingerprint(c)
 	}

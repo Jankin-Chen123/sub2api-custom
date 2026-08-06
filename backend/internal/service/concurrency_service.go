@@ -61,6 +61,14 @@ type APIKeyConcurrencyCache interface {
 	GetAPIKeyConcurrencyBatch(ctx context.Context, apiKeyIDs []int64) (map[int64]int, error)
 }
 
+// ImageConcurrencyCache is optional so existing concurrency-cache test
+// doubles and deployments without the new image dimensions remain compatible.
+// Implementations must acquire all dimensions atomically.
+type ImageConcurrencyCache interface {
+	AcquireImageSlots(ctx context.Context, dimensions []ImageConcurrencyDimension, requestID string) (bool, error)
+	ReleaseImageSlots(ctx context.Context, dimensions []ImageConcurrencyDimension, requestID string) error
+}
+
 // OpenAIWSIngressLeaseCache owns the short-lived distributed lease used to
 // bound live client WebSocket sessions. It is deliberately independent of the
 // request-slot namespace: idle ingress connections do not occupy turn slots.

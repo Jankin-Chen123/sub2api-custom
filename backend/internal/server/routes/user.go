@@ -40,6 +40,15 @@ func RegisterUserRoutes(
 			user.GET("/api-keys/:id/usage/daily", panelRateLimiter.Heavy(), h.Usage.GetMyAPIKeyDailyUsage)
 			user.GET("/platform-quotas", h.User.GetMyPlatformQuotas)
 
+			imageWorkbench := user.Group("/image-workbench")
+			{
+				imageWorkbench.POST("/estimate", panelRateLimiter.Heavy(), h.DedicatedImage.EstimateWorkbenchCost)
+				imageWorkbench.POST("/jobs", panelRateLimiter.Heavy(), h.DedicatedImage.CreateWorkbenchJob)
+				imageWorkbench.GET("/jobs", h.DedicatedImage.ListWorkbenchJobs)
+				imageWorkbench.GET("/jobs/:id", h.DedicatedImage.GetWorkbenchJob)
+				imageWorkbench.GET("/jobs/:id/content", panelRateLimiter.Heavy(), h.DedicatedImage.WorkbenchContent)
+			}
+
 			// 通知邮箱管理
 			notifyEmail := user.Group("/notify-email")
 			{

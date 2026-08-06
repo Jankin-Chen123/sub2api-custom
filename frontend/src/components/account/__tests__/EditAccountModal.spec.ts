@@ -343,6 +343,30 @@ describe('EditAccountModal', () => {
     })
   })
 
+  it('fills the Cangyuan endpoint and tier mapping when switching an API-key account to image-only', async () => {
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(buildAccount())
+    const wrapper = mountModal()
+    const purpose = wrapper.get('[data-testid="account-purpose-select"]')
+
+    await purpose.setValue('image_only')
+
+    const baseURL = wrapper.findAll('input').find(input => input.element.value === 'https://ai.cangyuansuanli.cn/v1')
+    expect(baseURL).toBeDefined()
+    expect(wrapper.text()).toContain('admin.accounts.accountPurpose.imageOnlyHint')
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    const credentials = updateAccountMock.mock.calls[0]?.[1]?.credentials
+    expect(credentials?.base_url).toBe('https://ai.cangyuansuanli.cn/v1')
+    expect(credentials?.model_mapping).toEqual({
+      'gpt-image-2-1k': 'gpt-image-2-1k',
+      'gpt-image-2-2k': 'gpt-image-2-2k',
+      'gpt-image-2-4k': 'gpt-image-2-4k'
+    })
+  })
+
   it('preserves model mappings when editing the whitelist', async () => {
     const account = buildAccount()
     account.credentials.model_mapping = {

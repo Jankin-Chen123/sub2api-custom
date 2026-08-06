@@ -79,6 +79,10 @@ func RegisterGatewayRoutes(
 	imagesHandler := func(c *gin.Context) {
 		switch getGroupPlatform(c) {
 		case service.PlatformOpenAI:
+			if h.DedicatedImage != nil {
+				h.DedicatedImage.Dispatch(c, h.OpenAIGateway.Images)
+				return
+			}
 			h.OpenAIGateway.Images(c)
 		case service.PlatformGrok:
 			h.OpenAIGateway.GrokImages(c)
@@ -91,6 +95,27 @@ func RegisterGatewayRoutes(
 				},
 			})
 		}
+	}
+	asyncImagesHandler := func(c *gin.Context) {
+		if getGroupPlatform(c) == service.PlatformOpenAI && h.DedicatedImage != nil {
+			h.DedicatedImage.Dispatch(c, h.AsyncImage.Submit)
+			return
+		}
+		h.AsyncImage.Submit(c)
+	}
+	imageTaskHandler := func(c *gin.Context) {
+		if strings.HasPrefix(c.Param("task_id"), "imgjob_") && h.DedicatedImage != nil {
+			h.DedicatedImage.Get(c)
+			return
+		}
+		h.AsyncImage.Get(c)
+	}
+	imageTaskContentHandler := func(c *gin.Context) {
+		if h.DedicatedImage == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "image_task_not_found", "message": "image task result not found"}})
+			return
+		}
+		h.DedicatedImage.Content(c)
 	}
 	videoGenerationHandler := func(c *gin.Context) {
 		if getGroupPlatform(c) == service.PlatformGrok {
@@ -243,9 +268,10 @@ func RegisterGatewayRoutes(
 		})
 		gateway.POST("/images/generations", imagesHandler)
 		gateway.POST("/images/edits", imagesHandler)
-		gateway.POST("/images/generations/async", h.AsyncImage.Submit)
-		gateway.POST("/images/edits/async", h.AsyncImage.Submit)
-		gateway.GET("/images/tasks/:task_id", h.AsyncImage.Get)
+		gateway.POST("/images/generations/async", asyncImagesHandler)
+		gateway.POST("/images/edits/async", asyncImagesHandler)
+		gateway.GET("/images/tasks/:task_id", imageTaskHandler)
+		gateway.GET("/images/tasks/:task_id/content", imageTaskContentHandler)
 		gateway.POST("/images/batches", h.BatchImage.Submit)
 		gateway.GET("/images/batches", h.BatchImage.List)
 		gateway.GET("/images/batches/models", h.BatchImage.Models)
@@ -331,9 +357,10 @@ func RegisterGatewayRoutes(
 	})
 	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, imagesHandler)
 	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, imagesHandler)
-	r.POST("/images/generations/async", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, h.AsyncImage.Submit)
-	r.POST("/images/edits/async", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, h.AsyncImage.Submit)
-	r.GET("/images/tasks/:task_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, h.AsyncImage.Get)
+	r.POST("/images/generations/async", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, asyncImagesHandler)
+	r.POST("/images/edits/async", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, asyncImagesHandler)
+	r.GET("/images/tasks/:task_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, imageTaskHandler)
+	r.GET("/images/tasks/:task_id/content", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, imageTaskContentHandler)
 	r.POST("/videos/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, videoGenerationHandler)
 	r.POST("/videos/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, videoEditHandler)
 	r.POST("/videos/extensions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), compositeTarget, requireGroupAnthropic, videoExtensionHandler)
