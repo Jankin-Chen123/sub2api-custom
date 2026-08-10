@@ -603,7 +603,7 @@ type codexDedicatedImageEvent struct {
 
 func buildCodexDedicatedImageEvents(response, item map[string]any) ([]codexDedicatedImageEvent, error) {
 	if response == nil || item == nil {
-		return nil, errors.New("Codex image response is incomplete")
+		return nil, errors.New("codex image response is incomplete")
 	}
 	created := cloneMap(response)
 	created["status"] = "in_progress"
@@ -707,14 +707,14 @@ func extractCodexPlannerEventPayloads(raw, requestBody []byte) ([]json.RawMessag
 				continue
 			}
 			if !json.Valid([]byte(payload)) {
-				return nil, errors.New("Codex planner returned invalid SSE JSON")
+		return nil, errors.New("codex planner returned invalid SSE JSON")
 			}
 			result = append(result, json.RawMessage(payload))
 		}
 		return result, scanner.Err()
 	}
 	if !json.Valid(raw) {
-		return nil, errors.New("Codex planner returned invalid JSON")
+		return nil, errors.New("codex planner returned invalid JSON")
 	}
 	return []json.RawMessage{json.RawMessage(bytes.TrimSpace(raw))}, nil
 }
@@ -784,7 +784,7 @@ func extractCodexPlannerReplayInput(raw, requestBody []byte) ([]json.RawMessage,
 		return result, nil
 	}
 	if !json.Valid(raw) {
-		return nil, errors.New("Codex planner returned invalid JSON")
+		return nil, errors.New("codex planner returned invalid JSON")
 	}
 	appendOutput(gjson.GetBytes(raw, "output"))
 	return result, nil
@@ -802,7 +802,7 @@ func isCodexPlannerReplayItemType(itemType string) bool {
 func buildCodexDedicatedImagePlannerBody(body []byte) ([]byte, error) {
 	var root map[string]any
 	if err := json.Unmarshal(body, &root); err != nil {
-		return nil, errors.New("Codex image planner received invalid JSON")
+		return nil, errors.New("codex image planner received invalid JSON")
 	}
 	tools, _ := root["tools"].([]any)
 	filtered := make([]any, 0, len(tools)+1)
@@ -835,10 +835,10 @@ func buildCodexDedicatedImagePlannerBody(body []byte) ([]byte, error) {
 func prepareCodexDedicatedImagePlannerHTTPBody(body []byte) ([]byte, error) {
 	var root map[string]any
 	if err := json.Unmarshal(body, &root); err != nil {
-		return nil, errors.New("Codex planner received invalid JSON")
+		return nil, errors.New("codex planner received invalid JSON")
 	}
 	if root == nil {
-		return nil, errors.New("Codex planner request must be a JSON object")
+		return nil, errors.New("codex planner request must be a JSON object")
 	}
 	delete(root, "type")
 	delete(root, "generate")
@@ -1014,7 +1014,7 @@ func extractCodexDedicatedImagePlan(raw []byte, requestBody []byte) (*codexDedic
 			selectedCallID = callID
 			var plan codexDedicatedImagePlan
 			if err := json.Unmarshal(args, &plan); err != nil {
-				return nil, true, errors.New("Codex image planner returned invalid arguments")
+		return nil, true, errors.New("codex image planner returned invalid arguments")
 			}
 			if err := normalizeAndValidateCodexDedicatedImagePlan(&plan); err != nil {
 				return nil, true, err
@@ -1475,7 +1475,7 @@ func findAllCodexDedicatedImageArguments(value map[string]any) []codexDedicatedI
 
 func cloneGinContextForCodexPlanner(parent *gin.Context, ctx context.Context, body []byte, recorder *httptest.ResponseRecorder) (*gin.Context, error) {
 	if parent == nil || parent.Request == nil {
-		return nil, errors.New("Codex planner request context is unavailable")
+		return nil, errors.New("codex planner request context is unavailable")
 	}
 	planner, _ := gin.CreateTestContext(recorder)
 	planner.Request = parent.Request.Clone(ctx)
@@ -1490,7 +1490,7 @@ func cloneGinContextForCodexPlanner(parent *gin.Context, ctx context.Context, bo
 
 func replayCodexPlannerResponse(c *gin.Context, recorder *httptest.ResponseRecorder) error {
 	if c == nil || recorder == nil {
-		return errors.New("Codex planner response context is unavailable")
+		return errors.New("codex planner response context is unavailable")
 	}
 	for key, values := range recorder.Header() {
 		for _, value := range values {
