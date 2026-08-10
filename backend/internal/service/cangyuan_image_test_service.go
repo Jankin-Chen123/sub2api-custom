@@ -98,7 +98,7 @@ func testCangyuanImageAccountWithClient(
 		return &CangyuanImageTestResult{Model: model, Status: "completed", Completed: true, Duration: time.Since(started)}, nil
 	}
 	if strings.TrimSpace(result.UpstreamTaskID) == "" {
-		return nil, errors.New("Cangyuan returned an incomplete result")
+		return nil, errors.New("cangyuan returned an incomplete result")
 	}
 
 	ticker := time.NewTicker(pollInterval)
@@ -106,14 +106,14 @@ func testCangyuanImageAccountWithClient(
 	for {
 		select {
 		case <-operationCtx.Done():
-			return nil, errors.New("Cangyuan image test timed out")
+			return nil, errors.New("cangyuan image test timed out")
 		case <-ticker.C:
 			result, err = client.PollGeneration(operationCtx, result.UpstreamTaskID)
 			if err != nil {
 				return nil, err
 			}
 			if result == nil {
-				return nil, errors.New("Cangyuan returned an empty polling result")
+				return nil, errors.New("cangyuan returned an empty polling result")
 			}
 			if result.Failed {
 				return nil, errors.New("Cangyuan image test failed")
