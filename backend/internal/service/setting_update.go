@@ -341,10 +341,23 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyTablePageSizeOptions] = string(tablePageSizeOptionsJSON)
 	updates[SettingKeyCustomMenuItems] = settings.CustomMenuItems
 	updates[SettingKeyCustomEndpoints] = settings.CustomEndpoints
+	settings.ImageWorkbenchAnnouncements = normalizeImageWorkbenchAnnouncements(settings.ImageWorkbenchAnnouncements)
+	settings.ImageWorkbenchAnnouncementIntervalSeconds = normalizeImageWorkbenchAnnouncementInterval(settings.ImageWorkbenchAnnouncementIntervalSeconds)
+	imageWorkbenchAnnouncementsJSON, err := json.Marshal(settings.ImageWorkbenchAnnouncements)
+	if err != nil {
+		return nil, fmt.Errorf("marshal image workbench announcements: %w", err)
+	}
+	updates[SettingKeyImageWorkbenchAnnouncements] = string(imageWorkbenchAnnouncementsJSON)
+	updates[SettingKeyImageWorkbenchAnnouncementIntervalSecs] = strconv.Itoa(settings.ImageWorkbenchAnnouncementIntervalSeconds)
 
 	// 默认配置
 	updates[SettingKeyDefaultConcurrency] = strconv.Itoa(settings.DefaultConcurrency)
 	updates[SettingKeyDefaultBalance] = strconv.FormatFloat(settings.DefaultBalance, 'f', 8, 64)
+	settings.ImageGenerationMaxActiveJobs = normalizeImageGenerationMaxActiveJobs(settings.ImageGenerationMaxActiveJobs)
+	settings.ImageGenerationMaxQueuedJobs = normalizeImageGenerationMaxQueuedJobs(settings.ImageGenerationMaxQueuedJobs)
+	updates[SettingKeyImageGenerationQueueEnabled] = strconv.FormatBool(settings.ImageGenerationQueueEnabled)
+	updates[SettingKeyImageGenerationMaxActiveJobs] = strconv.Itoa(settings.ImageGenerationMaxActiveJobs)
+	updates[SettingKeyImageGenerationMaxQueuedJobs] = strconv.Itoa(settings.ImageGenerationMaxQueuedJobs)
 	settings.AffiliateRebateRate = clampAffiliateRebateRate(settings.AffiliateRebateRate)
 	updates[SettingKeyAffiliateRebateRate] = strconv.FormatFloat(settings.AffiliateRebateRate, 'f', 8, 64)
 	if settings.AffiliateRebateFreezeHours < 0 {

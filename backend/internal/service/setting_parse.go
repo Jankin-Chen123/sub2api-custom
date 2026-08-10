@@ -17,6 +17,45 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 )
 
+func normalizeImageWorkbenchAnnouncements(items []ImageWorkbenchAnnouncement) []ImageWorkbenchAnnouncement {
+	result := make([]ImageWorkbenchAnnouncement, 0, len(items))
+	usedIDs := make(map[string]struct{}, len(items))
+	for index, item := range items {
+		content := strings.TrimSpace(item.Content)
+		if content == "" {
+			continue
+		}
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			id = fmt.Sprintf("announcement-%d", index+1)
+		}
+		if _, exists := usedIDs[id]; exists {
+			id = fmt.Sprintf("announcement-%d-%d", index+1, len(result)+1)
+		}
+		usedIDs[id] = struct{}{}
+		result = append(result, ImageWorkbenchAnnouncement{ID: id, Content: content})
+	}
+	return result
+}
+
+func parseImageWorkbenchAnnouncements(value string) []ImageWorkbenchAnnouncement {
+	var items []ImageWorkbenchAnnouncement
+	if err := json.Unmarshal([]byte(value), &items); err != nil || items == nil {
+		return []ImageWorkbenchAnnouncement{}
+	}
+	return normalizeImageWorkbenchAnnouncements(items)
+}
+
+func normalizeImageWorkbenchAnnouncementInterval(value int) int {
+	if value < imageWorkbenchAnnouncementIntervalMin {
+		return imageWorkbenchAnnouncementIntervalDefault
+	}
+	if value > imageWorkbenchAnnouncementIntervalMax {
+		return imageWorkbenchAnnouncementIntervalMax
+	}
+	return value
+}
+
 // InitializeDefaultSettings 初始化默认设置
 func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 	// 检查是否已有设置
@@ -128,6 +167,11 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyOIDCConnectUserInfoUsernamePath:           "",
 		SettingKeyDefaultConcurrency:                        strconv.Itoa(s.cfg.Default.UserConcurrency),
 		SettingKeyDefaultBalance:                            strconv.FormatFloat(s.cfg.Default.UserBalance, 'f', 8, 64),
+		SettingKeyImageGenerationQueueEnabled:               "true",
+		SettingKeyImageGenerationMaxActiveJobs:              "1",
+		SettingKeyImageGenerationMaxQueuedJobs:              "100",
+		SettingKeyImageWorkbenchAnnouncements:              "[]",
+		SettingKeyImageWorkbenchAnnouncementIntervalSecs:   strconv.Itoa(imageWorkbenchAnnouncementIntervalDefault),
 		SettingKeyAffiliateRebateRate:                       strconv.FormatFloat(AffiliateRebateRateDefault, 'f', 8, 64),
 		SettingKeyAffiliateRebateFreezeHours:                strconv.Itoa(AffiliateRebateFreezeHoursDefault),
 		SettingKeyAffiliateRebateDurationDays:               strconv.Itoa(AffiliateRebateDurationDaysDefault),
@@ -347,6 +391,8 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		CustomMenuItems:                  settings[SettingKeyCustomMenuItems],
 		CustomEndpoints:                  settings[SettingKeyCustomEndpoints],
 		BackendModeEnabled:               settings[SettingKeyBackendModeEnabled] == "true",
+		ImageGenerationQueueEnabled:      settings[SettingKeyImageGenerationQueueEnabled] != "false",
+		ImageWorkbenchAnnouncements:      parseImageWorkbenchAnnouncements(settings[SettingKeyImageWorkbenchAnnouncements]),
 	}
 	result.TableDefaultPageSize, result.TablePageSizeOptions = parseTablePreferences(
 		settings[SettingKeyTableDefaultPageSize],
@@ -365,6 +411,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	} else {
 		result.DefaultConcurrency = s.cfg.Default.UserConcurrency
 	}
+	result.ImageGenerationMaxActiveJobs = normalizeImageGenerationMaxActiveJobs(parsePositiveSetting(settings[SettingKeyImageGenerationMaxActiveJobs], imageGenerationQueueDefaultMaxActive))
+	result.ImageGenerationMaxQueuedJobs = normalizeImageGenerationMaxQueuedJobs(parseNonNegativeSetting(settings[SettingKeyImageGenerationMaxQueuedJobs], imageGenerationQueueDefaultMaxQueued))
+	result.ImageWorkbenchAnnouncementIntervalSeconds = normalizeImageWorkbenchAnnouncementInterval(parsePositiveSetting(settings[SettingKeyImageWorkbenchAnnouncementIntervalSecs], imageWorkbenchAnnouncementIntervalDefault))
 
 	if rpm, err := strconv.Atoi(settings[SettingKeyDefaultUserRPMLimit]); err == nil && rpm >= 0 {
 		result.DefaultUserRPMLimit = rpm

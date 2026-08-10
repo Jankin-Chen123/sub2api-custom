@@ -21,8 +21,8 @@ func (r *runtimeIdleRepo) ClaimNextImageGenerationJob(context.Context, time.Time
 	return nil, ErrImageGenerationJobNotFound
 }
 
-func (r *runtimeIdleRepo) RecoverExpiredImageGenerationJobLeases(context.Context, time.Time, int) (int64, error) {
-	return 0, nil
+func (r *runtimeIdleRepo) RecoverExpiredImageGenerationJobLeases(context.Context, time.Time, int) ([]ImageGenerationJobRecovery, error) {
+	return nil, nil
 }
 
 type runtimeWakeupStub struct {

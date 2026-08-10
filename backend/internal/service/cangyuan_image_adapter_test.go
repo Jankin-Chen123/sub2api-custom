@@ -45,9 +45,12 @@ func TestValidateCangyuanImageRequestSizes(t *testing.T) {
 
 	invalid := []CangyuanImageRequest{
 		{Model: CangyuanImageModel1K, Prompt: "test", Size: "1030x1024", N: 1},
+		{Model: CangyuanImageModel1K, Prompt: "test", Size: "1000x1000", N: 1},
+		{Model: CangyuanImageModel1K, Prompt: "test", Size: "512x512", N: 1},
 		{Model: CangyuanImageModel1K, Prompt: "test", Size: "2048x2048", N: 1},
 		{Model: CangyuanImageModel4K, Prompt: "test", Size: "4096x4096", N: 1},
 		{Model: CangyuanImageModel4K, Prompt: "test", Size: "3840x1024", N: 1},
+		{Model: CangyuanImageModel4K, Prompt: "test", Size: "3840x2304", N: 1},
 		{Model: CangyuanImageModel2K, Prompt: "test", Size: "2048x2048", N: 2},
 		{Model: CangyuanImageModel2K, Prompt: "test", Size: "2048x2048", N: 1, OutputResolution: "4K"},
 		{Model: CangyuanImageModel4K, Prompt: "test", AspectRatio: "4:1", N: 1},

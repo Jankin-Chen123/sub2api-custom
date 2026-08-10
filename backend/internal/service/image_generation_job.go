@@ -125,6 +125,14 @@ type ImageGenerationJobFilter struct {
 	Offset    int
 }
 
+// ImageGenerationJobRecovery describes a durable lease recovery transition.
+// The worker runtime uses the job ID to release any process-external
+// execution slot when recovery makes an unknown submission terminal.
+type ImageGenerationJobRecovery struct {
+	JobID  string
+	Status string
+}
+
 type ImageGenerationJobRepository interface {
 	CreateImageGenerationJob(ctx context.Context, params CreateImageGenerationJobParams) (job *ImageGenerationJob, replayed bool, err error)
 	GetImageGenerationJob(ctx context.Context, jobID string) (*ImageGenerationJob, error)
@@ -143,7 +151,7 @@ type ImageGenerationJobRepository interface {
 	MarkImageGenerationJobFailed(ctx context.Context, jobID string, claimVersion int64, code, message string, completedAt time.Time) error
 	MarkImageGenerationJobSubmissionUnknown(ctx context.Context, jobID string, claimVersion int64, code, message string, completedAt time.Time) error
 	ReleaseImageGenerationJobForRetry(ctx context.Context, jobID string, claimVersion int64, status, code, message string, nextAttemptAt time.Time) error
-	RecoverExpiredImageGenerationJobLeases(ctx context.Context, now time.Time, limit int) (int64, error)
+	RecoverExpiredImageGenerationJobLeases(ctx context.Context, now time.Time, limit int) ([]ImageGenerationJobRecovery, error)
 	ListImageGenerationJobsForCleanup(ctx context.Context, before time.Time, limit int) ([]*ImageGenerationJob, error)
 	DeleteImageGenerationJob(ctx context.Context, jobID string) error
 }

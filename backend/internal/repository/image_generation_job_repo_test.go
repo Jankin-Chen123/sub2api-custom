@@ -60,6 +60,30 @@ func TestImageGenerationJobRepositoryCreate(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestImageGenerationJobRepositoryAtomicQueueAdmissionRejectsFullQueue(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("SELECT pg_advisory_xact_lock(hashtextextended('image_generation_queue_admission', 0))"))
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`(?s)SELECT COUNT\(\*\).*FROM image_generation_jobs`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	mock.ExpectRollback()
+
+	repository := &imageGenerationJobRepository{db: db, sql: db}
+	userID, apiKeyID := int64(11), int64(22)
+	_, _, err = repository.CreateImageGenerationJobWithQueueLimit(context.Background(), service.CreateImageGenerationJobParams{
+		JobID: "imgjob_queue_full", UserID: &userID, APIKeyID: &apiKeyID,
+		Source: service.ImageGenerationJobSourceAPI, Operation: service.ImageGenerationJobOperationGeneration,
+		Status: service.ImageGenerationJobStatusQueued, PublicModel: service.CangyuanImageModel1K,
+		PromptHash: "prompt-hash",
+	}, 0)
+	require.ErrorIs(t, err, service.ErrImageGenerationQueueFull)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestImageGenerationJobRepositoryIdempotentReplayAndConflict(t *testing.T) {
 	t.Run("replay", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
@@ -210,12 +234,14 @@ func TestImageGenerationJobRepositoryRecoversSubmissionAsUnknownWithoutResubmit(
 	repository := &imageGenerationJobRepository{db: db, sql: db}
 	now := time.Now().UTC()
 
-	mock.ExpectExec(`(?s)WITH expired AS .*FOR UPDATE SKIP LOCKED.*status = 'submitting' THEN 'submission_unknown'`).
+	mock.ExpectQuery(`(?s)WITH expired AS .*FOR UPDATE SKIP LOCKED.*status = 'submitting' THEN 'submission_unknown'.*RETURNING job\.job_id, job\.status`).
 		WithArgs(now, 100).
-		WillReturnResult(sqlmock.NewResult(0, 2))
-	count, err := repository.RecoverExpiredImageGenerationJobLeases(context.Background(), now, 100)
+		WillReturnRows(sqlmock.NewRows([]string{"job_id", "status"}).
+			AddRow("imgjob_unknown_1", service.ImageGenerationJobStatusSubmissionUnknown).
+			AddRow("imgjob_unknown_2", service.ImageGenerationJobStatusSubmissionUnknown))
+	recovered, err := repository.RecoverExpiredImageGenerationJobLeases(context.Background(), now, 100)
 	require.NoError(t, err)
-	require.Equal(t, int64(2), count)
+	require.Len(t, recovered, 2)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

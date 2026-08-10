@@ -304,7 +304,7 @@ func TestWorkbenchCreateHTTPHandlerPersistsDedicatedJobAndPayload(t *testing.T) 
 	runtime := service.NewImageGenerationWorkerRuntime(&service.ImageGenerationWorker{})
 	runtime.Start()
 	defer runtime.Stop()
-	h := NewDedicatedImageHandler(orchestrator, repo, nil, billing, runtime, openAI, cfg)
+	h := NewDedicatedImageHandler(orchestrator, repo, nil, billing, runtime, openAI, nil, cfg)
 
 	estimateReq := httptest.NewRequest(http.MethodPost, "/api/v1/user/image-workbench/estimate", bytes.NewReader([]byte(`{"api_key_id":22,"model":"gpt-image-2-1k"}`)))
 	estimateReq.Header.Set("Content-Type", "application/json")

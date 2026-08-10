@@ -158,6 +158,11 @@ type SystemSettings struct {
 
 	DefaultConcurrency           int                          `json:"default_concurrency"`
 	DefaultBalance               float64                      `json:"default_balance"`
+	ImageGenerationQueueEnabled  bool                         `json:"image_generation_queue_enabled"`
+	ImageGenerationMaxActiveJobs int                          `json:"image_generation_max_active_jobs"`
+	ImageGenerationMaxQueuedJobs int                          `json:"image_generation_max_queued_jobs"`
+	ImageWorkbenchAnnouncements  []ImageWorkbenchAnnouncement `json:"image_workbench_announcements"`
+	ImageWorkbenchAnnouncementIntervalSeconds int `json:"image_workbench_announcement_interval_seconds"`
 	AffiliateRebateRate          float64                      `json:"affiliate_rebate_rate"`
 	AffiliateRebateFreezeHours   int                          `json:"affiliate_rebate_freeze_hours"`
 	AffiliateRebateDurationDays  int                          `json:"affiliate_rebate_duration_days"`
@@ -366,6 +371,8 @@ type PublicSettings struct {
 	TablePageSizeOptions             []int                    `json:"table_page_size_options"`
 	CustomMenuItems                  []CustomMenuItem         `json:"custom_menu_items"`
 	CustomEndpoints                  []CustomEndpoint         `json:"custom_endpoints"`
+	ImageWorkbenchAnnouncements      []ImageWorkbenchAnnouncement `json:"image_workbench_announcements"`
+	ImageWorkbenchAnnouncementIntervalSeconds int `json:"image_workbench_announcement_interval_seconds"`
 	DingTalkOAuthEnabled             bool                     `json:"dingtalk_oauth_enabled"`
 	LinuxDoOAuthEnabled              bool                     `json:"linuxdo_oauth_enabled"`
 	WeChatOAuthEnabled               bool                     `json:"wechat_oauth_enabled"`
@@ -409,6 +416,11 @@ type LoginAgreementDocument struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	ContentMD string `json:"content_md"`
+}
+
+type ImageWorkbenchAnnouncement struct {
+	ID      string `json:"id"`
+	Content string `json:"content"`
 }
 
 // OverloadCooldownSettings 529过载冷却配置 DTO

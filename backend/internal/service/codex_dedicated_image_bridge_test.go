@@ -19,14 +19,73 @@ import (
 )
 
 func TestBuildCodexDedicatedImagePlannerBody_ReplacesNativeImageTool(t *testing.T) {
-	body := []byte(`{"model":"gpt-5","stream":false,"tools":[{"type":"image_generation"},{"type":"function","name":"exec_command","parameters":{"type":"object"}}],"tool_choice":{"type":"image_generation"}}`)
+	body := []byte(`{"model":"gpt-5","stream":false,"tools":[{"type":"image_generation"},{"type":"namespace","name":"image_gen"},{"type":"function","name":"image_gen__imagegen"},{"type":"function","name":"exec_command","parameters":{"type":"object"}}],"tool_choice":{"type":"image_generation"}}`)
 
 	got, err := buildCodexDedicatedImagePlannerBody(body)
 	require.NoError(t, err)
 	require.NotContains(t, string(got), `"type":"image_generation"`)
+	require.NotContains(t, string(got), `"name":"image_gen"`)
+	require.NotContains(t, string(got), `"name":"image_gen__imagegen"`)
 	require.Contains(t, string(got), codexDedicatedImagePlannerToolName)
+	require.Equal(t, int64(2), gjson.GetBytes(got, "tools.#").Int())
 	require.Contains(t, string(got), `"tool_choice":"auto"`)
 	require.Contains(t, string(got), "self-contained prompt")
+}
+
+func TestBuildCodexDedicatedImagePlannerBody_ReplacesRemovedImageToolChoice(t *testing.T) {
+	choices := map[string]any{
+		"native image generation": map[string]any{"type": "image_generation"},
+		"image namespace string":  "image_gen",
+		"image namespace object":  map[string]any{"type": "namespace", "name": "image_gen"},
+		"flattened function":      map[string]any{"type": "function", "name": "image_gen__imagegen"},
+		"nested function":         map[string]any{"type": "function", "function": map[string]any{"namespace": "image_gen", "name": "imagegen"}},
+		"nested tool":             map[string]any{"tool": map[string]any{"type": "function", "name": "image_gen.imagegen"}},
+	}
+
+	for name, choice := range choices {
+		t.Run(name, func(t *testing.T) {
+			body, err := json.Marshal(map[string]any{
+				"model":       "gpt-5",
+				"input":       "draw a diagram",
+				"tools":       []any{map[string]any{"type": "namespace", "name": "image_gen"}},
+				"tool_choice": choice,
+			})
+			require.NoError(t, err)
+
+			got, err := buildCodexDedicatedImagePlannerBody(body)
+			require.NoError(t, err)
+			require.Equal(t, "auto", gjson.GetBytes(got, "tool_choice").String())
+		})
+	}
+}
+
+func TestCodexDedicatedImagePlannerToolUsesCompatibleNonStrictSchema(t *testing.T) {
+	raw, err := json.Marshal(codexDedicatedImagePlannerTool())
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(raw, "strict").Bool())
+	require.Equal(t, int64(1), gjson.GetBytes(raw, "parameters.required.#").Int())
+	require.Equal(t, "prompt", gjson.GetBytes(raw, "parameters.required.0").String())
+	require.Equal(t, int64(4), gjson.GetBytes(raw, "parameters.properties.quality.enum.#").Int())
+}
+
+func TestNormalizeCodexDedicatedImagePlanAcceptsOpenAIQualityAliases(t *testing.T) {
+	tests := map[string]string{
+		"standard": "auto",
+		"default":  "auto",
+		"normal":   "auto",
+		"HD":       "high",
+	}
+	for input, expected := range tests {
+		t.Run(input, func(t *testing.T) {
+			plan := &codexDedicatedImagePlan{
+				Prompt:     "绘制中文 TCP 三次握手知识笔记",
+				Resolution: "1K",
+				Quality:    input,
+			}
+			require.NoError(t, normalizeAndValidateCodexDedicatedImagePlan(plan))
+			require.Equal(t, expected, plan.Quality)
+		})
+	}
 }
 
 func TestBuildCodexDedicatedImagePlannerBody_PreservesLongConversationContext(t *testing.T) {

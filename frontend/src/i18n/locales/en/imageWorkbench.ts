@@ -1,28 +1,132 @@
 export default {
   imageWorkbench: {
     title: 'Image Workbench',
-    description: 'Use your Sub2API key with the dedicated Cangyuan image pool for native 1K, 2K, and 4K output.',
-    notices: {
-      originalResolution: 'Resolution is selected by model tier. 4K uses gpt-image-2-4k with a maximum edge of 3840; it is not treated as 4096×4096.',
-      billable: 'Every submission incurs upstream image cost and is billed per image. Submitted jobs continue if you close this page.',
-      textLimit: 'Dense small text, exact diagrams, and precise spelling can still be unreliable. Review generated images manually.',
-      fourK: '4K images take longer, cost more, and use more download and object-storage capacity.'
+    description: '',
+    header: {
+      brandAlt: 'Sub2API brand icon',
+      subtitle: 'Image Studio',
+      model: 'Model',
+      canvas: 'Canvas',
+      queue: 'Queue',
+      interface: 'Interface',
+      queueValue: '{count} tasks',
+      connected: 'Connected',
+      disconnected: 'Not connected',
+      retentionNotice: 'Generated images are cleaned up according to the system retention policy. Download them in time.'
     },
     form: {
-      apiKey: 'Sub2API key', selectApiKey: 'Select an image-enabled key', noApiKey: 'No active OpenAI key with image permission is available.',
-      quality: 'Quality', qualityOptions: { auto: 'Auto', low: 'Low', medium: 'Medium', high: 'High' },
-      dimensionMode: 'Dimension mode', dimensionModes: { size: 'Exact size', aspectRatio: 'Aspect ratio' },
-      aspectRatio: 'Aspect ratio', responseFormat: 'Upstream response format', responseFormats: { url: 'URL', b64Json: 'Base64 JSON' },
-      loadingEstimate: 'Loading estimated cost...', estimateUnavailable: 'Cost estimate unavailable; the final price is checked before submission.',
-      estimatedCost: 'Estimated cost: ${cost}',
-      model: 'Resolution tier', size: 'Output size', prompt: 'Prompt', promptPlaceholder: 'Describe the subject, composition, style, lighting, text, and exclusions…',
-      referenceUrls: 'Reference images (optional)', referenceUrlsPlaceholder: 'One HTTPS image URL per line, or upload below; 9 images maximum in total.',
-      mask: 'Edit mask (optional)', maskPlaceholder: 'HTTPS PNG mask URL', maskHint: 'The mask must be an alpha PNG with the same dimensions as the first reference image.', promptSubmitHint: 'Press Ctrl/⌘ + Enter in the prompt to submit'
+      apiKey: 'Image generation key',
+      selectApiKey: 'Select an image-enabled key',
+      noApiKey: 'No active OpenAI key with image permission is available.',
+      model: 'Resolution tier',
+      quality: 'Quality',
+      qualityOptions: { auto: 'Auto', low: 'Low', medium: 'Medium', high: 'High' },
+      dimensionMode: 'Dimension mode',
+      dimensionModes: { size: 'Exact size', aspectRatio: 'Aspect ratio' },
+      size: 'Output size',
+      aspectRatio: 'Aspect ratio',
+      dimensions: 'Dimensions',
+      settingsTitle: 'Generation settings',
+      reset: 'Reset',
+      unspecified: 'Any',
+      width: 'Width',
+      height: 'Height',
+      confirmSize: 'Confirm size',
+      sizeConfirmed: 'Image size confirmed.',
+      dimensionLimitsHint: 'Each edge must be a multiple of 16, no more than 3840px, and within the 3:1 ratio. Current model cap: {maxPixels} pixels.',
+      experimentalHint: 'Above 2560×1440 is experimental and may be less stable.',
+      dimensionErrors: {
+        invalid: 'Enter a valid image size.',
+        positiveInteger: 'Width and height must be positive integers.',
+        multipleOf16: 'Width and height must both be multiples of 16.',
+        maxEdge: 'Neither edge may exceed 3840px.',
+        aspectRatio: 'The long edge may not exceed 3 times the short edge.',
+        minPixels: 'The image must contain at least {minPixels} pixels.',
+        maxPixels: 'The selected model supports at most {maxPixels} pixels.'
+      },
+      prompt: 'Prompt',
+      promptPlaceholder: 'Describe the subject, composition, style, lighting, text, and exclusions...',
+      referenceUrls: 'Reference images (optional)',
+      referenceUrlsPlaceholder: 'One HTTPS image URL per line, or upload below; 9 images maximum in total.',
+      referenceTitle: 'Reference images',
+      dropReference: 'Drag / upload / import reference images',
+      dropReferenceHint: 'You can drag images from your desktop or reuse images from the library or preview.',
+      pasteReferenceUrl: 'Paste image URL',
+      importReference: 'Import',
+      clearReferences: 'Clear',
+      loadingEstimate: 'Loading estimated cost...',
+      estimateUnavailable: 'Cost estimate unavailable; the final price is checked before submission.',
+      estimatedCost: 'Estimated cost: {cost}'
     },
-    actions: { generate: 'Confirm cost and generate', submitting: 'Submitting…', loadPreview: 'Load preview', preview: 'Refresh preview', download: 'Download original' },
-    jobs: { title: 'Recent jobs', autoRefresh: 'Active jobs refresh every 2 seconds', empty: 'No image jobs yet', size: 'Actual size', cost: 'Cost', createdAt: 'Created' },
-    status: { queued: 'Queued', in_progress: 'Generating', completed: 'Completed', failed: 'Failed', submission_unknown: 'Submission needs review' },
-    messages: { submitted: 'Job submitted. It will continue if you leave this page.' },
-    errors: { loadKeys: 'Failed to load API keys', loadJobs: 'Failed to load image jobs', submit: 'Failed to submit image job', fileTooLarge: 'Each reference image must be 10 MB or smaller', invalidReferenceType: 'Reference files must be images', tooManyReferenceFiles: 'Select no more than 9 reference images', invalidMask: 'Mask must be a PNG no larger than 10 MB', preview: 'Failed to load preview', download: 'Failed to download image' }
+    actions: {
+      generate: 'Confirm cost and generate',
+      generateShort: 'Generate',
+      submitting: 'Submitting...',
+      loadPreview: 'Load preview',
+      downloadCurrent: 'Download current',
+      downloadAll: 'Download all',
+      downloading: 'Downloading...',
+      newCanvas: 'New canvas'
+    },
+    preview: {
+      syncWait: 'Sync {time}',
+      title: 'Generation preview',
+      subtitle: 'The generated image will appear here.',
+      ready: 'Ready',
+      emptyTitle: 'No image selected',
+      emptyHint: 'Submit a prompt or select a completed task.',
+      batchTitle: 'Generation batches',
+      blankCanvasTitle: 'Blank canvas',
+      blankCanvasHint: 'The generated image will appear here.',
+      blankCanvasStatus: 'Not generated'
+    },
+    library: {
+      title: 'Library',
+      subtitle: 'Completed images from this account.',
+      empty: 'No completed images yet.'
+    },
+    editor: {
+      title: 'Expand edit',
+      subtitle: 'Paint the area to change, then submit the edit prompt.',
+      expand: 'Expand edit',
+      brush: 'Brush',
+      clear: 'Clear marks',
+      brushSize: 'Brush size',
+      prompt: 'Edit prompt',
+      promptPlaceholder: 'Describe what should change in the marked area...',
+      hint: 'Red marks are converted into a transparent PNG mask and submitted together with the current image.',
+      setReference: 'Set as reference',
+      submit: 'Generate edited version',
+      referenceAdded: 'Current image added as a reference.',
+      submitted: 'Edit job submitted.',
+      currentImageReference: 'Current image reference'
+    },
+    jobs: {
+      empty: 'No image jobs yet.'
+    },
+    status: {
+      queued: 'Queued',
+      in_progress: 'Generating',
+      completed: 'Completed',
+      failed: 'Failed',
+      submission_unknown: 'Submission needs review'
+    },
+    messages: {
+      submitted: 'Job submitted. It will continue if you leave this page.',
+      downloadAllSuccess: 'Started downloading {count} images.'
+    },
+    errors: {
+      invalidReferenceUrl: 'Reference URL must start with http:// or https://',
+      tooManyReferences: 'You can add no more than 9 reference images in total',
+      loadKeys: 'Failed to load API keys',
+      loadJobs: 'Failed to load image jobs',
+      submit: 'Failed to submit image job',
+      fileTooLarge: 'Each reference image must be 10 MB or smaller',
+      invalidReferenceType: 'Reference files must be images',
+      tooManyReferenceFiles: 'Select no more than 9 reference images',
+      invalidMask: 'Mask must be a PNG no larger than 10 MB',
+      preview: 'Failed to load preview',
+      download: 'Failed to download image'
+    }
   }
 }

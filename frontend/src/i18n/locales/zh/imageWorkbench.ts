@@ -1,28 +1,132 @@
 export default {
   imageWorkbench: {
     title: '生图工作台',
-    description: '使用你自己的 Sub2API 密钥调用组内沧元专用生图账号，支持原分辨率 1K、2K 和 4K 输出。',
-    notices: {
-      originalResolution: '分辨率由模型档位决定：4K 使用 gpt-image-2-4k，最长边上限为 3840，不会把 4K 猜成 4096×4096。',
-      billable: '每次提交都会产生上游生图费用，并按图片张数结算；任务提交后即使关闭页面也会继续完成。',
-      textLimit: '复杂中文小字、严谨关系图和精确拼写仍可能不稳定，请生成后人工核对。',
-      fourK: '4K 图片耗时更长、费用更高，也会占用更多下载和对象存储资源。'
+    description: '',
+    header: {
+      brandAlt: 'Sub2API 品牌图标',
+      subtitle: 'Image Studio',
+      model: '模型',
+      canvas: '画幅',
+      queue: '队列',
+      interface: '接口',
+      queueValue: '{count} 个任务',
+      connected: '已连接',
+      disconnected: '未连接',
+      retentionNotice: '生成图片会按系统保留策略自动清理，请及时下载。'
     },
     form: {
-      quality: '质量', qualityOptions: { auto: '自动', low: '低', medium: '中', high: '高' },
-      dimensionMode: '尺寸方式', dimensionModes: { size: '指定尺寸', aspectRatio: '宽高比' },
-      aspectRatio: '宽高比', responseFormat: '上游响应格式', responseFormats: { url: 'URL', b64Json: 'Base64 JSON' },
-      loadingEstimate: '正在获取费用预估...', estimateUnavailable: '暂时无法获取费用预估；提交前仍会再次校验最终价格。',
-      estimatedCost: '预估费用：${cost}',
-      apiKey: 'Sub2API 密钥', selectApiKey: '请选择可生图的密钥', noApiKey: '暂无 OpenAI 生图权限的可用密钥。',
-      model: '分辨率档位', size: '输出尺寸', prompt: '提示词', promptPlaceholder: '描述主体、构图、风格、光线、文字和必须避免的内容……',
-      referenceUrls: '参考图（可选）', referenceUrlsPlaceholder: '每行一个 HTTPS 图片地址，或在下方上传；合计最多 9 张。',
-      mask: '编辑蒙版（可选）', maskPlaceholder: 'HTTPS PNG 蒙版地址', maskHint: '蒙版必须是带 Alpha 的 PNG，并与第一张参考图尺寸一致。', promptSubmitHint: '提示词输入框中按 Ctrl/⌘ + Enter 可提交'
+      dimensions: '尺寸',
+      settingsTitle: '生成设置',
+      reset: '重置',
+      unspecified: '不指定',
+      width: '宽度',
+      height: '高度',
+      confirmSize: '确定尺寸',
+      sizeConfirmed: '图片尺寸已确定。',
+      dimensionLimitsHint: '宽高必须是 16 的整数倍，单边不超过 3840px，长宽比不超过 3:1；当前模型最多支持 {maxPixels} 像素。',
+      experimentalHint: '超过 2560×1440 属于实验性分辨率，稳定性可能下降。',
+      dimensionErrors: {
+        invalid: '请输入有效的图片尺寸。',
+        positiveInteger: '宽度和高度必须是正整数。',
+        multipleOf16: '宽度和高度都必须是 16 的整数倍。',
+        maxEdge: '宽度和高度单边都不能超过 3840px。',
+        aspectRatio: '长边不能超过短边的 3 倍。',
+        minPixels: '总像素不能低于 {minPixels}。',
+        maxPixels: '当前模型最多支持 {maxPixels} 像素。'
+      },
+      referenceTitle: '图生图参考图',
+      dropReference: '拖拽/上传/导入参考图',
+      dropReferenceHint: '可拖入桌面图片，也可以从作品库或主预览图复用',
+      pasteReferenceUrl: '粘贴图片 URL',
+      importReference: '导入',
+      clearReferences: '清空',
+      apiKey: '生图密钥',
+      selectApiKey: '请选择可生图的密钥',
+      noApiKey: '暂无具备生图权限的可用 OpenAI 密钥。',
+      model: '分辨率档位',
+      quality: '质量',
+      qualityOptions: { auto: '自动', low: '低', medium: '中', high: '高' },
+      dimensionMode: '尺寸方式',
+      dimensionModes: { size: '指定尺寸', aspectRatio: '宽高比' },
+      size: '输出尺寸',
+      aspectRatio: '宽高比',
+      prompt: '提示词',
+      promptPlaceholder: '描述主体、构图、风格、光线、文字和必须避免的内容……',
+      referenceUrls: '参考图（可选）',
+      referenceUrlsPlaceholder: '每行一个 HTTPS 图片地址，或在下方上传；合计最多 9 张。',
+      loadingEstimate: '正在获取费用预估……',
+      estimateUnavailable: '暂时无法获取费用预估；提交前仍会再次校验最终价格。',
+      estimatedCost: '预估费用：{cost}'
     },
-    actions: { generate: '确认费用并开始生图', submitting: '正在提交……', loadPreview: '加载预览', preview: '刷新预览', download: '下载原图' },
-    jobs: { title: '最近任务', autoRefresh: '进行中的任务每 2 秒自动刷新', empty: '还没有生图任务', size: '实际尺寸', cost: '费用', createdAt: '创建时间' },
-    status: { queued: '排队中', in_progress: '生成中', completed: '已完成', failed: '失败', submission_unknown: '提交结果待核查' },
-    messages: { submitted: '任务已提交，离开页面后仍会继续执行。' },
-    errors: { loadKeys: '加载 API 密钥失败', loadJobs: '加载生图任务失败', submit: '提交生图任务失败', fileTooLarge: '单张参考图不能超过 10 MB', invalidReferenceType: '参考图必须是图片文件', tooManyReferenceFiles: '最多只能选择 9 张参考图', invalidMask: '蒙版必须是 10 MB 以内的 PNG', preview: '加载预览失败', download: '下载图片失败' }
+    actions: {
+      generate: '确认费用并开始生图',
+      generateShort: '生成',
+      submitting: '正在提交……',
+      loadPreview: '加载预览',
+      downloadCurrent: '下载当前图片',
+      downloadAll: '下载全部',
+      downloading: '下载中……',
+      newCanvas: '新建画布'
+    },
+    preview: {
+      syncWait: '同步 {time}',
+      title: '生成预览',
+      subtitle: '生成完成后的图片会显示在这里。',
+      ready: '已完成',
+      emptyTitle: '尚未选择图片',
+      emptyHint: '提交提示词，或选择一个已完成的任务。',
+      batchTitle: '生成批次',
+      blankCanvasTitle: '空白画布',
+      blankCanvasHint: '生成的图片会显示在这里。',
+      blankCanvasStatus: '未生成'
+    },
+    library: {
+      title: '作品库',
+      subtitle: '当前账号下已完成的图片。',
+      empty: '暂无已完成的图片。'
+    },
+    editor: {
+      title: '展开编辑',
+      subtitle: '在原图上涂抹需要修改的区域，然后提交修改提示词。',
+      expand: '展开编辑',
+      brush: '画笔',
+      clear: '清除标记',
+      brushSize: '画笔大小',
+      prompt: '修改提示词',
+      promptPlaceholder: '描述标记区域需要如何修改……',
+      hint: '红色标记会被转换成透明 PNG 蒙版，并与当前图片一起提交给上游生图接口。',
+      setReference: '设为参考图',
+      submit: '生成修改版',
+      referenceAdded: '当前图片已添加为参考图。',
+      submitted: '修改任务已提交。',
+      currentImageReference: '当前图片参考图'
+    },
+    jobs: {
+      empty: '暂无生图任务。'
+    },
+    status: {
+      queued: '排队中',
+      in_progress: '生成中',
+      completed: '已完成',
+      failed: '失败',
+      submission_unknown: '提交结果待核查'
+    },
+    messages: {
+      submitted: '任务已提交；即使离开页面也会继续执行。',
+      downloadAllSuccess: '已开始下载 {count} 张图片。'
+    },
+    errors: {
+      invalidReferenceUrl: '参考图 URL 必须以 http:// 或 https:// 开头',
+      tooManyReferences: '参考图总数不能超过 9 张',
+      loadKeys: '加载 API 密钥失败',
+      loadJobs: '加载生图任务失败',
+      submit: '提交生图任务失败',
+      fileTooLarge: '单张参考图不能超过 10 MB',
+      invalidReferenceType: '参考图必须是图片文件',
+      tooManyReferenceFiles: '最多只能选择 9 张参考图',
+      invalidMask: '蒙版必须是 10 MB 以内的 PNG',
+      preview: '加载预览失败',
+      download: '下载图片失败'
+    }
   }
 }

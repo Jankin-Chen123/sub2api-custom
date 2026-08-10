@@ -5638,6 +5638,77 @@
         </div>
         <!-- /Tab: Gateway — Claude Code, Scheduling -->
 
+        <!-- Tab: Image generation -->
+        <div v-show="activeTab === 'imageGeneration'" class="space-y-6">
+          <!-- Image generation queue protection -->
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t("admin.settings.imageGenerationQueue.title") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.imageGenerationQueue.description") }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">
+                    {{ t("admin.settings.imageGenerationQueue.enabled") }}
+                  </label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.imageGenerationQueue.enabledHint") }}
+                  </p>
+                </div>
+                <Toggle v-model="form.image_generation_queue_enabled" />
+              </div>
+              <div
+                class="grid gap-4 border-t border-gray-100 pt-4 dark:border-dark-700 sm:grid-cols-2"
+              >
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t("admin.settings.imageGenerationQueue.maxActiveJobs") }}
+                  </label>
+                  <input
+                    v-model.number="form.image_generation_max_active_jobs"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    class="input w-32"
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.imageGenerationQueue.maxActiveJobsHint") }}
+                  </p>
+                </div>
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t("admin.settings.imageGenerationQueue.maxQueuedJobs") }}
+                  </label>
+                  <input
+                    v-model.number="form.image_generation_max_queued_jobs"
+                    type="number"
+                    min="0"
+                    max="100000"
+                    class="input w-32"
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.imageGenerationQueue.maxQueuedJobsHint") }}
+                  </p>
+                </div>
+              </div>
+              <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+                {{ t("admin.settings.imageGenerationQueue.safetyHint") }}
+              </p>
+            </div>
+          </div>
+
+          <ImageGenerationSettings
+            v-model:announcements="form.image_workbench_announcements"
+            v-model:interval-seconds="form.image_workbench_announcement_interval_seconds"
+          />
+        </div>
+        <!-- /Tab: Image generation -->
+
         <!-- Tab: General -->
         <div v-show="activeTab === 'general'" class="space-y-6">
           <!-- Site Settings -->
@@ -8211,6 +8282,7 @@ import Toggle from "@/components/common/Toggle.vue";
 import ProxySelector from "@/components/common/ProxySelector.vue";
 import ImageUpload from "@/components/common/ImageUpload.vue";
 import BackupSettings from "@/views/admin/BackupView.vue";
+import ImageGenerationSettings from "@/views/admin/ImageGenerationSettings.vue";
 import EmailTemplateEditor from "@/views/admin/settings/EmailTemplateEditor.vue";
 import OpenAIFastPolicyUserSelector from "@/views/admin/settings/OpenAIFastPolicyUserSelector.vue";
 import { useClipboard } from "@/composables/useClipboard";
@@ -8269,6 +8341,7 @@ type SettingsTab =
   | "security"
   | "users"
   | "gateway"
+  | "imageGeneration"
   | "payment"
   | "email"
   | "backup";
@@ -8280,6 +8353,7 @@ const settingsTabs = [
   { key: "security" as SettingsTab, icon: "shield" as const },
   { key: "users" as SettingsTab, icon: "user" as const },
   { key: "gateway" as SettingsTab, icon: "server" as const },
+  { key: "imageGeneration" as SettingsTab, icon: "sparkles" as const },
   { key: "payment" as SettingsTab, icon: "creditCard" as const },
   { key: "email" as SettingsTab, icon: "mail" as const },
   { key: "backup" as SettingsTab, icon: "database" as const },
@@ -8943,6 +9017,11 @@ const form = reactive<SettingsForm>({
   affiliate_rebate_per_invitee_cap: 0,
   affiliate_admin_recharge_enabled: false,
   default_concurrency: 1,
+  image_generation_queue_enabled: true,
+  image_generation_max_active_jobs: 1,
+  image_generation_max_queued_jobs: 100,
+  image_workbench_announcements: [],
+  image_workbench_announcement_interval_seconds: 5,
   default_subscriptions: [],
   force_email_on_third_party_signup: false,
   default_user_rpm_limit: 0,
@@ -10473,6 +10552,11 @@ async function saveSettings() {
       affiliate_rebate_per_invitee_cap: Math.max(0, Number(form.affiliate_rebate_per_invitee_cap) || 0),
       affiliate_admin_recharge_enabled: form.affiliate_admin_recharge_enabled,
       default_concurrency: form.default_concurrency,
+      image_generation_queue_enabled: form.image_generation_queue_enabled,
+      image_generation_max_active_jobs: Math.max(1, Math.floor(Number(form.image_generation_max_active_jobs) || 1)),
+      image_generation_max_queued_jobs: Math.max(0, Math.floor(Number(form.image_generation_max_queued_jobs) || 0)),
+      image_workbench_announcements: form.image_workbench_announcements,
+      image_workbench_announcement_interval_seconds: Math.min(3600, Math.max(1, Math.floor(Number(form.image_workbench_announcement_interval_seconds) || 5))),
       default_subscriptions: normalizedDefaultSubscriptions,
       force_email_on_third_party_signup: form.force_email_on_third_party_signup,
       default_user_rpm_limit: form.default_user_rpm_limit,

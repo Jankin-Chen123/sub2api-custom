@@ -28,6 +28,21 @@ func NewImageGenerationJobRepository(db *sql.DB) service.ImageGenerationJobRepos
 	return &imageGenerationJobRepository{db: db, sql: db}
 }
 
+var _ service.ImageGenerationQueueCounter = (*imageGenerationJobRepository)(nil)
+var _ service.ImageGenerationQueueAdmission = (*imageGenerationJobRepository)(nil)
+
+// CountQueuedImageGenerationJobs counts only jobs that have not reached the
+// worker's upstream execution phase. Terminal and already-submitted jobs do
+// not consume the administrator-configured waiting queue.
+func (r *imageGenerationJobRepository) CountQueuedImageGenerationJobs(ctx context.Context) (int, error) {
+	var count int
+	err := r.sql.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM image_generation_jobs
+WHERE status IN ('created', 'planning', 'queued')`).Scan(&count)
+	return count, err
+}
+
 func (r *imageGenerationJobRepository) CreateImageGenerationJob(ctx context.Context, params service.CreateImageGenerationJobParams) (*service.ImageGenerationJob, bool, error) {
 	if params.JobID == "" {
 		jobID, err := service.NewImageGenerationJobID()
@@ -69,6 +84,76 @@ func (r *imageGenerationJobRepository) CreateImageGenerationJob(ctx context.Cont
 	}
 	if !errors.Is(findErr, sql.ErrNoRows) {
 		return nil, false, findErr
+	}
+	job, err := insertImageGenerationJob(ctx, tx, params)
+	if err != nil {
+		return nil, false, translatePersistenceError(err, nil, service.ErrImageGenerationJobExists)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, false, err
+	}
+	return job, false, nil
+}
+
+// CreateImageGenerationJobWithQueueLimit performs queue admission and durable
+// insertion under one PostgreSQL transaction. A transaction-scoped advisory
+// lock serializes all production queue admissions, eliminating the count-then-
+// insert race that otherwise lets bursts exceed max_queued.
+func (r *imageGenerationJobRepository) CreateImageGenerationJobWithQueueLimit(ctx context.Context, params service.CreateImageGenerationJobParams, maxQueued int) (*service.ImageGenerationJob, bool, error) {
+	if r == nil {
+		return nil, false, errors.New("image generation job repository is not configured")
+	}
+	if maxQueued < 0 || r.db == nil {
+		return r.CreateImageGenerationJob(ctx, params)
+	}
+	if params.JobID == "" {
+		jobID, err := service.NewImageGenerationJobID()
+		if err != nil {
+			return nil, false, err
+		}
+		params.JobID = jobID
+	}
+	if params.Status == "" {
+		params.Status = service.ImageGenerationJobStatusCreated
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('image_generation_queue_admission', 0))`); err != nil {
+		return nil, false, err
+	}
+
+	if params.IdempotencyKey != nil && strings.TrimSpace(*params.IdempotencyKey) != "" {
+		scope := imageGenerationIdempotencyScope(params)
+		if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, scope); err != nil {
+			return nil, false, err
+		}
+		existing, findErr := getImageGenerationJobByIdempotency(ctx, tx, params)
+		if findErr == nil {
+			if !nullableStringsEqual(existing.RequestHash, params.RequestHash) {
+				return nil, false, service.ErrImageGenerationIdempotency
+			}
+			if err := tx.Commit(); err != nil {
+				return nil, false, err
+			}
+			return existing, true, nil
+		}
+		if !errors.Is(findErr, sql.ErrNoRows) {
+			return nil, false, findErr
+		}
+	}
+
+	var queued int
+	if err := tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM image_generation_jobs
+WHERE status IN ('created', 'planning', 'queued')`).Scan(&queued); err != nil {
+		return nil, false, err
+	}
+	if (maxQueued == 0 && queued > 0) || (maxQueued > 0 && queued >= maxQueued) {
+		return nil, false, service.ErrImageGenerationQueueFull
 	}
 	job, err := insertImageGenerationJob(ctx, tx, params)
 	if err != nil {
@@ -391,11 +476,11 @@ WHERE job_id = $1
   AND status NOT IN ('completed', 'failed', 'submission_unknown')`, jobID, claimVersion, status, service.RedactImageGenerationErrorMessage(code, 128), service.RedactImageGenerationErrorMessage(message, 1024), nextAttemptAt)
 }
 
-func (r *imageGenerationJobRepository) RecoverExpiredImageGenerationJobLeases(ctx context.Context, now time.Time, limit int) (int64, error) {
+func (r *imageGenerationJobRepository) RecoverExpiredImageGenerationJobLeases(ctx context.Context, now time.Time, limit int) ([]service.ImageGenerationJobRecovery, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
-	result, err := r.sql.ExecContext(ctx, `
+	rows, err := r.sql.QueryContext(ctx, `
 WITH expired AS (
     SELECT id
     FROM image_generation_jobs
@@ -431,11 +516,24 @@ SET status = CASE
     lease_expires_at = NULL,
     updated_at = $1
 FROM expired
-WHERE job.id = expired.id`, now, limit)
+WHERE job.id = expired.id
+RETURNING job.job_id, job.status`, now, limit)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected()
+	defer func() { _ = rows.Close() }()
+	recovered := make([]service.ImageGenerationJobRecovery, 0, limit)
+	for rows.Next() {
+		var item service.ImageGenerationJobRecovery
+		if err := rows.Scan(&item.JobID, &item.Status); err != nil {
+			return nil, err
+		}
+		recovered = append(recovered, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return recovered, nil
 }
 
 func (r *imageGenerationJobRepository) ListImageGenerationJobsForCleanup(ctx context.Context, before time.Time, limit int) ([]*service.ImageGenerationJob, error) {
@@ -443,7 +541,7 @@ func (r *imageGenerationJobRepository) ListImageGenerationJobsForCleanup(ctx con
 		limit = 100
 	}
 	rows, err := r.sql.QueryContext(ctx, imageGenerationJobSelectSQL+`
- WHERE status IN ('completed', 'failed', 'submission_unknown')
+ WHERE status IN ('completed', 'failed')
    AND COALESCE(completed_at, updated_at) < $1
  ORDER BY COALESCE(completed_at, updated_at), id
  LIMIT $2`, before, limit)
@@ -469,8 +567,8 @@ func (r *imageGenerationJobRepository) DeleteImageGenerationJob(ctx context.Cont
 	}
 	result, err := r.sql.ExecContext(ctx, `
 DELETE FROM image_generation_jobs
-WHERE job_id = $1
-  AND status IN ('completed', 'failed', 'submission_unknown')`, jobID)
+ WHERE job_id = $1
+  AND status IN ('completed', 'failed')`, jobID)
 	if err != nil {
 		return err
 	}

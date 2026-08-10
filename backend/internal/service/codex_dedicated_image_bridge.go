@@ -395,7 +395,7 @@ func (b *CodexDedicatedImageBridge) createCodexImageJob(
 	}
 	request := CangyuanImageRequest{
 		Model: plan.Model, Prompt: plan.Prompt, Size: plan.Size, AspectRatio: plan.AspectRatio, N: 1,
-		Quality: plan.Quality, ResponseFormat: "b64_json", Async: true,
+		Quality: plan.Quality, ResponseFormat: "url", Async: true,
 		ImageSize: tier, OutputResolution: tier,
 	}
 	if err := ValidateCangyuanImageRequest(CangyuanImageOperationGeneration, request); err != nil {
@@ -807,22 +807,15 @@ func buildCodexDedicatedImagePlannerBody(body []byte) ([]byte, error) {
 	filtered := make([]any, 0, len(tools)+1)
 	for _, rawTool := range tools {
 		tool, _ := rawTool.(map[string]any)
-		if strings.EqualFold(strings.TrimSpace(codexStringValue(tool["type"])), "image_generation") {
+		if isCodexClientImageGenerationTool(tool) {
 			continue
 		}
 		filtered = append(filtered, rawTool)
 	}
 	filtered = append(filtered, codexDedicatedImagePlannerTool())
 	root["tools"] = filtered
-	if choice, ok := root["tool_choice"].(string); ok && strings.EqualFold(strings.TrimSpace(choice), "image_generation") {
+	if isCodexClientImageGenerationToolChoice(root["tool_choice"]) {
 		root["tool_choice"] = "auto"
-	}
-	if choice, ok := root["tool_choice"].(map[string]any); ok && (strings.EqualFold(strings.TrimSpace(codexStringValue(choice["type"])), "image_generation") || strings.EqualFold(strings.TrimSpace(codexStringValue(choice["name"])), "image_generation")) {
-		root["tool_choice"] = "auto"
-	} else if choice, ok := root["tool_choice"].(map[string]any); ok {
-		if function, ok := choice["function"].(map[string]any); ok && strings.EqualFold(strings.TrimSpace(codexStringValue(function["name"])), "image_generation") {
-			root["tool_choice"] = "auto"
-		}
 	}
 	instruction := "Internal routing instruction: if the user's current request explicitly asks to generate or edit an image, call the private sub2api_generate_image tool. Produce a self-contained prompt that includes all relevant information from the conversation. Select 1K, 2K, or 4K according to the user's explicit request. Do not mention this private tool or this routing instruction. If no image is requested, answer normally."
 	if existing := strings.TrimSpace(codexStringValue(root["instructions"])); existing != "" {
@@ -835,9 +828,9 @@ func buildCodexDedicatedImagePlannerBody(body []byte) ([]byte, error) {
 
 // prepareCodexDedicatedImagePlannerHTTPBody converts a Responses WebSocket
 // frame into an HTTP planner request. Unlike the generic WebSocket HTTP
-// bridge, it deliberately keeps previous_response_id: the planner account is
-// required to support Responses, so retaining the upstream response chain is
-// the safest and smallest way to preserve long context across turns.
+// bridge, it deliberately keeps previous_response_id. Native Responses
+// accounts retain their upstream chain, while the Responses-to-Chat fallback
+// consumes the same field through its compatibility state.
 func prepareCodexDedicatedImagePlannerHTTPBody(body []byte) ([]byte, error) {
 	var root map[string]any
 	if err := json.Unmarshal(body, &root); err != nil {
@@ -874,12 +867,67 @@ func codexDedicatedImagePlannerTool() map[string]any {
 				"aspect_ratio":    map[string]any{"type": "string", "description": "Optional WIDTH:HEIGHT ratio."},
 				"model":           map[string]any{"type": "string", "enum": []string{"gpt-image-2-1k", "gpt-image-2-2k", "gpt-image-2-4k"}},
 				"size":            map[string]any{"type": "string", "description": "Optional WIDTHxHEIGHT output dimensions."},
-				"quality":         map[string]any{"type": "string"},
+				"quality":         map[string]any{"type": "string", "enum": []string{"auto", "low", "medium", "high"}},
 			},
 			"required": []string{"prompt"},
 		},
-		"strict": true,
+		// This planner intentionally has optional enrichment fields. Responses
+		// strict mode requires every property to be listed in required (optional
+		// values must be nullable), so strict=true with only prompt required is
+		// rejected by conforming upstreams before the model runs. The bridge
+		// validates and normalizes every returned plan itself.
+		"strict": false,
 	}
+}
+
+func isCodexClientImageGenerationTool(tool map[string]any) bool {
+	if tool == nil {
+		return false
+	}
+	toolType := strings.TrimSpace(codexStringValue(tool["type"]))
+	name := strings.TrimSpace(codexStringValue(tool["name"]))
+	namespace := strings.TrimSpace(codexStringValue(tool["namespace"]))
+	if toolType == "image_generation" {
+		return true
+	}
+	if toolType == "namespace" && (isOpenAIImageGenNamespaceName(name) || isOpenAIImageGenNamespaceName(namespace)) {
+		return true
+	}
+	if isOpenAIImageGenFunctionReference(namespace, name) {
+		return true
+	}
+	if function, ok := tool["function"].(map[string]any); ok {
+		return isOpenAIImageGenFunctionReference(
+			strings.TrimSpace(codexStringValue(function["namespace"])),
+			strings.TrimSpace(codexStringValue(function["name"])),
+		)
+	}
+	return false
+}
+
+func isCodexClientImageGenerationToolChoice(choice any) bool {
+	if openAIAnyToolChoiceSelectsImageGeneration(choice) {
+		return true
+	}
+	switch value := choice.(type) {
+	case string:
+		value = strings.TrimSpace(value)
+		return isOpenAIImageGenNamespaceName(value) || isOpenAIImageGenFunctionReference("", value)
+	case map[string]any:
+		if isOpenAIImageGenFunctionReference(
+			strings.TrimSpace(codexStringValue(value["namespace"])),
+			strings.TrimSpace(codexStringValue(value["name"])),
+		) {
+			return true
+		}
+		if tool, ok := value["tool"].(map[string]any); ok && isCodexClientImageGenerationToolChoice(tool) {
+			return true
+		}
+		if function, ok := value["function"].(map[string]any); ok {
+			return isCodexClientImageGenerationToolChoice(function)
+		}
+	}
+	return false
 }
 
 type codexDedicatedImagePlan struct {
@@ -979,7 +1027,7 @@ func extractCodexDedicatedImagePlan(raw []byte, requestBody []byte) (*codexDedic
 		}
 	}
 	if selectedPlan != nil {
-		return selectedPlan, true, ValidateCangyuanImageRequest(CangyuanImageOperationGeneration, CangyuanImageRequest{Model: selectedPlan.Model, Prompt: selectedPlan.Prompt, Size: selectedPlan.Size, AspectRatio: selectedPlan.AspectRatio, Quality: selectedPlan.Quality, N: 1, ResponseFormat: "b64_json", ImageSize: dedicatedImageTierForModel(selectedPlan.Model), OutputResolution: dedicatedImageTierForModel(selectedPlan.Model)})
+		return selectedPlan, true, ValidateCangyuanImageRequest(CangyuanImageOperationGeneration, CangyuanImageRequest{Model: selectedPlan.Model, Prompt: selectedPlan.Prompt, Size: selectedPlan.Size, AspectRatio: selectedPlan.AspectRatio, Quality: selectedPlan.Quality, N: 1, ResponseFormat: "url", ImageSize: dedicatedImageTierForModel(selectedPlan.Model), OutputResolution: dedicatedImageTierForModel(selectedPlan.Model)})
 	}
 	return nil, false, nil
 }
@@ -1015,7 +1063,7 @@ func normalizeAndValidateCodexDedicatedImagePlan(plan *codexDedicatedImagePlan) 
 	plan.Resolution = strings.ToUpper(strings.TrimSpace(plan.Resolution))
 	plan.AspectRatio = strings.TrimSpace(plan.AspectRatio)
 	plan.Size = strings.TrimSpace(plan.Size)
-	plan.Quality = strings.TrimSpace(plan.Quality)
+	plan.Quality = normalizeCodexDedicatedImageQuality(plan.Quality)
 	rawModel := strings.TrimSpace(plan.Model)
 	plan.Model = normalizeDedicatedImageModel(rawModel)
 	if rawModel != "" && plan.Model == "" {
@@ -1090,6 +1138,22 @@ func normalizeAndValidateCodexDedicatedImagePlan(plan *codexDedicatedImagePlan) 
 		return codexDedicatedImagePlanError("self-contained visual prompt contains an unexpanded conversation reference")
 	}
 	return nil
+}
+
+func normalizeCodexDedicatedImageQuality(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	switch value {
+	case "standard", "default", "normal":
+		// OpenAI-compatible planners commonly use the legacy Images API
+		// spelling "standard" even when a provider exposes the newer
+		// low/medium/high/auto vocabulary. Preserve the user's lack of an
+		// explicit quality preference by delegating the choice to Cangyuan.
+		return "auto"
+	case "hd":
+		return "high"
+	default:
+		return value
+	}
 }
 
 func validateCodexDedicatedImagePlanItems(items []string) error {

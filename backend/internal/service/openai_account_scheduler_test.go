@@ -681,6 +681,7 @@ func TestOpenAIGatewayService_AccountPurposeIsolation(t *testing.T) {
 			"base_url":      "https://cangyuan-fallback.example.test/v1",
 			"model_mapping": map[string]any{"gpt-image-2-1k": "gpt-image-2-1k", "gpt-5.1": "gpt-5.1"},
 		},
+		Extra: map[string]any{"openai_responses_supported": false},
 	}
 	imageOnly := Account{
 		ID: 37102, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
@@ -712,7 +713,7 @@ func TestOpenAIGatewayService_AccountPurposeIsolation(t *testing.T) {
 		require.Equal(t, general.ID, selection.Account.ID)
 	})
 
-	t.Run("image planning remains on a general account", func(t *testing.T) {
+	t.Run("image planning accepts a chat-only general account and excludes image-only", func(t *testing.T) {
 		selection, _, err := newSvc([]Account{imageOnly, general}).SelectAccountWithSchedulerForImagePlanning(
 			ctx, &groupID, "", "", "gpt-5.1", nil,
 			OpenAIEndpointCapabilityChatCompletions, false, false, true, PlatformOpenAI,

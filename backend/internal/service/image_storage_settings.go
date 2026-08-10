@@ -29,6 +29,10 @@ type ImageStorageFactory func(ctx context.Context, cfg *config.ImageStorageConfi
 type ImageStorageSettings struct {
 	Enabled       bool `json:"enabled"`
 	ReuseBackupS3 bool `json:"reuse_backup_s3"`
+	// AllowBase64Responses controls whether dedicated image APIs may return
+	// b64_json. It is intentionally disabled by default because Base64 image
+	// responses consume substantially more memory and bandwidth than URLs.
+	AllowBase64Responses bool `json:"allow_base64_responses"`
 
 	Bucket           string `json:"bucket"` // 留空且复用备份时，沿用备份桶
 	Prefix           string `json:"prefix"`
@@ -161,6 +165,21 @@ func (s *ImageStorageSettingService) SecretConfigured(ctx context.Context) bool 
 		return err == nil && cfg != nil && cfg.SecretAccessKey != ""
 	}
 	return settings.SecretAccessKey != ""
+}
+
+// Base64ResponsesAllowed reports the current runtime policy for dedicated
+// image responses. The setting is read from the same admin-editable record as
+// image storage, so changing it takes effect without restarting the server.
+// Missing or invalid settings fail closed and allow URL responses only.
+func (s *ImageStorageSettingService) Base64ResponsesAllowed(ctx context.Context) bool {
+	if s == nil {
+		return false
+	}
+	settings, err := s.load(ctx)
+	if err != nil || settings == nil {
+		return false
+	}
+	return settings.AllowBase64Responses
 }
 
 // Update 保存设置并立即生效。SecretAccessKey 留空表示沿用已保存的值。

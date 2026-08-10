@@ -290,6 +290,17 @@ const (
 	SettingKeyDefaultBalance       = "default_balance"        // 新用户默认余额
 	SettingKeyDefaultSubscriptions = "default_subscriptions"  // 新用户默认订阅列表（JSON）
 	SettingKeyDefaultUserRPMLimit  = "default_user_rpm_limit" // 新用户默认 RPM 限制（0 = 不限制）
+	// 生图队列保护：限制服务器同时执行的生图任务及等待队列长度
+	SettingKeyImageGenerationQueueEnabled    = "image_generation_queue_enabled"
+	SettingKeyImageGenerationMaxActiveJobs   = "image_generation_max_active_jobs"
+	SettingKeyImageGenerationMaxQueuedJobs   = "image_generation_max_queued_jobs"
+	// 生图工作台公告栏
+	SettingKeyImageWorkbenchAnnouncements             = "image_workbench_announcements"
+	SettingKeyImageWorkbenchAnnouncementIntervalSecs  = "image_workbench_announcement_interval_seconds"
+
+	imageWorkbenchAnnouncementIntervalDefault = 5
+	imageWorkbenchAnnouncementIntervalMin     = 1
+	imageWorkbenchAnnouncementIntervalMax     = 3600
 
 	// 第三方认证来源默认授予配置
 	SettingKeyAuthSourceDefaultEmailBalance             = "auth_source_default_email_balance"

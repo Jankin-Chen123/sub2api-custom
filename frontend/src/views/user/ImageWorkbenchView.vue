@@ -1,36 +1,75 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.title') }}</h1>
-          <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.description') }}</p>
+    <div class="-mx-4 -mt-2 -mb-4 flex h-[calc(100dvh-4.5rem-1px)] max-w-[1560px] min-h-0 flex-col gap-3 overflow-hidden px-4 pb-4 pt-0 md:-mx-6 md:-mt-4 md:-mb-6 md:h-[calc(100dvh-4.5rem-1px)] lg:-mx-8 lg:-mt-6 lg:-mb-8 lg:h-[calc(100dvh-4.5rem-1px)] lg:px-4">
+      <section class="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-dark-700 dark:bg-dark-800 sm:p-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex min-w-0 items-center gap-2.5">
+            <img src="/brand-icon.png" :alt="t('imageWorkbench.header.brandAlt')" class="h-10 w-10 shrink-0 rounded-lg object-cover shadow-sm" />
+            <div class="min-w-0">
+              <h1 class="truncate text-xl font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.title') }}</h1>
+              <p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.header.subtitle') }}</p>
+            </div>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <button class="btn btn-secondary" type="button" :disabled="completedJobs.length === 0 || downloadingAll" @click="downloadAll">
+              {{ downloadingAll ? t('imageWorkbench.actions.downloading') : t('imageWorkbench.actions.downloadAll') }}
+            </button>
+            <button class="btn btn-primary" type="button" :disabled="submitting || !canSubmit" @click="submitJob">
+              {{ submitting ? t('imageWorkbench.actions.submitting') : t('imageWorkbench.actions.generateShort') }}
+            </button>
+          </div>
         </div>
-        <button class="btn btn-secondary" :disabled="loadingJobs" @click="loadJobs">
-          {{ loadingJobs ? t('common.loading') : t('common.refresh') }}
-        </button>
-      </div>
 
-      <div class="grid gap-3 md:grid-cols-3">
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-200">
-          {{ t('imageWorkbench.notices.originalResolution') }}
-        </div>
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-          {{ t('imageWorkbench.notices.billable') }}
-        </div>
-        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 dark:border-dark-700 dark:bg-dark-900/50 dark:text-gray-300">
-          {{ t('imageWorkbench.notices.textLimit') }}
-        </div>
-      </div>
+        <dl class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div class="rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-2 dark:border-dark-700 dark:bg-dark-900/50">
+            <dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.header.model') }}</dt>
+            <dd class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ headerModel }}</dd>
+          </div>
+          <div class="rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-2 dark:border-dark-700 dark:bg-dark-900/50">
+            <dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.header.canvas') }}</dt>
+            <dd class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ headerCanvasSize }}</dd>
+          </div>
+          <div class="rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-2 dark:border-dark-700 dark:bg-dark-900/50">
+            <dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.header.queue') }}</dt>
+            <dd class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ queueSummary }}</dd>
+          </div>
+          <div class="rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-2 dark:border-dark-700 dark:bg-dark-900/50">
+            <dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.header.interface') }}</dt>
+            <dd class="mt-0.5 flex items-center gap-1.5 truncate text-sm font-semibold" :class="interfaceConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-900 dark:text-white'">
+              <span class="h-2 w-2 shrink-0 rounded-full" :class="interfaceConnected ? 'bg-emerald-500' : 'bg-gray-400'" />
+              {{ interfaceStatus }}
+            </dd>
+          </div>
+        </dl>
 
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-        <form class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-800" @submit.prevent="submitJob">
+        <div v-if="workbenchAnnouncements.length" class="mt-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300" role="status" aria-live="polite">
+          <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25v3.75m0 3.75h.008M10.34 3.94 2.52 17.5a1.5 1.5 0 0 0 1.3 2.25h16.36a1.5 1.5 0 0 0 1.3-2.25L13.66 3.94a1.91 1.91 0 0 0-3.32 0Z" />
+          </svg>
+          <div class="h-5 min-w-0 flex-1 overflow-hidden">
+            <div class="transition-transform duration-500 ease-out" :style="announcementTrackStyle">
+              <div v-for="announcement in workbenchAnnouncements" :key="announcement.id" class="h-5 truncate leading-5">
+                {{ announcement.content }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-1">
+        <form class="image-workbench-compact flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-dark-700 dark:bg-dark-800 sm:p-4" @submit.prevent="submitJob">
+          <div class="-mx-3 -mt-3 flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-3 pb-2 pt-3 dark:border-dark-700 dark:bg-dark-800 sm:-mx-4 sm:-mt-4 sm:px-4 sm:pt-4">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.form.settingsTitle') }}</h2>
+            <button class="btn btn-secondary btn-sm" type="button" @click="resetForm">{{ t('imageWorkbench.form.reset') }}</button>
+          </div>
+
+          <div class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 pt-3 sm:pt-4">
           <div>
             <label class="input-label">{{ t('imageWorkbench.form.apiKey') }}</label>
             <select v-model.number="form.apiKeyId" class="input" required>
               <option :value="0">{{ loadingKeys ? t('common.loading') : t('imageWorkbench.form.selectApiKey') }}</option>
               <option v-for="key in eligibleKeys" :key="key.id" :value="key.id">
-                {{ key.name }} · {{ key.group?.name || `#${key.group_id}` }}
+                {{ key.name }} · {{ key.group?.name || '#' + key.group_id }}
               </option>
             </select>
             <p v-if="!loadingKeys && eligibleKeys.length === 0" class="input-hint text-amber-600 dark:text-amber-400">
@@ -38,7 +77,7 @@
             </p>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="input-label">{{ t('imageWorkbench.form.model') }}</label>
               <select v-model="form.model" class="input">
@@ -48,133 +87,296 @@
             <div>
               <label class="input-label">{{ t('imageWorkbench.form.quality') }}</label>
               <select v-model="form.quality" class="input">
-                <option v-for="quality in qualities" :key="quality" :value="quality">{{ t(`imageWorkbench.form.qualityOptions.${quality}`) }}</option>
+                <option v-for="quality in qualities" :key="quality" :value="quality">{{ t('imageWorkbench.form.qualityOptions.' + quality) }}</option>
               </select>
-            </div>
-          </div>
-
-          <div class="grid gap-3 sm:grid-cols-[150px_minmax(0,1fr)]">
-            <div>
-              <label class="input-label">{{ t('imageWorkbench.form.dimensionMode') }}</label>
-              <select v-model="form.dimensionMode" class="input">
-                <option value="size">{{ t('imageWorkbench.form.dimensionModes.size') }}</option>
-                <option value="aspect_ratio">{{ t('imageWorkbench.form.dimensionModes.aspectRatio') }}</option>
-              </select>
-            </div>
-            <div v-if="form.dimensionMode === 'size'">
-              <label class="input-label">{{ t('imageWorkbench.form.size') }}</label>
-              <input v-model.trim="form.size" class="input" :placeholder="selectedModel.defaultSize" />
-            </div>
-            <div v-else>
-              <label class="input-label">{{ t('imageWorkbench.form.aspectRatio') }}</label>
-              <input v-model.trim="form.aspectRatio" class="input" placeholder="16:9" inputmode="numeric" />
             </div>
           </div>
 
           <div>
-            <label class="input-label">{{ t('imageWorkbench.form.responseFormat') }}</label>
-            <select v-model="form.responseFormat" class="input">
-              <option value="url">{{ t('imageWorkbench.form.responseFormats.url') }}</option>
-              <option value="b64_json">{{ t('imageWorkbench.form.responseFormats.b64Json') }}</option>
-            </select>
+            <label class="input-label">{{ t('imageWorkbench.form.dimensions') }}</label>
+            <div class="grid grid-cols-4 gap-1.5">
+              <button
+                v-for="ratio in aspectRatios"
+                :key="ratio || 'auto'"
+                class="rounded-md border px-2 py-1.5 text-xs font-semibold transition"
+                :class="form.aspectRatio === ratio ? 'border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-300' : 'border-gray-200 bg-white text-gray-500 hover:border-blue-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300'"
+                type="button"
+                @click="selectAspectRatio(ratio)"
+              >
+                {{ ratio || t('imageWorkbench.form.unspecified') }}
+              </button>
+            </div>
+
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <div>
+                <div class="flex items-center justify-between text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  <label>{{ t('imageWorkbench.form.width') }}</label>
+                  <span class="text-blue-600 dark:text-blue-400">{{ form.width }}px</span>
+                </div>
+                <input v-model.number="form.width" class="mt-1.5 w-full accent-blue-500" type="range" min="16" max="3840" step="16" @change="normalizeDimensions" />
+                <input v-model.number="form.width" class="input mt-1.5" type="number" min="16" max="3840" step="16" @change="normalizeDimensions" />
+              </div>
+              <div>
+                <div class="flex items-center justify-between text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  <label>{{ t('imageWorkbench.form.height') }}</label>
+                  <span class="text-blue-600 dark:text-blue-400">{{ form.height }}px</span>
+                </div>
+                <input v-model.number="form.height" class="mt-1.5 w-full accent-blue-500" type="range" min="16" max="3840" step="16" @change="normalizeDimensions" />
+                <input v-model.number="form.height" class="input mt-1.5" type="number" min="16" max="3840" step="16" @change="normalizeDimensions" />
+              </div>
+            </div>
+
+            <button class="btn btn-secondary mt-2 w-full border-blue-300 bg-blue-50 py-2 text-xs text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-300" type="button" @click="confirmDimensions">
+              {{ t('imageWorkbench.form.confirmSize') }}
+            </button>
+            <p v-if="dimensionErrorMessage" class="mt-2 text-xs leading-5 text-red-600 dark:text-red-400">{{ dimensionErrorMessage }}</p>
+            <p v-else class="input-hint">{{ t('imageWorkbench.form.dimensionLimitsHint', { maxPixels: formatInteger(selectedModelMaxPixels) }) }}</p>
+            <p v-if="experimentalDimensions" class="mt-1 text-xs leading-5 text-amber-600 dark:text-amber-400">{{ t('imageWorkbench.form.experimentalHint') }}</p>
           </div>
 
           <div>
             <label class="input-label">{{ t('imageWorkbench.form.prompt') }}</label>
-            <textarea v-model="form.prompt" class="input min-h-36 resize-y" maxlength="12000" required :placeholder="t('imageWorkbench.form.promptPlaceholder')" :aria-describedby="'image-workbench-prompt-hint'" @keydown.ctrl.enter.prevent="submitJob" @keydown.meta.enter.prevent="submitJob" />
+            <textarea
+              v-model="form.prompt"
+              class="input min-h-24 resize-y"
+              maxlength="12000"
+              required
+              :placeholder="t('imageWorkbench.form.promptPlaceholder')"
+              @keydown.ctrl.enter.prevent="submitJob"
+              @keydown.meta.enter.prevent="submitJob"
+            />
             <div class="mt-1 text-right text-xs text-gray-400">{{ form.prompt.length }}/12000</div>
-            <p id="image-workbench-prompt-hint" class="input-hint">{{ t('imageWorkbench.form.promptSubmitHint') }}</p>
           </div>
 
           <div>
-            <label class="input-label">{{ t('imageWorkbench.form.referenceUrls') }}</label>
-            <textarea v-model="form.referenceUrls" class="input min-h-24 resize-y" :placeholder="t('imageWorkbench.form.referenceUrlsPlaceholder')" />
-            <input class="mt-2 block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-primary-50 file:px-3 file:py-2 file:text-primary-700 dark:text-gray-400" type="file" accept="image/*" multiple @change="onReferenceFiles" />
-            <div v-if="referenceFiles.length" class="mt-2 flex flex-wrap gap-2">
-              <span v-for="file in referenceFiles" :key="file.name" class="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300">{{ file.name }}</span>
+            <label class="input-label">{{ t('imageWorkbench.form.referenceTitle') }}</label>
+            <div
+              class="cursor-pointer rounded-lg border border-dashed px-3 py-2.5 transition"
+              :class="isReferenceDragOver ? 'border-blue-500 bg-blue-100 dark:border-blue-400 dark:bg-blue-950/40' : 'border-blue-300 bg-blue-50/80 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/20'"
+              @click="referenceInputRef?.click()"
+              @dragenter.prevent="isReferenceDragOver = true"
+              @dragover.prevent="isReferenceDragOver = true"
+              @dragleave.prevent="isReferenceDragOver = false"
+              @drop.prevent="onReferenceDrop"
+            >
+              <input ref="referenceInputRef" class="hidden" type="file" accept="image/*" multiple @change="onReferenceFiles" />
+              <p class="text-xs font-semibold text-blue-600 dark:text-blue-300">{{ t('imageWorkbench.form.dropReference') }}</p>
+              <p class="mt-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.form.dropReferenceHint') }}</p>
+            </div>
+            <div class="mt-2 flex gap-2">
+              <input v-model.trim="referenceUrlInput" class="input min-w-0 flex-1" :placeholder="t('imageWorkbench.form.pasteReferenceUrl')" @keydown.enter.prevent="importReferenceUrl" />
+              <button class="btn btn-secondary shrink-0" type="button" @click="importReferenceUrl">{{ t('imageWorkbench.form.importReference') }}</button>
+            </div>
+            <button class="btn btn-secondary mt-2 w-full" type="button" :disabled="referenceCount === 0" @click="clearReferences">{{ t('imageWorkbench.form.clearReferences') }}</button>
+            <div v-if="referenceCount > 0" class="mt-2 flex flex-wrap gap-2">
+              <span v-for="file in referenceFiles" :key="file.name + file.lastModified" class="max-w-full truncate rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300">{{ file.name }}</span>
+              <span v-for="url in referenceUrlList" :key="url" class="max-w-full truncate rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300">{{ url }}</span>
+              <span v-if="referenceDataURLs.length && !referenceFiles.length" class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                {{ t('imageWorkbench.editor.currentImageReference') }}
+              </span>
             </div>
           </div>
 
-          <div>
-            <label class="input-label">{{ t('imageWorkbench.form.mask') }}</label>
-            <input v-model.trim="form.maskUrl" class="input" :placeholder="t('imageWorkbench.form.maskPlaceholder')" />
-            <input class="mt-2 block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-primary-50 file:px-3 file:py-2 file:text-primary-700 dark:text-gray-400" type="file" accept="image/png" @change="onMaskFile" />
-            <p class="input-hint">{{ t('imageWorkbench.form.maskHint') }}</p>
-          </div>
-
-          <div v-if="form.model === 'gpt-image-2-4k'" class="rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-            {{ t('imageWorkbench.notices.fourK') }}
-          </div>
-
-          <div class="rounded-lg border border-primary-200 bg-primary-50 p-3 text-sm text-primary-900 dark:border-primary-900/60 dark:bg-primary-950/30 dark:text-primary-200">
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-2 text-xs text-gray-600 dark:border-dark-700 dark:bg-dark-900/50 dark:text-gray-300">
             <span v-if="loadingEstimate">{{ t('imageWorkbench.form.loadingEstimate') }}</span>
             <span v-else-if="costEstimate">{{ t('imageWorkbench.form.estimatedCost', { cost: formatCost(costEstimate.estimated_cost) }) }}</span>
             <span v-else>{{ t('imageWorkbench.form.estimateUnavailable') }}</span>
           </div>
+          </div>
 
-          <button class="btn btn-primary w-full" type="submit" :disabled="submitting || !canSubmit">
+          <button class="btn btn-primary mt-3 w-full shrink-0 py-2 text-xs shadow-none disabled:bg-gray-500 disabled:bg-none disabled:from-gray-400 disabled:to-gray-500 disabled:text-white disabled:opacity-100 disabled:shadow-none" type="submit" :disabled="submitting || !canSubmit">
             {{ submitting ? t('imageWorkbench.actions.submitting') : t('imageWorkbench.actions.generate') }}
           </button>
         </form>
 
-        <section class="space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.jobs.title') }}</h2>
-            <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.jobs.autoRefresh') }}</span>
-          </div>
-
-          <div v-if="loadingJobs && jobs.length === 0" class="rounded-2xl border border-gray-200 bg-white p-10 text-center text-gray-500 dark:border-dark-700 dark:bg-dark-800">
-            {{ t('common.loading') }}
-          </div>
-          <div v-else-if="jobs.length === 0" class="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500 dark:border-dark-600 dark:bg-dark-800">
-            {{ t('imageWorkbench.jobs.empty') }}
-          </div>
-          <article v-for="job in jobs" :key="job.id" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-800">
-            <div class="grid md:grid-cols-[220px_minmax(0,1fr)]">
-              <div class="flex min-h-48 items-center justify-center bg-gray-100 dark:bg-dark-900">
-                <img v-if="previewURLs[job.id]" :src="previewURLs[job.id]" :alt="job.id" class="h-full max-h-72 w-full object-contain" />
-                <button v-else-if="job.status === 'completed'" class="btn btn-secondary" @click="loadPreview(job)">{{ t('imageWorkbench.actions.loadPreview') }}</button>
-                <span v-else class="text-sm text-gray-400">{{ statusText(job.status) }}</span>
+        <section class="min-h-0 min-w-0 space-y-3 overflow-y-auto overscroll-contain pr-1">
+          <div class="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-dark-700 dark:bg-dark-800">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.preview.title') }}</h2>
+                <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.preview.subtitle') }}</p>
               </div>
-              <div class="space-y-4 p-5">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p class="font-mono text-xs text-gray-400">{{ job.id }}</p>
-                    <h3 class="mt-1 font-medium text-gray-900 dark:text-white">{{ modelLabel(job.model) }}</h3>
-                  </div>
-                  <span :class="statusClass(job.status)" class="rounded-full px-2.5 py-1 text-xs font-medium">{{ statusText(job.status) }}</span>
-                </div>
-                <dl class="grid grid-cols-2 gap-3 text-sm">
-                  <div><dt class="text-gray-400">{{ t('imageWorkbench.jobs.size') }}</dt><dd class="text-gray-800 dark:text-gray-200">{{ job.actual_size || job.requested_size || '—' }}</dd></div>
-                  <div><dt class="text-gray-400">{{ t('imageWorkbench.jobs.cost') }}</dt><dd class="text-gray-800 dark:text-gray-200">${{ formatCost(job.settled_cost || job.estimated_cost) }}</dd></div>
-                  <div class="col-span-2"><dt class="text-gray-400">{{ t('imageWorkbench.jobs.createdAt') }}</dt><dd class="text-gray-800 dark:text-gray-200">{{ formatDate(job.created_at) }}</dd></div>
-                </dl>
-                <div v-if="job.error" class="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-300">{{ job.error.code }} · {{ job.error.message }}</div>
-                <div v-if="job.status === 'completed'" class="flex gap-2">
-                  <button class="btn btn-secondary" @click="loadPreview(job)">{{ t('imageWorkbench.actions.preview') }}</button>
-                  <button class="btn btn-primary" @click="downloadResult(job)">{{ t('imageWorkbench.actions.download') }}</button>
-                </div>
+              <div class="flex flex-wrap gap-2">
+                <button class="btn btn-secondary btn-sm" type="button" :disabled="dimensionValidation.code !== null" @click="createBlankCanvas">
+                  {{ t('imageWorkbench.actions.newCanvas') }}
+                </button>
+                <button class="btn btn-secondary btn-sm" :disabled="!currentJob || currentJob.status !== 'completed'" @click="openEditor(currentJob!)">
+                  {{ t('imageWorkbench.editor.expand') }}
+                </button>
+                <button class="btn btn-secondary btn-sm" :disabled="!currentJob || currentJob.status !== 'completed'" @click="downloadCurrent">
+                  {{ t('imageWorkbench.actions.downloadCurrent') }}
+                </button>
               </div>
             </div>
-          </article>
+
+            <div class="grid min-h-[420px] gap-3 lg:grid-cols-[minmax(0,1fr)_250px]">
+              <div class="flex min-h-[420px] items-center justify-center rounded-xl border border-gray-200 bg-[linear-gradient(135deg,#f8fafc_25%,#eef2f7_25%,#eef2f7_50%,#f8fafc_50%,#f8fafc_75%,#eef2f7_75%)] bg-[length:28px_28px] p-3 dark:border-dark-700 dark:bg-dark-900">
+                <div v-if="blankCanvasOpen" class="relative max-h-[420px] max-w-full overflow-hidden rounded-xl bg-white shadow-sm transition-[width,aspect-ratio] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width,aspect-ratio] dark:bg-dark-800" :style="blankCanvasStyle">
+                  <div class="flex h-full min-h-24 items-center justify-center px-6 text-center text-gray-400 dark:text-gray-500">
+                    <div>
+                      <p class="text-lg font-medium text-gray-600 dark:text-gray-300">{{ t('imageWorkbench.preview.blankCanvasTitle') }}</p>
+                      <p class="mt-1 text-sm">{{ t('imageWorkbench.preview.blankCanvasHint') }}</p>
+                    </div>
+                  </div>
+                  <div class="absolute inset-x-3 bottom-3 flex items-center justify-between rounded-lg bg-gray-500/80 px-3 py-2 text-xs text-white">
+                    <span>{{ t('imageWorkbench.preview.blankCanvasStatus') }}</span>
+                    <span>{{ blankCanvasSize }}</span>
+                  </div>
+                </div>
+                <div v-else-if="currentPreviewURL" class="relative flex max-h-[420px] max-w-full items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm dark:bg-dark-800">
+                  <img :src="currentPreviewURL" :alt="currentJob?.id || 'generated image'" class="max-h-[420px] max-w-full object-contain" />
+                  <div class="absolute inset-x-3 bottom-3 flex items-center justify-between rounded-lg bg-black/65 px-3 py-2 text-xs text-white">
+                    <span>{{ currentJob?.status === 'completed' ? t('imageWorkbench.preview.ready') : statusText(currentJob?.status || 'in_progress') }}</span>
+                    <span>{{ currentJob?.actual_size || currentJob?.requested_size || '—' }}</span>
+                  </div>
+                </div>
+                <div v-else class="text-center text-gray-400">
+                  <div class="text-4xl">🖼️</div>
+                  <p class="mt-3 text-lg font-medium">{{ t('imageWorkbench.preview.emptyTitle') }}</p>
+                  <p class="mt-1 text-sm">{{ t('imageWorkbench.preview.emptyHint') }}</p>
+                </div>
+              </div>
+
+              <aside class="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-900/60">
+                <div class="mb-3 flex items-center justify-between">
+                  <h3 class="font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.preview.batchTitle') }}</h3>
+                  <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">{{ jobs.length }}</span>
+                </div>
+                <div v-if="loadingJobs && jobs.length === 0" class="py-8 text-center text-sm text-gray-400">{{ t('common.loading') }}</div>
+                <div v-else-if="jobs.length === 0" class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-400 dark:border-dark-600 dark:bg-dark-800">
+                  {{ t('imageWorkbench.jobs.empty') }}
+                </div>
+                <div v-else class="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                  <button
+                    v-for="job in jobs"
+                    :key="job.id"
+                    class="w-full rounded-lg border p-3 text-left transition"
+                    :class="job.id === selectedJobId ? 'border-blue-400 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30' : 'border-gray-200 bg-white hover:border-blue-300 dark:border-dark-700 dark:bg-dark-800'"
+                    @click="selectJob(job)"
+                  >
+                    <div class="flex items-start justify-between gap-2">
+                      <span class="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{{ modelLabel(job.model) }}</span>
+                      <span :class="statusClass(job.status)" class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium">{{ statusText(job.status) }}</span>
+                    </div>
+                    <p class="mt-2 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{{ job.actual_size || job.requested_size || job.id }}</p>
+                    <p class="mt-2 text-[10px] text-gray-400">{{ formatDate(job.created_at) }}</p>
+                    <p class="mt-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
+                      {{ t('imageWorkbench.preview.syncWait', { time: formatJobWaitTime(job) }) }}
+                    </p>
+                  </button>
+                </div>
+              </aside>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
+            <div class="mb-3 flex items-center justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.library.title') }}</h2>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.library.subtitle') }}</p>
+              </div>
+              <span class="text-sm text-gray-400">{{ completedJobs.length }}</span>
+            </div>
+            <div v-if="completedJobs.length === 0" class="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-400 dark:border-dark-600">
+              {{ t('imageWorkbench.library.empty') }}
+            </div>
+            <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <button v-for="job in completedJobs" :key="job.id" class="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50 text-left dark:border-dark-700 dark:bg-dark-900" @click="selectJob(job)">
+                <div class="aspect-square overflow-hidden bg-gray-100 dark:bg-dark-800">
+                  <img v-if="previewURLs[job.id]" :src="previewURLs[job.id]" :alt="job.id" class="h-full w-full object-cover transition group-hover:scale-105" />
+                  <span v-else class="flex h-full items-center justify-center text-xs text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</span>
+                </div>
+                <div class="p-3">
+                  <p class="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{{ modelLabel(job.model) }}</p>
+                  <p class="mt-1 text-[10px] text-gray-400">{{ job.actual_size || job.requested_size }}</p>
+                </div>
+              </button>
+            </div>
+          </div>
         </section>
       </div>
     </div>
+
+    <div v-if="editor.open" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" @keydown.esc="closeEditor">
+      <section class="flex max-h-[94vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-dark-800">
+        <header class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-dark-700">
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.editor.title') }}</h2>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.editor.subtitle') }}</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" aria-label="Close" @click="closeEditor">×</button>
+        </header>
+
+        <div class="grid min-h-0 flex-1 gap-4 overflow-auto p-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div class="flex min-h-[420px] items-center justify-center rounded-xl bg-gray-100 p-4 dark:bg-dark-900">
+            <div class="relative w-full max-w-[900px] overflow-hidden rounded-lg bg-white shadow-sm dark:bg-dark-800" :style="editorStageStyle">
+              <img ref="editorImageRef" :src="editor.originalDataURL" alt="editing image" class="absolute inset-0 h-full w-full object-contain" @load="setupEditorCanvas" />
+              <canvas
+                ref="editorCanvasRef"
+                class="absolute inset-0 h-full w-full touch-none"
+                @pointerdown.prevent="startDrawing"
+                @pointermove.prevent="draw"
+                @pointerup.prevent="stopDrawing"
+                @pointerleave="stopDrawing"
+                @pointercancel="stopDrawing"
+              />
+            </div>
+          </div>
+
+          <aside class="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-900/60">
+            <div class="grid grid-cols-2 gap-2">
+              <button class="btn btn-primary" :class="{ 'ring-2 ring-blue-300': editor.mode === 'brush' }" @click="editor.mode = 'brush'">{{ t('imageWorkbench.editor.brush') }}</button>
+              <button class="btn btn-secondary" @click="clearEditorMarks">{{ t('imageWorkbench.editor.clear') }}</button>
+            </div>
+            <label class="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('imageWorkbench.editor.brushSize') }} · {{ editor.brushSize }}px</label>
+            <input v-model.number="editor.brushSize" class="mt-2 w-full accent-blue-500" type="range" min="8" max="160" step="4" />
+            <label class="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('imageWorkbench.editor.prompt') }}</label>
+            <textarea v-model="editor.prompt" class="input mt-2 min-h-44 resize-y bg-white dark:bg-dark-800" :placeholder="t('imageWorkbench.editor.promptPlaceholder')" maxlength="12000" />
+            <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.editor.hint') }}</p>
+            <div class="mt-auto space-y-2 pt-5">
+              <button class="btn btn-secondary w-full" :disabled="!editor.originalDataURL" @click="setCurrentAsReference">{{ t('imageWorkbench.editor.setReference') }}</button>
+              <button class="btn btn-primary w-full" :disabled="editingSubmitting || !editor.prompt.trim() || !editor.hasMarks" @click="submitEditFromEditor">
+                {{ editingSubmitting ? t('imageWorkbench.actions.submitting') : t('imageWorkbench.editor.submit') }}
+              </button>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+    <canvas ref="editorMaskCanvasRef" class="hidden" />
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { imageWorkbenchAPI, keysAPI } from '@/api'
 import type { ImageWorkbenchCostEstimate, ImageWorkbenchJob, ImageWorkbenchModel, ImageWorkbenchQuality, ImageWorkbenchStatus } from '@/api'
 import type { ApiKey } from '@/types'
 import { useAppStore } from '@/stores/app'
-import { validateMaskFile, validateReferenceFiles } from './imageWorkbenchValidation'
+import { validateReferenceFiles } from './imageWorkbenchValidation'
+import {
+  IMAGE_DIMENSION_MAX_EDGE,
+  IMAGE_DIMENSION_MAX_PIXELS,
+  IMAGE_DIMENSION_MIN_EDGE,
+  IMAGE_DIMENSION_MIN_PIXELS,
+  IMAGE_DIMENSION_STEP,
+  isExperimentalImageDimensions,
+  validateImageDimensions
+} from '@/utils/imageWorkbenchDimensions'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
+const workbenchAnnouncements = computed(() => appStore.cachedPublicSettings?.image_workbench_announcements ?? [])
+const announcementIntervalSeconds = computed(() => {
+  const configured = Number(appStore.cachedPublicSettings?.image_workbench_announcement_interval_seconds)
+  return Math.min(3600, Math.max(1, Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 5))
+})
+const announcementIndex = ref(0)
+const announcementTrackStyle = computed(() => ({
+  transform: `translateY(-${announcementIndex.value * 1.25}rem)`
+}))
 
 const models: Array<{ value: ImageWorkbenchModel; label: string; defaultSize: string }> = [
   { value: 'gpt-image-2-1k', label: '1K · gpt-image-2-1k', defaultSize: '1024x1024' },
@@ -182,37 +384,120 @@ const models: Array<{ value: ImageWorkbenchModel; label: string; defaultSize: st
   { value: 'gpt-image-2-4k', label: '4K · gpt-image-2-4k', defaultSize: '3840x2160' }
 ]
 const qualities: ImageWorkbenchQuality[] = ['auto', 'low', 'medium', 'high']
+const aspectRatios = ['', '1:1', '3:4', '4:3', '3:2', '2:3', '9:16', '16:9', '4:7']
+const modelMaxPixels: Record<ImageWorkbenchModel, number> = {
+  'gpt-image-2-1k': 1_048_576,
+  'gpt-image-2-2k': 4_194_304,
+  'gpt-image-2-4k': IMAGE_DIMENSION_MAX_PIXELS
+}
 
 const form = reactive({
   apiKeyId: 0,
   model: 'gpt-image-2-1k' as ImageWorkbenchModel,
   quality: 'auto' as ImageWorkbenchQuality,
-  dimensionMode: 'size' as 'size' | 'aspect_ratio',
   size: '1024x1024',
-  aspectRatio: '1:1',
-  responseFormat: 'url' as 'url' | 'b64_json',
+  aspectRatio: '',
+  width: 1024,
+  height: 1024,
   prompt: '',
-  referenceUrls: '',
-  maskUrl: ''
+  referenceUrls: ''
 })
+
+const editor = reactive({
+  open: false,
+  job: null as ImageWorkbenchJob | null,
+  originalDataURL: '',
+  width: 1,
+  height: 1,
+  prompt: '',
+  brushSize: 64,
+  mode: 'brush' as const,
+  drawing: false,
+  hasMarks: false
+})
+
 const apiKeys = ref<ApiKey[]>([])
 const jobs = ref<ImageWorkbenchJob[]>([])
+const selectedJobId = ref('')
+const blankCanvasOpen = ref(false)
 const loadingKeys = ref(false)
 const loadingJobs = ref(false)
 const submitting = ref(false)
+const downloadingAll = ref(false)
+const editingSubmitting = ref(false)
 const loadingEstimate = ref(false)
 const costEstimate = ref<ImageWorkbenchCostEstimate | null>(null)
 const referenceFiles = ref<File[]>([])
 const referenceDataURLs = ref<string[]>([])
-const maskDataURL = ref('')
+const referenceUrlInput = ref('')
+const isReferenceDragOver = ref(false)
 const previewURLs = reactive<Record<string, string>>({})
+const previewDataURLs = reactive<Record<string, string>>({})
+const referenceInputRef = ref<HTMLInputElement | null>(null)
+const editorCanvasRef = ref<HTMLCanvasElement | null>(null)
+const editorMaskCanvasRef = ref<HTMLCanvasElement | null>(null)
+const editorImageRef = ref<HTMLImageElement | null>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let elapsedTimer: ReturnType<typeof setInterval> | null = null
+let announcementTimer: ReturnType<typeof setInterval> | null = null
+const elapsedClock = ref(Date.now())
+type BrushPoint = { x: number; y: number }
+type BrushStroke = { points: BrushPoint[]; size: number }
+const brushStrokes: BrushStroke[] = []
 
 const selectedModel = computed(() => models.find(item => item.value === form.model) || models[0]!)
 const eligibleKeys = computed(() => apiKeys.value.filter(key => key.status === 'active' && key.group?.platform === 'openai' && key.group.allow_image_generation))
-const canSubmit = computed(() => form.apiKeyId > 0 && form.prompt.trim().length > 0 && eligibleKeys.value.some(key => key.id === form.apiKeyId) && (form.dimensionMode === 'size' ? form.size.trim().length > 0 : form.aspectRatio.trim().length > 0))
+const currentJob = computed(() => jobs.value.find(job => job.id === selectedJobId.value) || null)
+const currentPreviewURL = computed(() => selectedJobId.value ? previewURLs[selectedJobId.value] : '')
+const headerModel = computed(() => selectedModel.value.value.replace(/-\d+k$/i, ''))
+const headerCanvasSize = computed(() => `${form.width} × ${form.height}`)
+const pendingJobs = computed(() => jobs.value.filter(job => job.status === 'queued' || job.status === 'in_progress'))
+const queueSummary = computed(() => t('imageWorkbench.header.queueValue', { count: pendingJobs.value.length }))
+const interfaceConnected = computed(() => form.apiKeyId > 0 && eligibleKeys.value.some(key => key.id === form.apiKeyId))
+const interfaceStatus = computed(() => interfaceConnected.value ? t('imageWorkbench.header.connected') : t('imageWorkbench.header.disconnected'))
+const blankCanvasSize = computed(() => `${form.width}x${form.height}`)
+const blankCanvasStyle = computed(() => ({
+  aspectRatio: `${form.width} / ${form.height}`,
+  width: `min(100%, ${Math.round((420 * Number(form.width)) / Number(form.height))}px)`
+}))
+const completedJobs = computed(() => jobs.value.filter(job => job.status === 'completed'))
+const referenceUrlList = computed(() => form.referenceUrls.split(/\r?\n/).map(value => value.trim()).filter(Boolean))
+const referenceCount = computed(() => referenceUrlList.value.length + referenceFiles.value.length + referenceDataURLs.value.length)
+const selectedModelMaxPixels = computed(() => modelMaxPixels[form.model])
+const dimensionValidation = computed(() => validateImageDimensions(Number(form.width), Number(form.height), selectedModelMaxPixels.value))
+const dimensionErrorMessage = computed(() => {
+  const code = dimensionValidation.value.code
+  if (!code) return ''
+  const keys: Record<string, string> = {
+    not_positive_integer: 'imageWorkbench.form.dimensionErrors.positiveInteger',
+    not_multiple_of_16: 'imageWorkbench.form.dimensionErrors.multipleOf16',
+    edge_too_large: 'imageWorkbench.form.dimensionErrors.maxEdge',
+    aspect_ratio_too_wide: 'imageWorkbench.form.dimensionErrors.aspectRatio',
+    pixels_too_few: 'imageWorkbench.form.dimensionErrors.minPixels',
+    pixels_too_many: 'imageWorkbench.form.dimensionErrors.maxPixels'
+  }
+  return t(keys[code] || 'imageWorkbench.form.dimensionErrors.invalid', {
+    step: IMAGE_DIMENSION_STEP,
+    minEdge: IMAGE_DIMENSION_MIN_EDGE,
+    maxEdge: IMAGE_DIMENSION_MAX_EDGE,
+    minPixels: formatInteger(IMAGE_DIMENSION_MIN_PIXELS),
+    maxPixels: formatInteger(selectedModelMaxPixels.value)
+  })
+})
+const experimentalDimensions = computed(() => dimensionValidation.value.code === null && isExperimentalImageDimensions(form.width, form.height))
+const canSubmit = computed(() => form.apiKeyId > 0 && form.prompt.trim().length > 0 && eligibleKeys.value.some(key => key.id === form.apiKeyId) && dimensionValidation.value.code === null)
+const editorStageStyle = computed(() => ({ aspectRatio: editor.width + ' / ' + editor.height }))
 
-watch(() => form.model, () => { form.size = selectedModel.value.defaultSize })
+watch(() => form.model, () => {
+  const [width, height] = parseSize(selectedModel.value.defaultSize)
+  form.width = width
+  form.height = height
+  form.size = selectedModel.value.defaultSize
+  form.aspectRatio = ''
+})
+watch([() => form.width, () => form.height], () => {
+  form.size = clampDimension(Number(form.width)) + 'x' + clampDimension(Number(form.height))
+})
 watch([() => form.apiKeyId, () => form.model], () => { void loadCostEstimate() }, { immediate: true })
 
 async function loadKeys() {
@@ -233,6 +518,7 @@ async function loadCostEstimate() {
   const model = form.model
   if (apiKeyId <= 0 || !eligibleKeys.value.some(key => key.id === apiKeyId)) {
     costEstimate.value = null
+    loadingEstimate.value = false
     return
   }
   loadingEstimate.value = true
@@ -251,6 +537,8 @@ async function loadJobs() {
   try {
     const response = await imageWorkbenchAPI.listJobs(30, 0)
     jobs.value = response.data || []
+    const preferred = jobs.value.find(job => job.status === 'completed') || jobs.value[0]
+    if (preferred) await selectJob(preferred)
   } catch (error: any) {
     appStore.showError(error?.message || t('imageWorkbench.errors.loadJobs'))
   } finally {
@@ -259,32 +547,35 @@ async function loadJobs() {
 }
 
 async function submitJob() {
+  if (dimensionValidation.value.code) {
+    appStore.showError(dimensionErrorMessage.value)
+    return
+  }
   if (!canSubmit.value || submitting.value) return
   submitting.value = true
+  blankCanvasOpen.value = false
   try {
     const urls = form.referenceUrls.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
     const images = [...urls, ...referenceDataURLs.value]
-    const operation = images.length > 0 || maskDataURL.value || form.maskUrl ? 'edit' : 'generation'
-    const idempotencyKey = crypto.randomUUID()
+    const operation = images.length > 0 ? 'edit' : 'generation'
     const job = await imageWorkbenchAPI.createJob({
       api_key_id: form.apiKeyId,
       operation,
       model: form.model,
       prompt: form.prompt.trim(),
-      size: form.dimensionMode === 'size' ? (form.size || selectedModel.value.defaultSize) : undefined,
-      aspect_ratio: form.dimensionMode === 'aspect_ratio' ? form.aspectRatio : undefined,
+      size: form.size || selectedModel.value.defaultSize,
+      aspect_ratio: undefined,
       quality: form.quality,
-      response_format: form.responseFormat,
-      images: images.length ? images : undefined,
-      mask: maskDataURL.value || form.maskUrl || undefined
-    }, idempotencyKey)
+      images: images.length ? images : undefined
+    })
     jobs.value = [job, ...jobs.value.filter(item => item.id !== job.id)]
+    selectedJobId.value = job.id
     form.prompt = ''
     form.referenceUrls = ''
-    form.maskUrl = ''
+    referenceUrlInput.value = ''
     referenceFiles.value = []
     referenceDataURLs.value = []
-    maskDataURL.value = ''
+    if (referenceInputRef.value) referenceInputRef.value.value = ''
     appStore.showSuccess(t('imageWorkbench.messages.submitted'))
   } catch (error: any) {
     appStore.showError(error?.message || t('imageWorkbench.errors.submit'))
@@ -293,9 +584,126 @@ async function submitJob() {
   }
 }
 
+function createBlankCanvas() {
+  if (dimensionValidation.value.code !== null) return
+  blankCanvasOpen.value = true
+  selectedJobId.value = ''
+}
+
+function parseSize(value: string): [number, number] {
+  const match = value.trim().match(/^(\d+)x(\d+)$/i)
+  if (!match) return [1024, 1024]
+  return [Number(match[1]), Number(match[2])]
+}
+
+function clampDimension(value: number) {
+  const numeric = Number.isFinite(value) ? Math.round(value / IMAGE_DIMENSION_STEP) * IMAGE_DIMENSION_STEP : 1024
+  return Math.min(IMAGE_DIMENSION_MAX_EDGE, Math.max(IMAGE_DIMENSION_MIN_EDGE, numeric))
+}
+
+function snapDimension(value: number, direction: 'up' | 'down' | 'nearest' = 'nearest') {
+  const raw = Number.isFinite(value) ? value / IMAGE_DIMENSION_STEP : 1024 / IMAGE_DIMENSION_STEP
+  const snapped = direction === 'up' ? Math.ceil(raw) : direction === 'down' ? Math.floor(raw) : Math.round(raw)
+  return snapped * IMAGE_DIMENSION_STEP
+}
+
+function updateFormSize() {
+  form.size = form.width + 'x' + form.height
+}
+
+function normalizeDimensionValues(clearAspectRatio: boolean) {
+  form.width = clampDimension(Number(form.width))
+  form.height = clampDimension(Number(form.height))
+  if (clearAspectRatio) form.aspectRatio = ''
+  updateFormSize()
+}
+
+function normalizeDimensions() {
+  normalizeDimensionValues(true)
+}
+
+function resetForm() {
+  form.apiKeyId = eligibleKeys.value[0]?.id || 0
+  form.model = 'gpt-image-2-1k'
+  form.quality = 'auto'
+  form.size = '1024x1024'
+  form.aspectRatio = ''
+  form.width = 1024
+  form.height = 1024
+  form.prompt = ''
+  clearReferences()
+  blankCanvasOpen.value = false
+  selectedJobId.value = ''
+}
+
+function selectAspectRatio(value: string) {
+  form.aspectRatio = value
+  if (!value) return
+  const [widthRatio, heightRatio] = value.split(':').map(Number)
+  if (!widthRatio || !heightRatio) return
+  let width = clampDimension(Number(form.width))
+  let height = snapDimension(width * heightRatio / widthRatio)
+  if (height > IMAGE_DIMENSION_MAX_EDGE) {
+    width = clampDimension(snapDimension(width * IMAGE_DIMENSION_MAX_EDGE / height, 'down'))
+    height = snapDimension(width * heightRatio / widthRatio)
+  }
+  if (height < IMAGE_DIMENSION_MIN_EDGE) {
+    width = clampDimension(snapDimension(width * IMAGE_DIMENSION_MIN_EDGE / Math.max(height, 1), 'up'))
+    height = snapDimension(width * heightRatio / widthRatio, 'up')
+  }
+  for (let index = 0; index < 4; index += 1) {
+    const pixels = width * height
+    if (pixels < IMAGE_DIMENSION_MIN_PIXELS) {
+      const factor = Math.sqrt(IMAGE_DIMENSION_MIN_PIXELS / pixels)
+      const nextWidth = clampDimension(snapDimension(width * factor, 'up'))
+      const nextHeight = clampDimension(snapDimension(height * factor, 'up'))
+      if (nextWidth === width && nextHeight === height) break
+      width = nextWidth
+      height = nextHeight
+      continue
+    }
+    if (pixels > selectedModelMaxPixels.value) {
+      const factor = Math.sqrt(selectedModelMaxPixels.value / pixels)
+      const nextWidth = clampDimension(snapDimension(width * factor, 'down'))
+      const nextHeight = clampDimension(snapDimension(height * factor, 'down'))
+      if (nextWidth === width && nextHeight === height) break
+      width = nextWidth
+      height = nextHeight
+      continue
+    }
+    break
+  }
+  form.width = clampDimension(width)
+  form.height = clampDimension(height)
+  updateFormSize()
+}
+
+function confirmDimensions() {
+  normalizeDimensionValues(false)
+  if (dimensionValidation.value.code) {
+    appStore.showError(dimensionErrorMessage.value)
+    return
+  }
+  appStore.showSuccess(t('imageWorkbench.form.sizeConfirmed'))
+}
+
 async function onReferenceFiles(event: Event) {
   const input = event.target as HTMLInputElement
-  const files = Array.from(input.files || [])
+  await processReferenceFiles(Array.from(input.files || []))
+  input.value = ''
+}
+
+async function onReferenceDrop(event: DragEvent) {
+  isReferenceDragOver.value = false
+  await processReferenceFiles(Array.from(event.dataTransfer?.files || []))
+}
+
+async function processReferenceFiles(files: File[]) {
+  if (!files.length) return
+  if (referenceCount.value + files.length > 9) {
+    appStore.showError(t('imageWorkbench.errors.tooManyReferences'))
+    return
+  }
   const validationError = validateReferenceFiles(files)
   if (validationError) {
     const errorKey = {
@@ -306,24 +714,33 @@ async function onReferenceFiles(event: Event) {
       mask_file_too_large: 'imageWorkbench.errors.fileTooLarge'
     } as const
     appStore.showError(t(errorKey[validationError]))
-    input.value = ''
     return
   }
-  referenceFiles.value = files
-  referenceDataURLs.value = await Promise.all(files.map(readFileAsDataURL))
+  referenceFiles.value = [...referenceFiles.value, ...files]
+  referenceDataURLs.value = [...referenceDataURLs.value, ...await Promise.all(files.map(readFileAsDataURL))]
 }
 
-async function onMaskFile(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) { maskDataURL.value = ''; return }
-  const validationError = validateMaskFile(file)
-  if (validationError) {
-    appStore.showError(t(validationError === 'mask_file_too_large' ? 'imageWorkbench.errors.fileTooLarge' : 'imageWorkbench.errors.invalidMask'))
-    input.value = ''
+function importReferenceUrl() {
+  const url = referenceUrlInput.value.trim()
+  if (!url) return
+  if (!/^https?:\/\//i.test(url)) {
+    appStore.showError(t('imageWorkbench.errors.invalidReferenceUrl'))
     return
   }
-  maskDataURL.value = await readFileAsDataURL(file)
+  if (referenceCount.value >= 9) {
+    appStore.showError(t('imageWorkbench.errors.tooManyReferences'))
+    return
+  }
+  form.referenceUrls = [...referenceUrlList.value, url].join('\n')
+  referenceUrlInput.value = ''
+}
+
+function clearReferences() {
+  form.referenceUrls = ''
+  referenceUrlInput.value = ''
+  referenceFiles.value = []
+  referenceDataURLs.value = []
+  if (referenceInputRef.value) referenceInputRef.value.value = ''
 }
 
 function readFileAsDataURL(file: File): Promise<string> {
@@ -343,8 +760,17 @@ async function refreshPendingJobs() {
       const updated = await imageWorkbenchAPI.getJob(job.id)
       const index = jobs.value.findIndex(item => item.id === job.id)
       if (index >= 0) jobs.value[index] = updated
-    } catch { /* transient polling errors are retried */ }
+      if (updated.status === 'completed' && updated.id === selectedJobId.value && !previewURLs[updated.id]) await loadPreview(updated)
+    } catch {
+      // Transient polling errors are retried on the next interval.
+    }
   }))
+}
+
+async function selectJob(job: ImageWorkbenchJob) {
+  blankCanvasOpen.value = false
+  selectedJobId.value = job.id
+  if (job.status === 'completed' && !previewURLs[job.id]) await loadPreview(job)
 }
 
 async function loadPreview(job: ImageWorkbenchJob) {
@@ -352,8 +778,25 @@ async function loadPreview(job: ImageWorkbenchJob) {
   try {
     const blob = await imageWorkbenchAPI.getContent(job.id)
     previewURLs[job.id] = URL.createObjectURL(blob)
+    previewDataURLs[job.id] = await createEditableReferenceDataURL(blob)
   } catch (error: any) {
     appStore.showError(error?.message || t('imageWorkbench.errors.preview'))
+  }
+}
+
+async function downloadCurrent() {
+  if (currentJob.value) await downloadResult(currentJob.value)
+}
+
+async function downloadAll() {
+  if (downloadingAll.value || completedJobs.value.length === 0) return
+  downloadingAll.value = true
+  const jobsToDownload = [...completedJobs.value]
+  try {
+    for (const job of jobsToDownload) await downloadResult(job)
+    appStore.showSuccess(t('imageWorkbench.messages.downloadAllSuccess', { count: jobsToDownload.length }))
+  } finally {
+    downloadingAll.value = false
   }
 }
 
@@ -363,7 +806,7 @@ async function downloadResult(job: ImageWorkbenchJob) {
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `${job.id}.png`
+    anchor.download = job.id + '.png'
     anchor.click()
     URL.revokeObjectURL(url)
   } catch (error: any) {
@@ -371,7 +814,188 @@ async function downloadResult(job: ImageWorkbenchJob) {
   }
 }
 
-function statusText(status: ImageWorkbenchStatus) { return t(`imageWorkbench.status.${status}`) }
+async function openEditor(job: ImageWorkbenchJob) {
+  if (job.status !== 'completed') return
+  if (!previewDataURLs[job.id]) await loadPreview(job)
+  const dataURL = previewDataURLs[job.id]
+  if (!dataURL) return
+  editor.open = true
+  editor.job = job
+  editor.originalDataURL = dataURL
+  editor.prompt = ''
+  editor.hasMarks = false
+  await nextTick()
+  if (editorImageRef.value?.complete) setupEditorCanvas()
+}
+
+function closeEditor() {
+  editor.open = false
+  editor.job = null
+  clearEditorMarks()
+}
+
+function setupEditorCanvas() {
+  const image = editorImageRef.value
+  const canvas = editorCanvasRef.value
+  const maskCanvas = editorMaskCanvasRef.value
+  if (!image || !canvas || !maskCanvas || !image.naturalWidth || !image.naturalHeight) return
+  editor.width = image.naturalWidth
+  editor.height = image.naturalHeight
+  canvas.width = image.naturalWidth
+  canvas.height = image.naturalHeight
+  maskCanvas.width = image.naturalWidth
+  maskCanvas.height = image.naturalHeight
+  clearEditorMarks()
+}
+
+function pointFromEvent(event: PointerEvent) {
+  const canvas = editorCanvasRef.value
+  if (!canvas) return null
+  const rect = canvas.getBoundingClientRect()
+  return {
+    x: Math.max(0, Math.min(canvas.width, (event.clientX - rect.left) * canvas.width / rect.width)),
+    y: Math.max(0, Math.min(canvas.height, (event.clientY - rect.top) * canvas.height / rect.height))
+  }
+}
+
+function drawSmoothStroke(ctx: CanvasRenderingContext2D, stroke: BrushStroke, color: string) {
+  const points = stroke.points
+  if (!points.length) return
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = color
+  ctx.lineWidth = stroke.size
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  if (points.length === 1) {
+    ctx.arc(points[0].x, points[0].y, stroke.size / 2, 0, Math.PI * 2)
+    ctx.fillStyle = color
+    ctx.fill()
+    return
+  }
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y)
+  } else {
+    for (let index = 1; index < points.length - 1; index += 1) {
+      const current = points[index]!
+      const next = points[index + 1]!
+      const midpointX = (current.x + next.x) / 2
+      const midpointY = (current.y + next.y) / 2
+      ctx.quadraticCurveTo(current.x, current.y, midpointX, midpointY)
+    }
+    const last = points[points.length - 1]!
+    ctx.quadraticCurveTo(last.x, last.y, last.x, last.y)
+  }
+  ctx.stroke()
+}
+
+function redrawBrushStrokes() {
+  const canvas = editorCanvasRef.value
+  const maskCanvas = editorMaskCanvasRef.value
+  if (!canvas || !maskCanvas) return
+  const visual = canvas.getContext('2d')
+  const mask = maskCanvas.getContext('2d')
+  if (!visual || !mask) return
+  visual.clearRect(0, 0, canvas.width, canvas.height)
+  mask.clearRect(0, 0, maskCanvas.width, maskCanvas.height)
+  for (const stroke of brushStrokes) {
+    drawSmoothStroke(visual, stroke, 'rgba(239, 68, 68, 0.72)')
+    drawSmoothStroke(mask, stroke, '#ffffff')
+  }
+}
+
+function startDrawing(event: PointerEvent) {
+  if (editor.mode !== 'brush') return
+  const point = pointFromEvent(event)
+  if (!point) return
+  editor.drawing = true
+  brushStrokes.push({ points: [point], size: Math.max(1, Number(editor.brushSize) || 1) })
+  editor.hasMarks = true
+  redrawBrushStrokes()
+  editorCanvasRef.value?.setPointerCapture(event.pointerId)
+}
+
+function draw(event: PointerEvent) {
+  if (!editor.drawing) return
+  const point = pointFromEvent(event)
+  if (!point) return
+  const stroke = brushStrokes[brushStrokes.length - 1]
+  if (!stroke) return
+  const previous = stroke.points[stroke.points.length - 1]
+  if (!previous || Math.hypot(point.x - previous.x, point.y - previous.y) >= 0.5) {
+    stroke.points.push(point)
+    redrawBrushStrokes()
+  }
+}
+
+function stopDrawing() {
+  editor.drawing = false
+}
+
+function clearEditorMarks() {
+  const canvas = editorCanvasRef.value
+  const maskCanvas = editorMaskCanvasRef.value
+  canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
+  maskCanvas?.getContext('2d')?.clearRect(0, 0, maskCanvas.width, maskCanvas.height)
+  brushStrokes.length = 0
+  editor.hasMarks = false
+  editor.drawing = false
+}
+
+function setCurrentAsReference() {
+  if (!editor.originalDataURL) return
+  referenceFiles.value = []
+  referenceDataURLs.value = [editor.originalDataURL]
+  form.referenceUrls = ''
+  closeEditor()
+  appStore.showSuccess(t('imageWorkbench.editor.referenceAdded'))
+}
+
+async function submitEditFromEditor() {
+  if (!editor.job || !editor.originalDataURL || !editor.prompt.trim() || !editor.hasMarks || editingSubmitting.value) return
+  const maskCanvas = editorMaskCanvasRef.value
+  if (!maskCanvas) return
+  editingSubmitting.value = true
+  try {
+    const job = await imageWorkbenchAPI.createJob({
+      api_key_id: form.apiKeyId,
+      operation: 'edit',
+      model: editor.job.model,
+      prompt: editor.prompt.trim(),
+      size: editor.job.actual_size || editor.job.requested_size || undefined,
+      quality: form.quality,
+      images: [editor.originalDataURL],
+      mask: maskCanvas.toDataURL('image/png')
+    })
+    jobs.value = [job, ...jobs.value.filter(item => item.id !== job.id)]
+    blankCanvasOpen.value = false
+    selectedJobId.value = job.id
+    closeEditor()
+    appStore.showSuccess(t('imageWorkbench.editor.submitted'))
+  } catch (error: any) {
+    appStore.showError(error?.message || t('imageWorkbench.errors.submit'))
+  } finally {
+    editingSubmitting.value = false
+  }
+}
+
+async function createEditableReferenceDataURL(blob: Blob) {
+  const bitmap = await createImageBitmap(blob)
+  const canvas = document.createElement('canvas')
+  canvas.width = bitmap.width
+  canvas.height = bitmap.height
+  canvas.getContext('2d')?.drawImage(bitmap, 0, 0)
+  bitmap.close()
+  let quality = 0.92
+  let dataURL = canvas.toDataURL('image/jpeg', quality)
+  while (dataURL.length * 0.75 > 10 * 1024 * 1024 && quality > 0.55) {
+    quality -= 0.08
+    dataURL = canvas.toDataURL('image/jpeg', quality)
+  }
+  return dataURL
+}
+
+function statusText(status: ImageWorkbenchStatus) { return t('imageWorkbench.status.' + status) }
 function statusClass(status: ImageWorkbenchStatus) {
   if (status === 'completed') return 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300'
   if (status === 'failed' || status === 'submission_unknown') return 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300'
@@ -379,15 +1003,66 @@ function statusClass(status: ImageWorkbenchStatus) {
 }
 function modelLabel(model: ImageWorkbenchModel) { return models.find(item => item.value === model)?.label || model }
 function formatCost(value: number) { return Number(value || 0).toFixed(4) }
+function formatInteger(value: number) { return new Intl.NumberFormat(locale.value).format(value) }
 function formatDate(value: string) { return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
+function isTerminalJob(status: ImageWorkbenchStatus) {
+  return status === 'completed' || status === 'failed' || status === 'submission_unknown'
+}
+function formatJobWaitTime(job: ImageWorkbenchJob) {
+  const createdAt = Date.parse(job.created_at)
+  if (!Number.isFinite(createdAt)) return '00:00'
+  const completedAt = isTerminalJob(job.status) ? Date.parse(job.updated_at) : Number.NaN
+  const endAt = Number.isFinite(completedAt) ? completedAt : elapsedClock.value
+  const elapsedSeconds = Math.max(0, Math.floor((endAt - createdAt) / 1000))
+  const minutes = Math.floor(elapsedSeconds / 60)
+  const seconds = elapsedSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function restartAnnouncementRotation() {
+  if (announcementTimer) clearInterval(announcementTimer)
+  announcementTimer = null
+  announcementIndex.value = 0
+  if (workbenchAnnouncements.value.length <= 1) return
+  announcementTimer = setInterval(() => {
+    announcementIndex.value = (announcementIndex.value + 1) % workbenchAnnouncements.value.length
+  }, announcementIntervalSeconds.value * 1000)
+}
+
+watch([workbenchAnnouncements, announcementIntervalSeconds], restartAnnouncementRotation, { deep: true })
 
 onMounted(async () => {
   await Promise.all([loadKeys(), loadJobs()])
   pollTimer = setInterval(refreshPendingJobs, 2000)
+  elapsedTimer = setInterval(() => { elapsedClock.value = Date.now() }, 1000)
+  restartAnnouncementRotation()
 })
 
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
+  if (elapsedTimer) clearInterval(elapsedTimer)
+  if (announcementTimer) clearInterval(announcementTimer)
   Object.values(previewURLs).forEach(url => URL.revokeObjectURL(url))
 })
 </script>
+
+<style scoped>
+.image-workbench-compact :deep(.input) {
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  padding: 0.375rem 0.75rem;
+}
+
+.image-workbench-compact :deep(.input-label) {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.image-workbench-compact :deep(.input-hint) {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  margin-top: 0.25rem;
+}
+</style>

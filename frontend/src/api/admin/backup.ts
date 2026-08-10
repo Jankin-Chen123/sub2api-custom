@@ -67,6 +67,7 @@ export async function testS3Connection(config: BackupS3Config): Promise<TestS3Re
 export interface ImageStorageConfig {
   enabled: boolean
   reuse_backup_s3: boolean
+  allow_base64_responses: boolean
   bucket: string
   prefix: string
   public_base_url: string

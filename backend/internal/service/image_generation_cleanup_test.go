@@ -119,3 +119,17 @@ func TestImageGenerationCleanupRetainsRowsWhenPayloadDeletionFails(t *testing.T)
 	require.Zero(t, deleted)
 	require.Empty(t, repo.deleted)
 }
+
+func TestImageGenerationCleanupRetainsUnknownSubmissionForReconciliation(t *testing.T) {
+	job := &ImageGenerationJob{
+		JobID:  "imgjob_unknown_reconcile",
+		Status: ImageGenerationJobStatusSubmissionUnknown,
+	}
+	repo := &imageGenerationCleanupRepoStub{jobs: []*ImageGenerationJob{job}}
+	cleanup := NewImageGenerationCleanupService(repo, nil, nil, nil, time.Hour, time.Hour, 10)
+
+	deleted, err := cleanup.RunOnce(context.Background(), time.Now())
+	require.NoError(t, err)
+	require.Zero(t, deleted)
+	require.Empty(t, repo.deleted)
+}

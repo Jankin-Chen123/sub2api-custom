@@ -7,6 +7,7 @@ import { apiClient } from "../client";
 import type {
   CustomEndpoint,
   CustomMenuItem,
+  ImageWorkbenchAnnouncement,
   LoginAgreementDocument,
   NotifyEmailEntry,
 } from "@/types";
@@ -385,6 +386,11 @@ export interface SystemSettings {
   affiliate_rebate_per_invitee_cap: number;
   affiliate_admin_recharge_enabled: boolean;
   default_concurrency: number;
+  image_generation_queue_enabled: boolean;
+  image_generation_max_active_jobs: number;
+  image_generation_max_queued_jobs: number;
+  image_workbench_announcements: ImageWorkbenchAnnouncement[];
+  image_workbench_announcement_interval_seconds: number;
   default_user_rpm_limit: number;
   default_subscriptions: DefaultSubscriptionSetting[];
   auth_source_default_email_balance?: number;
@@ -704,6 +710,11 @@ export interface UpdateSettingsRequest {
   affiliate_rebate_per_invitee_cap?: number;
   affiliate_admin_recharge_enabled?: boolean;
   default_concurrency?: number;
+  image_generation_queue_enabled?: boolean;
+  image_generation_max_active_jobs?: number;
+  image_generation_max_queued_jobs?: number;
+  image_workbench_announcements?: ImageWorkbenchAnnouncement[];
+  image_workbench_announcement_interval_seconds?: number;
   default_user_rpm_limit?: number;
   default_subscriptions?: DefaultSubscriptionSetting[];
   auth_source_default_email_balance?: number;

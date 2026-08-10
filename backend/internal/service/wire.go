@@ -565,10 +565,10 @@ func ProvideImageGenerationBilling(
 	return &UsageImageGenerationBilling{Repo: repo, APIKeys: apiKeys, Accounts: accounts, UsageLogs: usageLogs, Cache: cache}
 }
 
-func ProvideImageGenerationAccountSelector(gateway *OpenAIGatewayService, accounts AccountRepository, cfgs ...*config.Config) ImageGenerationAccountSelector {
+func ProvideImageGenerationAccountSelector(gateway *OpenAIGatewayService, accounts AccountRepository, cfg *config.Config) ImageGenerationAccountSelector {
 	var admission *ImageGenerationAdmission
-	if gateway != nil && len(cfgs) > 0 && cfgs[0] != nil {
-		imageConcurrency := cfgs[0].Gateway.ImageConcurrency
+	if gateway != nil && cfg != nil {
+		imageConcurrency := cfg.Gateway.ImageConcurrency
 		admission = NewImageGenerationAdmission(gateway.concurrencyService, ImageGenerationAdmissionConfig{
 			Enabled:            imageConcurrency.Enabled,
 			MaxPerUser:         imageConcurrency.MaxPerUser,
@@ -582,8 +582,8 @@ func ProvideImageGenerationAccountSelector(gateway *OpenAIGatewayService, accoun
 		})
 	}
 	allowGeneralFallback := false
-	if len(cfgs) > 0 && cfgs[0] != nil {
-		allowGeneralFallback = cfgs[0].DedicatedImage.FallbackToGeneral
+	if cfg != nil {
+		allowGeneralFallback = cfg.DedicatedImage.FallbackToGeneral
 	}
 	return &DedicatedImageAccountSelector{
 		Gateway: gateway, Accounts: accounts, ImageAdmission: admission,
@@ -595,8 +595,24 @@ func ProvideImageGenerationProviderFactory() ImageGenerationProviderFactory {
 	return &DefaultImageGenerationProviderFactory{}
 }
 
-func ProvideImageGenerationOrchestrator(repo ImageGenerationJobRepository, payloads ImageGenerationPayloadStore, wakeup ImageGenerationWakeup, cfg *config.Config) *ImageGenerationOrchestrator {
-	return NewImageGenerationOrchestrator(repo, payloads, time.Duration(cfg.DedicatedImage.PayloadTTLHours)*time.Hour, wakeup)
+func ProvideImageGenerationQueueController(
+	repo ImageGenerationJobRepository,
+	settings *SettingService,
+	concurrency *ConcurrencyService,
+) *ImageGenerationQueueController {
+	return NewImageGenerationQueueController(repo, settings, concurrency)
+}
+
+func ProvideImageGenerationOrchestrator(
+	repo ImageGenerationJobRepository,
+	payloads ImageGenerationPayloadStore,
+	wakeup ImageGenerationWakeup,
+	queue *ImageGenerationQueueController,
+	cfg *config.Config,
+) *ImageGenerationOrchestrator {
+	orchestrator := NewImageGenerationOrchestrator(repo, payloads, time.Duration(cfg.DedicatedImage.PayloadTTLHours)*time.Hour, wakeup)
+	orchestrator.SetQueueController(queue)
+	return orchestrator
 }
 
 func ProvideImageGenerationWorker(
@@ -606,6 +622,7 @@ func ProvideImageGenerationWorker(
 	billing ImageGenerationBilling,
 	accounts ImageGenerationAccountSelector,
 	providers ImageGenerationProviderFactory,
+	queue *ImageGenerationQueueController,
 	cfg *config.Config,
 ) *ImageGenerationWorker {
 	options := ImageGenerationWorkerOptions{
@@ -618,7 +635,9 @@ func ProvideImageGenerationWorker(
 		MaxSubmitAttempts: cfg.DedicatedImage.MaxSubmitAttempts,
 		RecoveryLimit:     cfg.DedicatedImage.RecoveryLimit,
 	}
-	return NewImageGenerationWorker(repo, payloads, results, billing, accounts, providers, options)
+	worker := NewImageGenerationWorker(repo, payloads, results, billing, accounts, providers, options)
+	worker.SetQueueController(queue)
+	return worker
 }
 
 func ProvideImageGenerationWorkerRuntime(worker *ImageGenerationWorker, wakeup ImageGenerationWakeup, cfg *config.Config) *ImageGenerationWorkerRuntime {
@@ -817,6 +836,7 @@ var ProviderSet = wire.NewSet(
 	ProvideImageGenerationBilling,
 	ProvideImageGenerationAccountSelector,
 	ProvideImageGenerationProviderFactory,
+	ProvideImageGenerationQueueController,
 	ProvideImageGenerationOrchestrator,
 	ProvideImageGenerationWorker,
 	ProvideImageGenerationWorkerRuntime,

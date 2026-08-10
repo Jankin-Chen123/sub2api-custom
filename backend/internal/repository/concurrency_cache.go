@@ -249,6 +249,16 @@ var (
 			end
 		end
 		if allExisting == 1 then
+			-- A long-running async image task renews the same member. Refresh
+			-- its score and key TTL instead of returning a stale lease that can
+			-- disappear while the upstream task is still being polled.
+			for i = 1, dimensionCount do
+				local slotKey = KEYS[(i - 1) * 2 + 1]
+				local liveKey = KEYS[(i - 1) * 2 + 2]
+				redis.call('ZADD', slotKey, now, requestID)
+				redis.call('EXPIRE', slotKey, ttl)
+				redis.call('EXPIRE', liveKey, ttl)
+			end
 			return 1
 		end
 

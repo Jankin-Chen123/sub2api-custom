@@ -184,6 +184,16 @@ func openAIResponsesRequiredCapability(imageIntent bool, platform string) servic
 	return service.OpenAIEndpointCapabilityChatCompletions
 }
 
+// openAIDedicatedImagePlanningCapability is intentionally chat-completions:
+// the dedicated bridge performs image execution itself, so its general account
+// only needs to understand the planner function. Native Responses accounts are
+// still eligible because Responses capability is a strict subset of the
+// account's chat capability, while Chat Completions-only API-key accounts are
+// served through the existing Responses-to-Chat compatibility bridge.
+func openAIDedicatedImagePlanningCapability() service.OpenAIEndpointCapability {
+	return service.OpenAIEndpointCapabilityChatCompletions
+}
+
 func allowOpenAICompatibleMessagesDispatch(apiKey *service.APIKey) bool {
 	if apiKey == nil || apiKey.Group == nil {
 		return true
@@ -473,11 +483,10 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	requiredCapability := openAIResponsesRequiredCapability(imageIntent, requestPlatform)
 	codexDedicatedImageBridgeCandidate := h.codexImageBridge != nil && h.codexImageBridge.ShouldHandle(c, forwardBody, apiKey)
 	if codexDedicatedImageBridgeCandidate {
-		// The planner is a normal Responses turn, not native image execution.
-		// Responses is still required so previous_response_id remains usable
-		// throughout a long Codex conversation; image_only is selected later by
-		// the durable image worker.
-		requiredCapability = service.OpenAIEndpointCapabilityResponses
+		// The planner is a normal text/function turn, not native image
+		// execution. Allow the existing Responses-to-Chat bridge to serve
+		// general API-key accounts that do not expose /v1/responses.
+		requiredCapability = openAIDedicatedImagePlanningCapability()
 	}
 
 	// 分组利润控制：请求级装配定价上下文——pricingAt 固定本请求的
@@ -1918,10 +1927,10 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		requiredCapability = service.OpenAIEndpointCapabilityResponses
 	}
 	if codexDedicatedImageBridgeCandidate {
-		// The planner is a normal Responses turn, not native image execution.
-		// Keep Responses capability so previous_response_id remains usable for
-		// every turn; image_only is selected later by the durable image worker.
-		requiredCapability = service.OpenAIEndpointCapabilityResponses
+		// ForwardWebSocket plans each turn through the HTTP compatibility path,
+		// which can translate Responses to Chat Completions for general API-key
+		// accounts. Image execution remains isolated in the durable worker.
+		requiredCapability = openAIDedicatedImagePlanningCapability()
 	}
 
 	// 分组利润控制：WS 桥按连接装配定价上下文并装门（选号与抢槽共用该

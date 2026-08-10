@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// ImageGenerationCleanupService removes only terminal image jobs after their
-// retention period. It deliberately deletes result objects before the database
-// row so a transient database failure cannot orphan a still-referenced image.
+// ImageGenerationCleanupService removes only reconciled terminal image jobs
+// after their retention period. submission_unknown jobs are deliberately
+// excluded because their billing hold requires an explicit operator decision.
 type ImageGenerationCleanupService struct {
 	repo      ImageGenerationJobRepository
 	payloads  ImageGenerationPayloadStore

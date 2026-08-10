@@ -175,11 +175,11 @@ func (r *imageWorkerRepo) ReleaseImageGenerationJobForRetry(_ context.Context, _
 	return nil
 }
 
-func (r *imageWorkerRepo) RecoverExpiredImageGenerationJobLeases(_ context.Context, now time.Time, _ int) (int64, error) {
+func (r *imageWorkerRepo) RecoverExpiredImageGenerationJobLeases(_ context.Context, now time.Time, _ int) ([]ImageGenerationJobRecovery, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.job == nil || r.job.LeaseExpiresAt == nil || r.job.LeaseExpiresAt.After(now) {
-		return 0, nil
+		return nil, nil
 	}
 	switch r.job.Status {
 	case ImageGenerationJobStatusSubmitting:
@@ -192,7 +192,7 @@ func (r *imageWorkerRepo) RecoverExpiredImageGenerationJobLeases(_ context.Conte
 		r.job.NextAttemptAt = &now
 	}
 	r.job.LeaseExpiresAt = nil
-	return 1, nil
+	return []ImageGenerationJobRecovery{{JobID: r.job.JobID, Status: r.job.Status}}, nil
 }
 
 type imageWorkerPayloadStore struct {
@@ -443,7 +443,7 @@ func TestImageGenerationLeaseRecoveryMakesUnknownSubmissionTerminal(t *testing.T
 
 	recovered, err := repo.RecoverExpiredImageGenerationJobLeases(context.Background(), now.Add(2*time.Minute), 10)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), recovered)
+	require.Len(t, recovered, 1)
 	require.Equal(t, ImageGenerationJobStatusSubmissionUnknown, repo.job.Status)
 	require.Equal(t, "image_submission_unknown", *repo.job.ErrorCode)
 	require.NotNil(t, repo.job.CompletedAt)

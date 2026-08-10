@@ -142,6 +142,13 @@ func (h *DedicatedImageHandler) CreateWorkbenchJob(c *gin.Context) {
 		ImageSize: tier, OutputResolution: tier,
 		Images: append([]string(nil), input.Images...), Mask: input.Mask,
 	}
+	if strings.TrimSpace(request.ResponseFormat) == "" {
+		request.ResponseFormat = "url"
+	}
+	if err := h.enforceResponseFormatPolicy(c.Request.Context(), request.ResponseFormat); err != nil {
+		h.writeServiceError(c, err)
+		return
+	}
 	if err := service.ValidateCangyuanImageRequest(service.CangyuanImageOperation(operation), request); err != nil {
 		h.writeServiceError(c, err)
 		return

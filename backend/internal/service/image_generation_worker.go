@@ -193,6 +193,7 @@ type ImageGenerationWorker struct {
 	billing   ImageGenerationBilling
 	accounts  ImageGenerationAccountSelector
 	providers ImageGenerationProviderFactory
+	queue     *ImageGenerationQueueController
 	opts      ImageGenerationWorkerOptions
 }
 
@@ -208,6 +209,14 @@ func NewImageGenerationWorker(
 	return &ImageGenerationWorker{
 		repo: repo, payloads: payloads, results: results, billing: billing,
 		accounts: accounts, providers: providers, opts: normalizeImageGenerationWorkerOptions(opts),
+	}
+}
+
+// SetQueueController keeps direct worker construction backwards compatible
+// while allowing the application wiring to inject the server-wide guard.
+func (w *ImageGenerationWorker) SetQueueController(queue *ImageGenerationQueueController) {
+	if w != nil {
+		w.queue = queue
 	}
 }
 
@@ -338,6 +347,15 @@ func (w *ImageGenerationWorker) submit(ctx context.Context, job *ImageGeneration
 	if err != nil {
 		return w.fail(ctx, job, "image_payload_unavailable", err.Error())
 	}
+	if w.queue != nil {
+		acquired, acquireErr := w.queue.Acquire(ctx, job.JobID)
+		if acquireErr != nil {
+			return w.retry(ctx, job, ImageGenerationJobStatusQueued, "image_queue_unavailable", "image generation capacity is temporarily unavailable")
+		}
+		if !acquired {
+			return w.retry(ctx, job, ImageGenerationJobStatusQueued, "image_queue_full", "another image generation task is still running")
+		}
+	}
 	lease, err := w.accounts.Select(ctx, job)
 	if err != nil {
 		recordImageGenerationProviderUnavailable()
@@ -439,6 +457,15 @@ func (w *ImageGenerationWorker) handleSubmitError(ctx context.Context, job *Imag
 func (w *ImageGenerationWorker) poll(ctx context.Context, job *ImageGenerationJob) error {
 	if job.AccountID == nil || job.UpstreamTaskID == nil {
 		return w.markSubmissionUnknown(ctx, job, "image_task_binding_missing", "submitted image task lost its upstream binding")
+	}
+	if w.queue != nil {
+		renewed, renewErr := w.queue.Renew(ctx, job.JobID)
+		if renewErr != nil {
+			return w.retry(ctx, job, ImageGenerationJobStatusPolling, "image_queue_unavailable", "image generation capacity is temporarily unavailable")
+		}
+		if !renewed {
+			return w.retry(ctx, job, ImageGenerationJobStatusPolling, "image_queue_full", "image generation capacity is temporarily full")
+		}
 	}
 	account, err := w.accounts.GetBoundAccount(ctx, *job.AccountID)
 	if err != nil {
@@ -547,6 +574,7 @@ func (w *ImageGenerationWorker) settle(ctx context.Context, job *ImageGeneration
 		return err
 	}
 	recordImageGenerationTerminal(ImageGenerationJobStatusCompleted)
+	w.releaseQueueSlot(job)
 	w.deletePayloadBestEffort(ctx, job)
 	return nil
 }
@@ -559,6 +587,7 @@ func (w *ImageGenerationWorker) fail(ctx context.Context, job *ImageGenerationJo
 		return err
 	}
 	recordImageGenerationTerminal(ImageGenerationJobStatusFailed)
+	w.releaseQueueSlot(job)
 	w.deletePayloadBestEffort(ctx, job)
 	return nil
 }
@@ -567,13 +596,32 @@ func (w *ImageGenerationWorker) markSubmissionUnknown(ctx context.Context, job *
 	err := w.repo.MarkImageGenerationJobSubmissionUnknown(ctx, job.JobID, job.ClaimVersion, code, message, w.opts.Now())
 	if err == nil {
 		recordImageGenerationTerminal(ImageGenerationJobStatusSubmissionUnknown)
+		// submission_unknown is terminal: the upstream outcome must be
+		// reconciled manually and this job will never be polled by the worker
+		// again. Keeping its server-wide execution lease until Redis TTL expiry
+		// blocks otherwise unrelated image jobs, which is especially visible
+		// when the configured maximum active count is one.
+		w.releaseQueueSlot(job)
 	}
 	return err
 }
 
 func (w *ImageGenerationWorker) retry(ctx context.Context, job *ImageGenerationJob, status, code, message string) error {
 	recordImageGenerationRetry()
-	return w.repo.ReleaseImageGenerationJobForRetry(ctx, job.JobID, job.ClaimVersion, status, code, message, w.opts.Now().Add(w.opts.RetryDelay))
+	err := w.repo.ReleaseImageGenerationJobForRetry(ctx, job.JobID, job.ClaimVersion, status, code, message, w.opts.Now().Add(w.opts.RetryDelay))
+	if err == nil && (status == ImageGenerationJobStatusCreated || status == ImageGenerationJobStatusQueued) {
+		w.releaseQueueSlot(job)
+	}
+	return err
+}
+
+func (w *ImageGenerationWorker) releaseQueueSlot(job *ImageGenerationJob) {
+	if w == nil || w.queue == nil || job == nil || strings.TrimSpace(job.JobID) == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = w.queue.Release(ctx, job.JobID)
 }
 
 func (w *ImageGenerationWorker) loadPayload(ctx context.Context, job *ImageGenerationJob) (*ImageGenerationPayload, error) {
@@ -674,7 +722,17 @@ func (r *ImageGenerationWorkerRuntime) Start() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				_, _ = r.worker.repo.RecoverExpiredImageGenerationJobLeases(ctx, r.worker.opts.Now(), r.worker.opts.RecoveryLimit)
+				recovered, err := r.worker.repo.RecoverExpiredImageGenerationJobLeases(ctx, r.worker.opts.Now(), r.worker.opts.RecoveryLimit)
+				if err != nil {
+					continue
+				}
+				for _, item := range recovered {
+					if item.Status != ImageGenerationJobStatusSubmissionUnknown {
+						continue
+					}
+					recordImageGenerationTerminal(ImageGenerationJobStatusSubmissionUnknown)
+					r.worker.releaseQueueSlot(&ImageGenerationJob{JobID: item.JobID})
+				}
 			}
 		}
 	}()

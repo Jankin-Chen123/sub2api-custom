@@ -33,6 +33,7 @@ type ImageGenerationOrchestrator struct {
 	payloads ImageGenerationPayloadStore
 	assets   *CangyuanImageAssetResolver
 	wakeup   ImageGenerationWakeup
+	queue    *ImageGenerationQueueController
 	ttl      time.Duration
 }
 
@@ -45,6 +46,14 @@ func NewImageGenerationOrchestrator(repo ImageGenerationJobRepository, payloads 
 		wakeup = wakeups[0]
 	}
 	return &ImageGenerationOrchestrator{repo: repo, payloads: payloads, assets: NewCangyuanImageAssetResolver(cangyuanMaxReferenceImageBytes), wakeup: wakeup, ttl: ttl}
+}
+
+// SetQueueController keeps the constructor backwards compatible for tests and
+// integrations that create the orchestrator directly.
+func (s *ImageGenerationOrchestrator) SetQueueController(queue *ImageGenerationQueueController) {
+	if s != nil {
+		s.queue = queue
+	}
 }
 
 func (s *ImageGenerationOrchestrator) Create(ctx context.Context, params CreateDedicatedImageJobParams) (*ImageGenerationJob, bool, error) {
@@ -77,6 +86,28 @@ func (s *ImageGenerationOrchestrator) Create(ctx context.Context, params CreateD
 	}
 	if operation != CangyuanImageOperationEdit && strings.TrimSpace(params.Request.Mask) != "" {
 		return nil, false, &CangyuanAdapterError{Code: "image_invalid_mask", HTTPStatus: http.StatusBadRequest, Err: errors.New("mask is only supported for edit requests")}
+	}
+	var atomicQueueAdmission ImageGenerationQueueAdmission
+	var atomicQueueLimit int
+	if s.queue != nil {
+		queueSettings, err := s.queue.Settings(ctx)
+		if err != nil {
+			return nil, false, ErrImageGenerationQueueUnavailable
+		}
+		if queueSettings.Enabled {
+			if admission, ok := s.repo.(ImageGenerationQueueAdmission); ok {
+				atomicQueueAdmission = admission
+				atomicQueueLimit = queueSettings.MaxQueued
+			} else {
+				allowed, countErr := s.queue.CanEnqueue(ctx)
+				if countErr != nil {
+					return nil, false, ErrImageGenerationQueueUnavailable
+				}
+				if !allowed {
+					return nil, false, ErrImageGenerationQueueFull
+				}
+			}
+		}
 	}
 	if len(params.Request.Images) > 0 {
 		if s.assets == nil {
@@ -148,7 +179,7 @@ func (s *ImageGenerationOrchestrator) Create(ctx context.Context, params CreateD
 	if responseFormat != "" {
 		responseFormatPtr = &responseFormat
 	}
-	job, replayed, err := s.repo.CreateImageGenerationJob(ctx, CreateImageGenerationJobParams{
+	createParams := CreateImageGenerationJobParams{
 		JobID:            jobID,
 		UserID:           int64Pointer(params.UserID),
 		APIKeyID:         int64Pointer(params.APIKeyID),
@@ -170,7 +201,14 @@ func (s *ImageGenerationOrchestrator) Create(ctx context.Context, params CreateD
 		RateMultiplier:   params.RateMultiplier,
 		EstimatedCost:    params.EstimatedCost,
 		HeldCost:         0,
-	})
+	}
+	var job *ImageGenerationJob
+	var replayed bool
+	if atomicQueueAdmission != nil {
+		job, replayed, err = atomicQueueAdmission.CreateImageGenerationJobWithQueueLimit(ctx, createParams, atomicQueueLimit)
+	} else {
+		job, replayed, err = s.repo.CreateImageGenerationJob(ctx, createParams)
+	}
 	if err != nil {
 		_ = s.payloads.Delete(ctx, payloadRef)
 		return nil, false, err

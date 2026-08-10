@@ -155,6 +155,11 @@ type SystemSettings struct {
 
 	DefaultConcurrency           int
 	DefaultBalance               float64
+	ImageGenerationQueueEnabled  bool
+	ImageGenerationMaxActiveJobs int
+	ImageGenerationMaxQueuedJobs int
+	ImageWorkbenchAnnouncements  []ImageWorkbenchAnnouncement
+	ImageWorkbenchAnnouncementIntervalSeconds int
 	RiskControlEnabled           bool
 	CyberSessionBlockEnabled     bool
 	CyberSessionBlockTTLSeconds  int
@@ -320,6 +325,8 @@ type PublicSettings struct {
 	TablePageSizeOptions        []int
 	CustomMenuItems             string // JSON array of custom menu items
 	CustomEndpoints             string // JSON array of custom endpoints
+	ImageWorkbenchAnnouncements  []ImageWorkbenchAnnouncement
+	ImageWorkbenchAnnouncementIntervalSeconds int
 
 	LinuxDoOAuthEnabled      bool
 	DingTalkOAuthEnabled     bool
@@ -366,6 +373,13 @@ type LoginAgreementDocument struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	ContentMD string `json:"content_md"`
+}
+
+// ImageWorkbenchAnnouncement is a single announcement shown in the image
+// workbench's rotating announcement bar.
+type ImageWorkbenchAnnouncement struct {
+	ID      string `json:"id"`
+	Content string `json:"content"`
 }
 
 type WeChatConnectOAuthConfig struct {

@@ -8,6 +8,22 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
+func ImageWorkbenchAnnouncementsFromService(items []service.ImageWorkbenchAnnouncement) []ImageWorkbenchAnnouncement {
+	result := make([]ImageWorkbenchAnnouncement, 0, len(items))
+	for _, item := range items {
+		result = append(result, ImageWorkbenchAnnouncement{ID: item.ID, Content: item.Content})
+	}
+	return result
+}
+
+func ImageWorkbenchAnnouncementsToService(items []ImageWorkbenchAnnouncement) []service.ImageWorkbenchAnnouncement {
+	result := make([]service.ImageWorkbenchAnnouncement, 0, len(items))
+	for _, item := range items {
+		result = append(result, service.ImageWorkbenchAnnouncement{ID: item.ID, Content: item.Content})
+	}
+	return result
+}
+
 func UserFromServiceShallow(u *service.User) *User {
 	if u == nil {
 		return nil

@@ -172,6 +172,10 @@ func TestOpenAIResponsesRequiredCapability(t *testing.T) {
 	}
 }
 
+func TestOpenAIDedicatedImagePlanningCapabilityAllowsChatFallback(t *testing.T) {
+	require.Equal(t, service.OpenAIEndpointCapabilityChatCompletions, openAIDedicatedImagePlanningCapability())
+}
+
 func TestResolveOpenAIMessagesMetadataSession_DoesNotDerivePromptCacheKey(t *testing.T) {
 	body := []byte(`{"model":"claude-sonnet-4-5","metadata":{"user_id":"claude-code-session"},"messages":[{"role":"user","content":"hello"}]}`)
 

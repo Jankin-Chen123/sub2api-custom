@@ -107,6 +107,8 @@ export default {
         description: 'Enables the asynchronous image endpoints and offloads generated images to object storage, keeping only short links in Redis. Shares the S3 client with backups and takes effect on save — no restart needed.',
         enabled: 'Enable async image tasks',
         reuseBackupS3: 'Reuse the backup S3 configuration above (different bucket/prefix only)',
+        allowBase64Responses: 'Allow Base64 image responses (b64_json)',
+        allowBase64ResponsesHint: 'Disabled by default to reduce memory and bandwidth usage. When disabled, image APIs accept URL responses only.',
         bucket: 'Bucket',
         bucketInherited: 'Leave empty to use the backup bucket',
         prefix: 'Key prefix',

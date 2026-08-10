@@ -187,6 +187,11 @@ export interface LoginAgreementDocument {
   content_md: string
 }
 
+export interface ImageWorkbenchAnnouncement {
+  id: string
+  content: string
+}
+
 export interface PublicSettings {
   registration_enabled: boolean
   email_verify_enabled: boolean
@@ -218,6 +223,8 @@ export interface PublicSettings {
   table_page_size_options: number[]
   custom_menu_items: CustomMenuItem[]
   custom_endpoints: CustomEndpoint[]
+  image_workbench_announcements: ImageWorkbenchAnnouncement[]
+  image_workbench_announcement_interval_seconds: number
   linuxdo_oauth_enabled: boolean
   dingtalk_oauth_enabled?: boolean
   wechat_oauth_enabled: boolean

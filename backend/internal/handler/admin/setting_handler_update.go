@@ -159,6 +159,11 @@ type UpdateSettingsRequest struct {
 	// 默认配置
 	DefaultConcurrency                        int                               `json:"default_concurrency"`
 	DefaultBalance                            float64                           `json:"default_balance"`
+	ImageGenerationQueueEnabled               bool                              `json:"image_generation_queue_enabled"`
+	ImageGenerationMaxActiveJobs              int                               `json:"image_generation_max_active_jobs"`
+	ImageGenerationMaxQueuedJobs              int                               `json:"image_generation_max_queued_jobs"`
+	ImageWorkbenchAnnouncements               []dto.ImageWorkbenchAnnouncement `json:"image_workbench_announcements"`
+	ImageWorkbenchAnnouncementIntervalSeconds int                               `json:"image_workbench_announcement_interval_seconds"`
 	AffiliateRebateRate                       *float64                          `json:"affiliate_rebate_rate"`
 	AffiliateRebateFreezeHours                *int                              `json:"affiliate_rebate_freeze_hours"`
 	AffiliateRebateDurationDays               *int                              `json:"affiliate_rebate_duration_days"`
@@ -515,6 +520,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	// 验证参数
 	if req.DefaultConcurrency < 1 {
 		req.DefaultConcurrency = 1
+	}
+	if req.ImageGenerationMaxActiveJobs < 1 {
+		req.ImageGenerationMaxActiveJobs = 1
+	}
+	if req.ImageGenerationMaxQueuedJobs < 0 {
+		req.ImageGenerationMaxQueuedJobs = 0
 	}
 	if req.DefaultBalance < 0 {
 		req.DefaultBalance = 0
@@ -1455,6 +1466,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		CustomEndpoints:                        customEndpointsJSON,
 		DefaultConcurrency:                     req.DefaultConcurrency,
 		DefaultBalance:                         req.DefaultBalance,
+		ImageGenerationQueueEnabled:            req.ImageGenerationQueueEnabled,
+		ImageGenerationMaxActiveJobs:           req.ImageGenerationMaxActiveJobs,
+		ImageGenerationMaxQueuedJobs:            req.ImageGenerationMaxQueuedJobs,
+		ImageWorkbenchAnnouncements:             dto.ImageWorkbenchAnnouncementsToService(req.ImageWorkbenchAnnouncements),
+		ImageWorkbenchAnnouncementIntervalSeconds: req.ImageWorkbenchAnnouncementIntervalSeconds,
 		AffiliateRebateRate:                    affiliateRebateRate,
 		AffiliateRebateFreezeHours:             affiliateRebateFreezeHours,
 		AffiliateRebateDurationDays:            affiliateRebateDurationDays,
@@ -2013,6 +2029,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		CustomEndpoints:                                        dto.ParseCustomEndpoints(updatedSettings.CustomEndpoints),
 		DefaultConcurrency:                                     updatedSettings.DefaultConcurrency,
 		DefaultBalance:                                         updatedSettings.DefaultBalance,
+		ImageGenerationQueueEnabled:                            updatedSettings.ImageGenerationQueueEnabled,
+		ImageGenerationMaxActiveJobs:                           updatedSettings.ImageGenerationMaxActiveJobs,
+		ImageGenerationMaxQueuedJobs:                           updatedSettings.ImageGenerationMaxQueuedJobs,
+		ImageWorkbenchAnnouncements:                            dto.ImageWorkbenchAnnouncementsFromService(updatedSettings.ImageWorkbenchAnnouncements),
+		ImageWorkbenchAnnouncementIntervalSeconds:              updatedSettings.ImageWorkbenchAnnouncementIntervalSeconds,
 		AffiliateRebateRate:                                    updatedSettings.AffiliateRebateRate,
 		AffiliateRebateFreezeHours:                             updatedSettings.AffiliateRebateFreezeHours,
 		AffiliateRebateDurationDays:                            updatedSettings.AffiliateRebateDurationDays,

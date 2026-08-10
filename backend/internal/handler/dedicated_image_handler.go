@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -26,6 +27,7 @@ type DedicatedImageHandler struct {
 	billing      *service.BillingService
 	worker       *service.ImageGenerationWorkerRuntime
 	openAI       *OpenAIGatewayHandler
+	imageStorage *service.ImageStorageSettingService
 	enabled      bool
 	syncTimeout  time.Duration
 	maxReadBytes int64
@@ -38,11 +40,13 @@ func NewDedicatedImageHandler(
 	billing *service.BillingService,
 	worker *service.ImageGenerationWorkerRuntime,
 	openAI *OpenAIGatewayHandler,
+	imageStorage *service.ImageStorageSettingService,
 	cfg *config.Config,
 ) *DedicatedImageHandler {
 	h := &DedicatedImageHandler{
 		orchestrator: orchestrator, repo: repo, results: results, billing: billing,
-		worker: worker, openAI: openAI, syncTimeout: 3 * time.Minute, maxReadBytes: 64 << 20,
+		worker: worker, openAI: openAI, imageStorage: imageStorage,
+		syncTimeout: 3 * time.Minute, maxReadBytes: 64 << 20,
 	}
 	if cfg != nil {
 		h.enabled = cfg.DedicatedImage.Enabled
@@ -161,6 +165,13 @@ func (h *DedicatedImageHandler) submit(c *gin.Context, body []byte, parsed *serv
 	request, err := dedicatedCangyuanRequest(parsed)
 	if err != nil {
 		h.writeError(c, http.StatusBadRequest, "image_invalid_reference", err.Error())
+		return
+	}
+	if strings.TrimSpace(request.ResponseFormat) == "" {
+		request.ResponseFormat = "url"
+	}
+	if err := h.enforceResponseFormatPolicy(c.Request.Context(), request.ResponseFormat); err != nil {
+		h.writeServiceError(c, err)
 		return
 	}
 	operation := service.ImageGenerationJobOperationGeneration
@@ -298,7 +309,7 @@ func (h *DedicatedImageHandler) Content(c *gin.Context) {
 
 func (h *DedicatedImageHandler) writeCompletedImage(c *gin.Context, job *service.ImageGenerationJob) {
 	created := job.CreatedAt.Unix()
-	if imageJobString(job.ResponseFormat, "url") == "b64_json" {
+	if imageJobString(job.ResponseFormat, "url") == "b64_json" && h.imageStorage != nil && h.imageStorage.Base64ResponsesAllowed(c.Request.Context()) {
 		body, _, _, err := h.results.Open(c.Request.Context(), job.ResultObjectRefs[0])
 		if err != nil {
 			h.writeError(c, http.StatusBadGateway, "image_storage_failed", "image result could not be read")
@@ -348,6 +359,14 @@ func (h *DedicatedImageHandler) writeServiceError(c *gin.Context, err error) {
 	}
 	if errors.Is(err, service.ErrImageGenerationIdempotency) {
 		h.writeError(c, http.StatusConflict, "idempotency_conflict", "idempotency key was reused with different image parameters")
+		return
+	}
+	if errors.Is(err, service.ErrImageGenerationQueueFull) {
+		h.writeError(c, http.StatusTooManyRequests, "IMAGE_QUEUE_FULL", "image generation queue is full")
+		return
+	}
+	if errors.Is(err, service.ErrImageGenerationQueueUnavailable) {
+		h.writeError(c, http.StatusServiceUnavailable, "IMAGE_QUEUE_UNAVAILABLE", "image generation queue is temporarily unavailable")
 		return
 	}
 	h.writeError(c, http.StatusServiceUnavailable, "image_orchestration_unavailable", "image job could not be created")
@@ -410,6 +429,24 @@ func dedicatedCangyuanRequest(parsed *service.OpenAIImagesRequest) (service.Cang
 		request.Mask = "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(parsed.MaskUpload.Data)
 	}
 	return request, nil
+}
+
+func (h *DedicatedImageHandler) enforceResponseFormatPolicy(ctx context.Context, responseFormat string) error {
+	responseFormat = strings.ToLower(strings.TrimSpace(responseFormat))
+	if responseFormat == "" || responseFormat == "url" {
+		return nil
+	}
+	if responseFormat != "b64_json" {
+		return nil
+	}
+	if h != nil && h.imageStorage != nil && h.imageStorage.Base64ResponsesAllowed(ctx) {
+		return nil
+	}
+	return &service.CangyuanAdapterError{
+		Code:       "image_response_format_disabled",
+		HTTPStatus: http.StatusForbidden,
+		Err:        errors.New("b64_json image responses are disabled by the administrator; use response_format=url"),
+	}
 }
 
 func dedicatedImageTaskResponse(c *gin.Context, job *service.ImageGenerationJob) gin.H {

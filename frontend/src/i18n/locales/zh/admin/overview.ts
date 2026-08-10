@@ -103,6 +103,8 @@ export default {
         saved: 'S3 配置已保存'
       },
       imageStorage: {
+        allowBase64Responses: '允许返回 Base64 图片（b64_json）',
+        allowBase64ResponsesHint: '默认关闭以减少内存和带宽占用。关闭后，图片接口只允许 URL 返回格式。',
         title: '异步生图对象存储',
         description: '开启后，异步生图接口可用，生成结果转存到对象存储，只把短链接写入 Redis。与备份共用同一套 S3 客户端，保存后立即生效，无需重启。',
         enabled: '启用异步生图',
