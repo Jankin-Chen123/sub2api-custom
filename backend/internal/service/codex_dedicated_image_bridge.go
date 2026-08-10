@@ -236,7 +236,7 @@ func (b *CodexDedicatedImageBridge) Forward(
 		return plannerResult, nil
 	}
 	if c == nil {
-		return plannerResult, errors.New("Codex image result context is unavailable")
+		return plannerResult, errors.New("codex image result context is unavailable")
 	}
 
 	job, err := b.createCodexImageJob(ctx, c, apiKey, subscription, plan, body)

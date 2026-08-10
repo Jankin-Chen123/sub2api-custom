@@ -116,13 +116,13 @@ func testCangyuanImageAccountWithClient(
 				return nil, errors.New("cangyuan returned an empty polling result")
 			}
 			if result.Failed {
-				return nil, errors.New("Cangyuan image test failed")
+				return nil, errors.New("cangyuan image test failed")
 			}
 			if result.Completed {
 				return &CangyuanImageTestResult{Model: model, Status: "completed", Completed: true, Duration: time.Since(started)}, nil
 			}
 			if strings.TrimSpace(result.UpstreamTaskID) == "" {
-				return nil, errors.New("Cangyuan polling result lost its task binding")
+				return nil, errors.New("cangyuan polling result lost its task binding")
 			}
 		}
 	}
