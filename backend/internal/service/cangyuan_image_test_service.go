@@ -89,10 +89,10 @@ func testCangyuanImageAccountWithClient(
 		return nil, err
 	}
 	if result == nil {
-		return nil, errors.New("Cangyuan returned an empty result")
+		return nil, errors.New("cangyuan returned an empty result")
 	}
 	if result.Failed {
-		return nil, errors.New("Cangyuan image test failed")
+		return nil, errors.New("cangyuan image test failed")
 	}
 	if result.Completed {
 		return &CangyuanImageTestResult{Model: model, Status: "completed", Completed: true, Duration: time.Since(started)}, nil

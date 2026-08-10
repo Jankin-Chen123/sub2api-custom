@@ -475,7 +475,9 @@ func TestImageGenerationWorkerAsyncPollStaysOnOriginalAccount(t *testing.T) {
 	require.Equal(t, 1, accounts.selectCalls)
 	require.Equal(t, 1, results.calls)
 	require.Equal(t, 1, billing.settleCalls)
-	require.Equal(t, []bool{true, false, false}, worker.providers.(*imageWorkerProviderFactory).requireImageOnly)
+	providerFactory, ok := worker.providers.(*imageWorkerProviderFactory)
+	require.True(t, ok)
+	require.Equal(t, []bool{true, false, false}, providerFactory.requireImageOnly)
 }
 
 func TestImageGenerationWorkerTransientPollFailureDoesNotResubmit(t *testing.T) {
@@ -510,7 +512,9 @@ func TestImageGenerationWorkerTransientPollFailureDoesNotResubmit(t *testing.T) 
 
 func TestImageGenerationWorkerModelMismatchFailsTerminally(t *testing.T) {
 	worker, repo, _, _, billing, _, client := newImageWorkerFixture(ImageGenerationJobStatusQueued)
-	account := worker.accounts.(*imageWorkerAccountSelector).account
+	accountSelector, ok := worker.accounts.(*imageWorkerAccountSelector)
+	require.True(t, ok)
+	account := accountSelector.account
 	account.Credentials["model_mapping"] = map[string]any{"gpt-image-2-1k": "gpt-image-1"}
 
 	require.NoError(t, worker.RunOnce(context.Background()))

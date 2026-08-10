@@ -705,7 +705,7 @@ func normalizeCangyuanHTTPError(status int, raw []byte) error {
 		Code:       code,
 		HTTPStatus: status,
 		Retryable:  status == http.StatusTooManyRequests || status >= 500,
-		Err:        errors.New("Cangyuan rejected the image request"),
+		Err:        errors.New("cangyuan rejected the image request"),
 	}
 }
 
