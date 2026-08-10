@@ -1014,7 +1014,7 @@ func extractCodexDedicatedImagePlan(raw []byte, requestBody []byte) (*codexDedic
 			selectedCallID = callID
 			var plan codexDedicatedImagePlan
 			if err := json.Unmarshal(args, &plan); err != nil {
-		return nil, true, errors.New("codex image planner returned invalid arguments")
+				return nil, true, errors.New("codex image planner returned invalid arguments")
 			}
 			if err := normalizeAndValidateCodexDedicatedImagePlan(&plan); err != nil {
 				return nil, true, err
