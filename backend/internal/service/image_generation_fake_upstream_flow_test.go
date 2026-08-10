@@ -142,7 +142,8 @@ func TestImageGenerationOrchestratorWorkerFakeUpstreamCompletesDurableWorkbenchJ
 	fake.mu.Unlock()
 	require.Equal(t, 2, pollCount, "a transient poll error must retry the same upstream task")
 	require.Len(t, fake.Calls(), 1, "polling must not submit a second generation")
-	stored := results.storage.(*recordingImageStorage)
+	stored, ok := results.storage.(*recordingImageStorage)
+	require.True(t, ok)
 	require.Len(t, stored.data, 1)
 	require.Equal(t, fake.output, stored.data[0])
 }

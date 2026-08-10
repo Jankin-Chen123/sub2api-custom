@@ -546,7 +546,9 @@ func TestCodexDedicatedImagePlannerPreservesPartialTextBeforeImageCall(t *testin
 	}
 	outputItems, ok := response["output"].([]any)
 	require.True(t, ok)
-	events, err := buildCodexDedicatedImageEvents(response, outputItems[1].(map[string]any))
+	imageCall, ok := outputItems[1].(map[string]any)
+	require.True(t, ok)
+	events, err := buildCodexDedicatedImageEvents(response, imageCall)
 	require.NoError(t, err)
 	require.Len(t, events, 10)
 	messageRaw, err := json.Marshal(events[3].data)

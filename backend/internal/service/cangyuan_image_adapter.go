@@ -369,7 +369,7 @@ func buildCangyuanImageEndpoint(baseURL, endpoint string) (string, error) {
 	rawPath := basePath + endpoint
 	decodedPath, err := url.PathUnescape(rawPath)
 	if err != nil {
-		return "", errors.New("Cangyuan endpoint contains invalid path escaping")
+		return "", errors.New("cangyuan endpoint contains invalid path escaping")
 	}
 	parsed.Path = decodedPath
 	parsed.RawPath = rawPath
@@ -388,7 +388,7 @@ func ValidateCangyuanImageRequest(operation CangyuanImageOperation, request Cang
 		return &CangyuanAdapterError{Code: "image_prompt_too_long", HTTPStatus: http.StatusBadRequest, Err: fmt.Errorf("prompt must not exceed %d characters", cangyuanMaxPromptRunes)}
 	}
 	if request.N != 0 && request.N != 1 {
-		return &CangyuanAdapterError{Code: "image_invalid_count", HTTPStatus: http.StatusBadRequest, Err: errors.New("Cangyuan image tier models require n=1")}
+		return &CangyuanAdapterError{Code: "image_invalid_count", HTTPStatus: http.StatusBadRequest, Err: errors.New("cangyuan image tier models require n=1")}
 	}
 	if request.ResponseFormat != "" && request.ResponseFormat != "url" && request.ResponseFormat != "b64_json" {
 		return &CangyuanAdapterError{Code: "image_invalid_response_format", HTTPStatus: http.StatusBadRequest, Err: errors.New("response_format must be url or b64_json")}
@@ -656,7 +656,7 @@ func parseCangyuanImageResponse(raw []byte) (*CangyuanImageResult, error) {
 	}
 	if len(response.Data) > 0 {
 		if len(response.Data) != 1 {
-			return nil, &CangyuanAdapterError{Code: "image_upstream_invalid_response", Err: errors.New("Cangyuan tier response contained more than one image")}
+			return nil, &CangyuanAdapterError{Code: "image_upstream_invalid_response", Err: errors.New("cangyuan tier response contained more than one image")}
 		}
 		for _, item := range response.Data {
 			if strings.TrimSpace(item.URL) == "" && strings.TrimSpace(item.B64JSON) == "" {
