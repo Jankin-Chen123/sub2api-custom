@@ -359,7 +359,7 @@ func buildCangyuanImageEndpoint(baseURL, endpoint string) (string, error) {
 		return "", errors.New("a valid HTTPS Cangyuan base URL is required")
 	}
 	if parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil {
-		return "", errors.New("Cangyuan base URL must not contain credentials, query, or fragment")
+		return "", errors.New("cangyuan base URL must not contain credentials, query, or fragment")
 	}
 	basePath := strings.TrimRight(parsed.EscapedPath(), "/")
 	endpoint = "/" + strings.TrimLeft(endpoint, "/")

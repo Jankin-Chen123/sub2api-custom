@@ -31,8 +31,8 @@ const (
 	codexDedicatedImageResponsePrefix  = "resp_img_"
 )
 
-var ErrCodexDedicatedImageReplayNotFound = errors.New("Codex dedicated image replay not found")
-var ErrCodexDedicatedImageReplayCorrupt = errors.New("Codex dedicated image replay is corrupt")
+var ErrCodexDedicatedImageReplayNotFound = errors.New("codex dedicated image replay not found")
+var ErrCodexDedicatedImageReplayCorrupt = errors.New("codex dedicated image replay is corrupt")
 
 // CodexDedicatedImageReplayStore is the optional cross-instance backing store
 // for synthetic Responses IDs. The local map remains the hot path; a Redis
@@ -679,8 +679,9 @@ func buildCodexDedicatedImageEventPayloads(response, item map[string]any) ([]jso
 	for _, event := range events {
 		data := event.data
 		if object, ok := event.data.(map[string]any); ok {
-			data = cloneMap(object)
-			data.(map[string]any)["sequence_number"] = event.sequence
+			cloned := cloneMap(object)
+			cloned["sequence_number"] = event.sequence
+			data = cloned
 		}
 		raw, err := json.Marshal(data)
 		if err != nil {
@@ -1429,44 +1430,13 @@ func collectCodexDedicatedImageArgumentDelta(value map[string]any, accumulators 
 	if eventType == "response.function_call_arguments.done" {
 		if arguments := codexStringValue(value["arguments"]); arguments != "" {
 			accumulator.arguments.Reset()
-			accumulator.arguments.WriteString(arguments)
+			_, _ = accumulator.arguments.WriteString(arguments)
 		}
 		return
 	}
 	if delta := codexStringValue(value["delta"]); delta != "" {
-		accumulator.arguments.WriteString(delta)
+		_, _ = accumulator.arguments.WriteString(delta)
 	}
-}
-
-func findCodexDedicatedImageArguments(value map[string]any) ([]byte, string, bool) {
-	if codexStringValue(value["name"]) == codexDedicatedImagePlannerToolName {
-		callID := strings.TrimSpace(codexStringValue(value["call_id"]))
-		if callID == "" {
-			callID = strings.TrimSpace(codexStringValue(value["id"]))
-		}
-		if args, ok := value["arguments"].(string); ok {
-			return []byte(args), callID, true
-		}
-		if args, ok := value["arguments"].(map[string]any); ok {
-			raw, _ := json.Marshal(args)
-			return raw, callID, true
-		}
-	}
-	if item, ok := value["item"].(map[string]any); ok {
-		if raw, callID, found := findCodexDedicatedImageArguments(item); found {
-			return raw, callID, true
-		}
-	}
-	if output, ok := value["output"].([]any); ok {
-		for _, entry := range output {
-			if item, ok := entry.(map[string]any); ok {
-				if raw, callID, found := findCodexDedicatedImageArguments(item); found {
-					return raw, callID, true
-				}
-			}
-		}
-	}
-	return nil, "", false
 }
 
 func findAllCodexDedicatedImageArguments(value map[string]any) []codexDedicatedImageArgumentCandidate {

@@ -291,12 +291,12 @@ const (
 	SettingKeyDefaultSubscriptions = "default_subscriptions"  // 新用户默认订阅列表（JSON）
 	SettingKeyDefaultUserRPMLimit  = "default_user_rpm_limit" // 新用户默认 RPM 限制（0 = 不限制）
 	// 生图队列保护：限制服务器同时执行的生图任务及等待队列长度
-	SettingKeyImageGenerationQueueEnabled    = "image_generation_queue_enabled"
-	SettingKeyImageGenerationMaxActiveJobs   = "image_generation_max_active_jobs"
-	SettingKeyImageGenerationMaxQueuedJobs   = "image_generation_max_queued_jobs"
+	SettingKeyImageGenerationQueueEnabled  = "image_generation_queue_enabled"
+	SettingKeyImageGenerationMaxActiveJobs = "image_generation_max_active_jobs"
+	SettingKeyImageGenerationMaxQueuedJobs = "image_generation_max_queued_jobs"
 	// 生图工作台公告栏
-	SettingKeyImageWorkbenchAnnouncements             = "image_workbench_announcements"
-	SettingKeyImageWorkbenchAnnouncementIntervalSecs  = "image_workbench_announcement_interval_seconds"
+	SettingKeyImageWorkbenchAnnouncements            = "image_workbench_announcements"
+	SettingKeyImageWorkbenchAnnouncementIntervalSecs = "image_workbench_announcement_interval_seconds"
 
 	imageWorkbenchAnnouncementIntervalDefault = 5
 	imageWorkbenchAnnouncementIntervalMin     = 1

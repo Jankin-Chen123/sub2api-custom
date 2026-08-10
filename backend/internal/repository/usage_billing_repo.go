@@ -410,9 +410,13 @@ func releaseUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 	if cmd.HoldAmount <= 0 {
 		return &service.BatchImageBalanceHoldResult{}, nil
 	}
+	holdRequestID := strings.TrimSpace(cmd.HoldRequestID)
+	if holdRequestID == "" {
+		holdRequestID = service.BatchImageHoldRequestID(cmd.BatchID)
+	}
 	// 释放前校验该 job 确实预留过 hold（hold request id 已被 claim），
 	// 防止从未成功冻结的 job 触发"幻影释放"，从其他用户的冻结资金池中凭空生成余额。
-	held, heldErr := batchImageHoldClaimExists(ctx, tx, cmd.HoldRequestID, cmd.APIKeyID)
+	held, heldErr := batchImageHoldClaimExists(ctx, tx, holdRequestID, cmd.APIKeyID)
 	if heldErr != nil {
 		return nil, heldErr
 	}

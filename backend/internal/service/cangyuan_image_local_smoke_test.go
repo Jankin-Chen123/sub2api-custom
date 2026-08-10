@@ -120,7 +120,9 @@ func TestLocalCangyuanGenerationAndWorkerSmoke(t *testing.T) {
 	workerJob.UpstreamModel = nil
 	workerJob.ResultObjectRefs = nil
 	workerJob.ActualSize = nil
-	account := worker.accounts.(*imageWorkerAccountSelector).account
+	selector, ok := worker.accounts.(*imageWorkerAccountSelector)
+	require.True(t, ok)
+	account := selector.account
 	account.Credentials["base_url"] = server.URL
 	account.Credentials["api_key"] = "local-smoke-key"
 	account.Credentials["model_mapping"] = map[string]any{CangyuanImageModel4K: CangyuanImageModel4K}

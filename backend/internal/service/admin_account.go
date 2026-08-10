@@ -836,6 +836,11 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if err != nil {
 		return nil, err
 	}
+	// Preserve an explicitly supplied empty extra object so callers can clear
+	// quota limits without losing the distinction between {} and an omitted field.
+	if input.Extra != nil && account.Extra == nil {
+		account.Extra = make(map[string]any)
+	}
 
 	// 先验证分组是否存在（在任何写操作之前）
 	if input.GroupIDs != nil {

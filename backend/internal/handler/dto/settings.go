@@ -156,20 +156,20 @@ type SystemSettings struct {
 	CustomMenuItems             []CustomMenuItem `json:"custom_menu_items"`
 	CustomEndpoints             []CustomEndpoint `json:"custom_endpoints"`
 
-	DefaultConcurrency           int                          `json:"default_concurrency"`
-	DefaultBalance               float64                      `json:"default_balance"`
-	ImageGenerationQueueEnabled  bool                         `json:"image_generation_queue_enabled"`
-	ImageGenerationMaxActiveJobs int                          `json:"image_generation_max_active_jobs"`
-	ImageGenerationMaxQueuedJobs int                          `json:"image_generation_max_queued_jobs"`
-	ImageWorkbenchAnnouncements  []ImageWorkbenchAnnouncement `json:"image_workbench_announcements"`
-	ImageWorkbenchAnnouncementIntervalSeconds int `json:"image_workbench_announcement_interval_seconds"`
-	AffiliateRebateRate          float64                      `json:"affiliate_rebate_rate"`
-	AffiliateRebateFreezeHours   int                          `json:"affiliate_rebate_freeze_hours"`
-	AffiliateRebateDurationDays  int                          `json:"affiliate_rebate_duration_days"`
-	AffiliateRebatePerInviteeCap float64                      `json:"affiliate_rebate_per_invitee_cap"`
-	AdminRechargeRebateEnabled   bool                         `json:"affiliate_admin_recharge_enabled"`
-	DefaultUserRPMLimit          int                          `json:"default_user_rpm_limit"`
-	DefaultSubscriptions         []DefaultSubscriptionSetting `json:"default_subscriptions"`
+	DefaultConcurrency                        int                          `json:"default_concurrency"`
+	DefaultBalance                            float64                      `json:"default_balance"`
+	ImageGenerationQueueEnabled               bool                         `json:"image_generation_queue_enabled"`
+	ImageGenerationMaxActiveJobs              int                          `json:"image_generation_max_active_jobs"`
+	ImageGenerationMaxQueuedJobs              int                          `json:"image_generation_max_queued_jobs"`
+	ImageWorkbenchAnnouncements               []ImageWorkbenchAnnouncement `json:"image_workbench_announcements"`
+	ImageWorkbenchAnnouncementIntervalSeconds int                          `json:"image_workbench_announcement_interval_seconds"`
+	AffiliateRebateRate                       float64                      `json:"affiliate_rebate_rate"`
+	AffiliateRebateFreezeHours                int                          `json:"affiliate_rebate_freeze_hours"`
+	AffiliateRebateDurationDays               int                          `json:"affiliate_rebate_duration_days"`
+	AffiliateRebatePerInviteeCap              float64                      `json:"affiliate_rebate_per_invitee_cap"`
+	AdminRechargeRebateEnabled                bool                         `json:"affiliate_admin_recharge_enabled"`
+	DefaultUserRPMLimit                       int                          `json:"default_user_rpm_limit"`
+	DefaultSubscriptions                      []DefaultSubscriptionSetting `json:"default_subscriptions"`
 
 	// Model fallback configuration
 	EnableModelFallback      bool   `json:"enable_model_fallback"`
@@ -340,53 +340,53 @@ type DefaultSubscriptionSetting struct {
 }
 
 type PublicSettings struct {
-	RegistrationEnabled              bool                     `json:"registration_enabled"`
-	EmailVerifyEnabled               bool                     `json:"email_verify_enabled"`
-	ForceEmailOnThirdPartySignup     bool                     `json:"force_email_on_third_party_signup"`
-	RegistrationEmailSuffixWhitelist []string                 `json:"registration_email_suffix_whitelist"`
-	PromoCodeEnabled                 bool                     `json:"promo_code_enabled"`
-	PasswordResetEnabled             bool                     `json:"password_reset_enabled"`
-	InvitationCodeEnabled            bool                     `json:"invitation_code_enabled"`
-	TotpEnabled                      bool                     `json:"totp_enabled"` // TOTP 双因素认证
-	PasskeyEnabled                   bool                     `json:"passkey_enabled"`
-	LoginAgreementEnabled            bool                     `json:"login_agreement_enabled"`
-	LoginAgreementMode               string                   `json:"login_agreement_mode"`
-	LoginAgreementUpdatedAt          string                   `json:"login_agreement_updated_at"`
-	LoginAgreementRevision           string                   `json:"login_agreement_revision"`
-	LoginAgreementDocuments          []LoginAgreementDocument `json:"login_agreement_documents"`
-	TurnstileEnabled                 bool                     `json:"turnstile_enabled"`
-	TurnstileSiteKey                 string                   `json:"turnstile_site_key"`
-	SiteName                         string                   `json:"site_name"`
-	SiteLogo                         string                   `json:"site_logo"`
-	SiteSubtitle                     string                   `json:"site_subtitle"`
-	APIBaseURL                       string                   `json:"api_base_url"`
-	ContactInfo                      string                   `json:"contact_info"`
-	DocURL                           string                   `json:"doc_url"`
-	HomeContent                      string                   `json:"home_content"`
-	CompactHomeEnabled               bool                     `json:"compact_home_enabled"`
-	HideCcsImportButton              bool                     `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled      bool                     `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL          string                   `json:"purchase_subscription_url"`
-	TableDefaultPageSize             int                      `json:"table_default_page_size"`
-	TablePageSizeOptions             []int                    `json:"table_page_size_options"`
-	CustomMenuItems                  []CustomMenuItem         `json:"custom_menu_items"`
-	CustomEndpoints                  []CustomEndpoint         `json:"custom_endpoints"`
-	ImageWorkbenchAnnouncements      []ImageWorkbenchAnnouncement `json:"image_workbench_announcements"`
-	ImageWorkbenchAnnouncementIntervalSeconds int `json:"image_workbench_announcement_interval_seconds"`
-	DingTalkOAuthEnabled             bool                     `json:"dingtalk_oauth_enabled"`
-	LinuxDoOAuthEnabled              bool                     `json:"linuxdo_oauth_enabled"`
-	WeChatOAuthEnabled               bool                     `json:"wechat_oauth_enabled"`
-	WeChatOAuthOpenEnabled           bool                     `json:"wechat_oauth_open_enabled"`
-	WeChatOAuthMPEnabled             bool                     `json:"wechat_oauth_mp_enabled"`
-	WeChatOAuthMobileEnabled         bool                     `json:"wechat_oauth_mobile_enabled"`
-	OIDCOAuthEnabled                 bool                     `json:"oidc_oauth_enabled"`
-	OIDCOAuthProviderName            string                   `json:"oidc_oauth_provider_name"`
-	GitHubOAuthEnabled               bool                     `json:"github_oauth_enabled"`
-	GoogleOAuthEnabled               bool                     `json:"google_oauth_enabled"`
-	SoraClientEnabled                bool                     `json:"sora_client_enabled"`
-	BackendModeEnabled               bool                     `json:"backend_mode_enabled"`
-	PaymentEnabled                   bool                     `json:"payment_enabled"`
-	Version                          string                   `json:"version"`
+	RegistrationEnabled                       bool                         `json:"registration_enabled"`
+	EmailVerifyEnabled                        bool                         `json:"email_verify_enabled"`
+	ForceEmailOnThirdPartySignup              bool                         `json:"force_email_on_third_party_signup"`
+	RegistrationEmailSuffixWhitelist          []string                     `json:"registration_email_suffix_whitelist"`
+	PromoCodeEnabled                          bool                         `json:"promo_code_enabled"`
+	PasswordResetEnabled                      bool                         `json:"password_reset_enabled"`
+	InvitationCodeEnabled                     bool                         `json:"invitation_code_enabled"`
+	TotpEnabled                               bool                         `json:"totp_enabled"` // TOTP 双因素认证
+	PasskeyEnabled                            bool                         `json:"passkey_enabled"`
+	LoginAgreementEnabled                     bool                         `json:"login_agreement_enabled"`
+	LoginAgreementMode                        string                       `json:"login_agreement_mode"`
+	LoginAgreementUpdatedAt                   string                       `json:"login_agreement_updated_at"`
+	LoginAgreementRevision                    string                       `json:"login_agreement_revision"`
+	LoginAgreementDocuments                   []LoginAgreementDocument     `json:"login_agreement_documents"`
+	TurnstileEnabled                          bool                         `json:"turnstile_enabled"`
+	TurnstileSiteKey                          string                       `json:"turnstile_site_key"`
+	SiteName                                  string                       `json:"site_name"`
+	SiteLogo                                  string                       `json:"site_logo"`
+	SiteSubtitle                              string                       `json:"site_subtitle"`
+	APIBaseURL                                string                       `json:"api_base_url"`
+	ContactInfo                               string                       `json:"contact_info"`
+	DocURL                                    string                       `json:"doc_url"`
+	HomeContent                               string                       `json:"home_content"`
+	CompactHomeEnabled                        bool                         `json:"compact_home_enabled"`
+	HideCcsImportButton                       bool                         `json:"hide_ccs_import_button"`
+	PurchaseSubscriptionEnabled               bool                         `json:"purchase_subscription_enabled"`
+	PurchaseSubscriptionURL                   string                       `json:"purchase_subscription_url"`
+	TableDefaultPageSize                      int                          `json:"table_default_page_size"`
+	TablePageSizeOptions                      []int                        `json:"table_page_size_options"`
+	CustomMenuItems                           []CustomMenuItem             `json:"custom_menu_items"`
+	CustomEndpoints                           []CustomEndpoint             `json:"custom_endpoints"`
+	ImageWorkbenchAnnouncements               []ImageWorkbenchAnnouncement `json:"image_workbench_announcements"`
+	ImageWorkbenchAnnouncementIntervalSeconds int                          `json:"image_workbench_announcement_interval_seconds"`
+	DingTalkOAuthEnabled                      bool                         `json:"dingtalk_oauth_enabled"`
+	LinuxDoOAuthEnabled                       bool                         `json:"linuxdo_oauth_enabled"`
+	WeChatOAuthEnabled                        bool                         `json:"wechat_oauth_enabled"`
+	WeChatOAuthOpenEnabled                    bool                         `json:"wechat_oauth_open_enabled"`
+	WeChatOAuthMPEnabled                      bool                         `json:"wechat_oauth_mp_enabled"`
+	WeChatOAuthMobileEnabled                  bool                         `json:"wechat_oauth_mobile_enabled"`
+	OIDCOAuthEnabled                          bool                         `json:"oidc_oauth_enabled"`
+	OIDCOAuthProviderName                     string                       `json:"oidc_oauth_provider_name"`
+	GitHubOAuthEnabled                        bool                         `json:"github_oauth_enabled"`
+	GoogleOAuthEnabled                        bool                         `json:"google_oauth_enabled"`
+	SoraClientEnabled                         bool                         `json:"sora_client_enabled"`
+	BackendModeEnabled                        bool                         `json:"backend_mode_enabled"`
+	PaymentEnabled                            bool                         `json:"payment_enabled"`
+	Version                                   string                       `json:"version"`
 	// 服务器全局时区（IANA 名称与当前 UTC 偏移，如 "Asia/Shanghai" / "+08:00"）。
 	// 高峰时段等按服务器本地时间判定的窗口，前端展示时据此标注，避免用户按浏览器本地时间误读。
 	ServerTimezone              string  `json:"server_timezone"`

@@ -104,7 +104,7 @@ func TestImageGenerationWorkerRuntimeWakeupTriggersImmediateRescan(t *testing.T)
 	}
 	require.Eventually(t, func() bool { return repo.claims.Load() >= 1 }, time.Second, 5*time.Millisecond)
 	firstClaims := repo.claims.Load()
-	wakeup.PublishImageGenerationWakeup(context.Background(), "imgjob_runtime_wakeup")
+	require.NoError(t, wakeup.PublishImageGenerationWakeup(context.Background(), "imgjob_runtime_wakeup"))
 	require.Eventually(t, func() bool { return repo.claims.Load() > firstClaims }, time.Second, 5*time.Millisecond)
 }
 

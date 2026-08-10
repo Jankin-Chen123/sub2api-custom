@@ -295,7 +295,7 @@ func (h *DedicatedImageHandler) Content(c *gin.Context) {
 		h.writeError(c, http.StatusBadGateway, "image_storage_failed", "image result could not be read")
 		return
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	c.Header("Cache-Control", "private, no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Content-Type", contentType)
@@ -315,7 +315,7 @@ func (h *DedicatedImageHandler) writeCompletedImage(c *gin.Context, job *service
 			h.writeError(c, http.StatusBadGateway, "image_storage_failed", "image result could not be read")
 			return
 		}
-		defer body.Close()
+		defer func() { _ = body.Close() }()
 		raw, err := io.ReadAll(io.LimitReader(body, h.maxReadBytes+1))
 		if err != nil || int64(len(raw)) > h.maxReadBytes {
 			h.writeError(c, http.StatusBadGateway, "image_storage_failed", "image result is too large to encode")

@@ -306,7 +306,7 @@ func (h *DedicatedImageHandler) WorkbenchContent(c *gin.Context) {
 		h.writeError(c, http.StatusBadGateway, "image_storage_failed", "image result could not be read")
 		return
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	c.Header("Cache-Control", "private, no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Content-Type", contentType)

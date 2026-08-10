@@ -315,7 +315,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ImageGenerationMaxActiveJobs:                           settings.ImageGenerationMaxActiveJobs,
 		ImageGenerationMaxQueuedJobs:                           settings.ImageGenerationMaxQueuedJobs,
 		ImageWorkbenchAnnouncements:                            dto.ImageWorkbenchAnnouncementsFromService(settings.ImageWorkbenchAnnouncements),
-		ImageWorkbenchAnnouncementIntervalSeconds:               settings.ImageWorkbenchAnnouncementIntervalSeconds,
+		ImageWorkbenchAnnouncementIntervalSeconds:              settings.ImageWorkbenchAnnouncementIntervalSeconds,
 		RiskControlEnabled:                                     settings.RiskControlEnabled,
 		CyberSessionBlockEnabled:                               settings.CyberSessionBlockEnabled,
 		CyberSessionBlockTTLSeconds:                            settings.CyberSessionBlockTTLSeconds,

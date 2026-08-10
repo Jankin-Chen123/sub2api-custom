@@ -153,24 +153,24 @@ type SystemSettings struct {
 	CustomMenuItems             string // JSON array of custom menu items
 	CustomEndpoints             string // JSON array of custom endpoints
 
-	DefaultConcurrency           int
-	DefaultBalance               float64
-	ImageGenerationQueueEnabled  bool
-	ImageGenerationMaxActiveJobs int
-	ImageGenerationMaxQueuedJobs int
-	ImageWorkbenchAnnouncements  []ImageWorkbenchAnnouncement
+	DefaultConcurrency                        int
+	DefaultBalance                            float64
+	ImageGenerationQueueEnabled               bool
+	ImageGenerationMaxActiveJobs              int
+	ImageGenerationMaxQueuedJobs              int
+	ImageWorkbenchAnnouncements               []ImageWorkbenchAnnouncement
 	ImageWorkbenchAnnouncementIntervalSeconds int
-	RiskControlEnabled           bool
-	CyberSessionBlockEnabled     bool
-	CyberSessionBlockTTLSeconds  int
-	AffiliateEnabled             bool
-	AffiliateRebateRate          float64
-	AffiliateRebateFreezeHours   int
-	AffiliateRebateDurationDays  int
-	AffiliateRebatePerInviteeCap float64
-	AdminRechargeRebateEnabled   bool
-	DefaultUserRPMLimit          int
-	DefaultSubscriptions         []DefaultSubscriptionSetting
+	RiskControlEnabled                        bool
+	CyberSessionBlockEnabled                  bool
+	CyberSessionBlockTTLSeconds               int
+	AffiliateEnabled                          bool
+	AffiliateRebateRate                       float64
+	AffiliateRebateFreezeHours                int
+	AffiliateRebateDurationDays               int
+	AffiliateRebatePerInviteeCap              float64
+	AdminRechargeRebateEnabled                bool
+	DefaultUserRPMLimit                       int
+	DefaultSubscriptions                      []DefaultSubscriptionSetting
 
 	// Model fallback configuration
 	EnableModelFallback      bool   `json:"enable_model_fallback"`
@@ -319,13 +319,13 @@ type PublicSettings struct {
 	CompactHomeEnabled               bool
 	HideCcsImportButton              bool
 
-	PurchaseSubscriptionEnabled bool
-	PurchaseSubscriptionURL     string
-	TableDefaultPageSize        int
-	TablePageSizeOptions        []int
-	CustomMenuItems             string // JSON array of custom menu items
-	CustomEndpoints             string // JSON array of custom endpoints
-	ImageWorkbenchAnnouncements  []ImageWorkbenchAnnouncement
+	PurchaseSubscriptionEnabled               bool
+	PurchaseSubscriptionURL                   string
+	TableDefaultPageSize                      int
+	TablePageSizeOptions                      []int
+	CustomMenuItems                           string // JSON array of custom menu items
+	CustomEndpoints                           string // JSON array of custom endpoints
+	ImageWorkbenchAnnouncements               []ImageWorkbenchAnnouncement
 	ImageWorkbenchAnnouncementIntervalSeconds int
 
 	LinuxDoOAuthEnabled      bool

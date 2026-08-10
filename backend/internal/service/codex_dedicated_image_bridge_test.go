@@ -544,7 +544,8 @@ func TestCodexDedicatedImagePlannerPreservesPartialTextBeforeImageCall(t *testin
 			map[string]any{"id": "ig_partial", "type": "image_generation_call", "status": "completed"},
 		},
 	}
-	outputItems := response["output"].([]any)
+	outputItems, ok := response["output"].([]any)
+	require.True(t, ok)
 	events, err := buildCodexDedicatedImageEvents(response, outputItems[1].(map[string]any))
 	require.NoError(t, err)
 	require.Len(t, events, 10)
