@@ -121,6 +121,12 @@ func (s *ImageGenerationCleanupService) RunOnce(ctx context.Context, now time.Ti
 		if job == nil || job.JobID == "" {
 			continue
 		}
+		// Keep the guard here as well as in the repository query. This protects
+		// cleanup if a legacy repository implementation returns all terminal
+		// states, and preserves submission_unknown rows for reconciliation.
+		if job.Status == ImageGenerationJobStatusSubmissionUnknown {
+			continue
+		}
 		// A configured result object must be deletable before its row is
 		// removed. If the storage adapter has no deletion capability, retain
 		// the row and emit no destructive action.
