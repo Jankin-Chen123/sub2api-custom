@@ -243,7 +243,7 @@ func (a *CangyuanImageAdapter) do(ctx context.Context, method, endpoint string, 
 			Err:               err,
 		}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	maxBytes := a.maxResponseBytes
 	if maxBytes <= 0 {

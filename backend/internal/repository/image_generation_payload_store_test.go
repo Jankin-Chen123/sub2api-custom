@@ -64,10 +64,10 @@ func TestImageGenerationPayloadStoreRejectsCorruptCiphertextAndDeletes(t *testin
 func TestDurableImageGenerationPayloadStoreSurvivesRedisLoss(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	defer rdb.Close()
+	defer func() { _ = rdb.Close() }()
 
 	encryptor := &AESEncryptor{key: bytes.Repeat([]byte{9}, 32)}
 	store := NewDurableImageGenerationPayloadStore(db, rdb, encryptor)
@@ -104,10 +104,10 @@ func TestDurableImageGenerationPayloadStoreSurvivesRedisLoss(t *testing.T) {
 func TestDurableImageGenerationPayloadStoreReadsLegacyRedisPayloadWhenRowMissing(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mr := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	defer rdb.Close()
+	defer func() { _ = rdb.Close() }()
 
 	encryptor := &AESEncryptor{key: bytes.Repeat([]byte{10}, 32)}
 	store := NewDurableImageGenerationPayloadStore(db, rdb, encryptor)
@@ -131,7 +131,7 @@ func TestDurableImageGenerationPayloadStoreReadsLegacyRedisPayloadWhenRowMissing
 func TestDurableImageGenerationPayloadStorePurgesExpiredRows(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	store := NewDurableImageGenerationPayloadStore(db, nil, &AESEncryptor{key: bytes.Repeat([]byte{11}, 32)})
 	before := time.Now().UTC()
 	mock.ExpectExec(regexp.QuoteMeta("DELETE FROM image_generation_payloads")).

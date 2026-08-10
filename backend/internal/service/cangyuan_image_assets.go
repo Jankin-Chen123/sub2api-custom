@@ -104,7 +104,7 @@ func (r *CangyuanImageAssetResolver) Resolve(ctx context.Context, rawValue strin
 	if err != nil {
 		return nil, &CangyuanAdapterError{Code: "image_reference_download_failed", Retryable: true, Err: errors.New("reference image download failed")}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, &CangyuanAdapterError{Code: "image_reference_download_failed", HTTPStatus: resp.StatusCode, Retryable: resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500, Err: errors.New("reference image download returned an unsuccessful status")}
 	}

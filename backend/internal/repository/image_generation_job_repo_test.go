@@ -27,7 +27,7 @@ var imageGenerationJobTestColumns = []string{
 func TestImageGenerationJobRepositoryCreate(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	now := time.Now().UTC()
 	userID := int64(11)
 	apiKeyID := int64(22)
@@ -63,7 +63,7 @@ func TestImageGenerationJobRepositoryCreate(t *testing.T) {
 func TestImageGenerationJobRepositoryAtomicQueueAdmissionRejectsFullQueue(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta("SELECT pg_advisory_xact_lock(hashtextextended('image_generation_queue_admission', 0))")).
@@ -88,7 +88,7 @@ func TestImageGenerationJobRepositoryIdempotentReplayAndConflict(t *testing.T) {
 	t.Run("replay", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		require.NoError(t, err)
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 		now := time.Now().UTC()
 		userID := int64(11)
 		apiKeyID := int64(22)
@@ -123,7 +123,7 @@ func TestImageGenerationJobRepositoryIdempotentReplayAndConflict(t *testing.T) {
 	t.Run("conflict", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		require.NoError(t, err)
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 		now := time.Now().UTC()
 		userID := int64(11)
 		apiKeyID := int64(22)
@@ -158,7 +158,7 @@ func TestImageGenerationJobRepositoryIdempotentReplayAndConflict(t *testing.T) {
 func TestImageGenerationJobRepositoryClaimAndFence(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	now := time.Now().UTC().Truncate(time.Second)
 	leaseUntil := now.Add(time.Minute)
 
@@ -187,7 +187,7 @@ func TestImageGenerationJobRepositoryClaimAndFence(t *testing.T) {
 func TestImageGenerationJobRepositorySubmittedStickyAndTerminalFencing(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	repository := &imageGenerationJobRepository{db: db, sql: db}
 	now := time.Now().UTC()
 
@@ -209,7 +209,7 @@ func TestImageGenerationJobRepositorySubmittedStickyAndTerminalFencing(t *testin
 func TestImageGenerationJobRepositoryQueuesHeldCreatedJobAndStoresSyncResult(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	repository := &imageGenerationJobRepository{db: db, sql: db}
 	now := time.Now().UTC()
 
@@ -230,7 +230,7 @@ func TestImageGenerationJobRepositoryQueuesHeldCreatedJobAndStoresSyncResult(t *
 func TestImageGenerationJobRepositoryRecoversSubmissionAsUnknownWithoutResubmit(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	repository := &imageGenerationJobRepository{db: db, sql: db}
 	now := time.Now().UTC()
 

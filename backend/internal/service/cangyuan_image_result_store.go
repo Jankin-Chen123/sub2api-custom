@@ -274,7 +274,7 @@ func (s *CangyuanImageResultStore) copyResultToFile(ctx context.Context, file *o
 	if err != nil {
 		return "", errors.New("image result download failed")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return "", errors.New("image result download returned an unsuccessful status")
 	}
@@ -324,7 +324,7 @@ func (s *CangyuanImageResultStore) resolve(ctx context.Context, item CangyuanIma
 	if err != nil {
 		return nil, errors.New("image result download failed")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, errors.New("image result download returned an unsuccessful status")
 	}

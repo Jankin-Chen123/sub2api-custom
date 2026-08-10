@@ -529,7 +529,7 @@ func (b *CodexDedicatedImageBridge) buildCodexImageResponse(ctx context.Context,
 	if err != nil {
 		return "", nil, nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(reader, b.maxReadBytes+1))
 	if err != nil || int64(len(raw)) > b.maxReadBytes {
 		return "", nil, nil, errors.New("Codex image result is too large to return")
