@@ -472,7 +472,7 @@ func (b *CodexDedicatedImageBridge) waitForCompletion(ctx context.Context, apiKe
 			return nil, err
 		}
 		if current == nil {
-			return nil, errors.New("Codex image job lookup returned no task")
+			return nil, errors.New("codex image job lookup returned no task")
 		}
 		switch current.Status {
 		case ImageGenerationJobStatusCompleted:
@@ -523,7 +523,7 @@ func codexDedicatedImageJobError(code, message *string, defaultStatus int) error
 
 func (b *CodexDedicatedImageBridge) buildCodexImageResponse(ctx context.Context, plannerResult *OpenAIForwardResult, job *ImageGenerationJob, plan *codexDedicatedImagePlan) (string, map[string]any, map[string]any, error) {
 	if b.results == nil || plannerResult == nil || job == nil || plan == nil || len(job.ResultObjectRefs) == 0 {
-		return "", nil, nil, errors.New("Codex image result reader is unavailable")
+		return "", nil, nil, errors.New("codex image result reader is unavailable")
 	}
 	reader, contentType, _, err := b.results.Open(ctx, job.ResultObjectRefs[0])
 	if err != nil {
@@ -532,7 +532,7 @@ func (b *CodexDedicatedImageBridge) buildCodexImageResponse(ctx context.Context,
 	defer func() { _ = reader.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(reader, b.maxReadBytes+1))
 	if err != nil || int64(len(raw)) > b.maxReadBytes {
-		return "", nil, nil, errors.New("Codex image result is too large to return")
+		return "", nil, nil, errors.New("codex image result is too large to return")
 	}
 	format := imageOutputFormat(contentType)
 	responseID := codexDedicatedImageResponsePrefix + uuid.NewString()
