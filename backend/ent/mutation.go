@@ -28486,6 +28486,7 @@ type ImageGenerationJobMutation struct {
 	operation                *string
 	status                   *string
 	public_model             *string
+	display_name             *string
 	upstream_model           *string
 	requested_size           *string
 	actual_size              *string
@@ -29209,6 +29210,55 @@ func (m *ImageGenerationJobMutation) OldPublicModel(ctx context.Context) (v stri
 // ResetPublicModel resets all changes to the "public_model" field.
 func (m *ImageGenerationJobMutation) ResetPublicModel() {
 	m.public_model = nil
+}
+
+// SetDisplayName sets the "display_name" field.
+func (m *ImageGenerationJobMutation) SetDisplayName(s string) {
+	m.display_name = &s
+}
+
+// DisplayName returns the value of the "display_name" field in the mutation.
+func (m *ImageGenerationJobMutation) DisplayName() (r string, exists bool) {
+	v := m.display_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDisplayName returns the old "display_name" field's value of the ImageGenerationJob entity.
+// If the ImageGenerationJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageGenerationJobMutation) OldDisplayName(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDisplayName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDisplayName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDisplayName: %w", err)
+	}
+	return oldValue.DisplayName, nil
+}
+
+// ClearDisplayName clears the value of the "display_name" field.
+func (m *ImageGenerationJobMutation) ClearDisplayName() {
+	m.display_name = nil
+	m.clearedFields[imagegenerationjob.FieldDisplayName] = struct{}{}
+}
+
+// DisplayNameCleared returns if the "display_name" field was cleared in this mutation.
+func (m *ImageGenerationJobMutation) DisplayNameCleared() bool {
+	_, ok := m.clearedFields[imagegenerationjob.FieldDisplayName]
+	return ok
+}
+
+// ResetDisplayName resets all changes to the "display_name" field.
+func (m *ImageGenerationJobMutation) ResetDisplayName() {
+	m.display_name = nil
+	delete(m.clearedFields, imagegenerationjob.FieldDisplayName)
 }
 
 // SetUpstreamModel sets the "upstream_model" field.
@@ -30580,7 +30630,7 @@ func (m *ImageGenerationJobMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageGenerationJobMutation) Fields() []string {
-	fields := make([]string, 0, 38)
+	fields := make([]string, 0, 39)
 	if m.job_id != nil {
 		fields = append(fields, imagegenerationjob.FieldJobID)
 	}
@@ -30613,6 +30663,9 @@ func (m *ImageGenerationJobMutation) Fields() []string {
 	}
 	if m.public_model != nil {
 		fields = append(fields, imagegenerationjob.FieldPublicModel)
+	}
+	if m.display_name != nil {
+		fields = append(fields, imagegenerationjob.FieldDisplayName)
 	}
 	if m.upstream_model != nil {
 		fields = append(fields, imagegenerationjob.FieldUpstreamModel)
@@ -30725,6 +30778,8 @@ func (m *ImageGenerationJobMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case imagegenerationjob.FieldPublicModel:
 		return m.PublicModel()
+	case imagegenerationjob.FieldDisplayName:
+		return m.DisplayName()
 	case imagegenerationjob.FieldUpstreamModel:
 		return m.UpstreamModel()
 	case imagegenerationjob.FieldRequestedSize:
@@ -30810,6 +30865,8 @@ func (m *ImageGenerationJobMutation) OldField(ctx context.Context, name string) 
 		return m.OldStatus(ctx)
 	case imagegenerationjob.FieldPublicModel:
 		return m.OldPublicModel(ctx)
+	case imagegenerationjob.FieldDisplayName:
+		return m.OldDisplayName(ctx)
 	case imagegenerationjob.FieldUpstreamModel:
 		return m.OldUpstreamModel(ctx)
 	case imagegenerationjob.FieldRequestedSize:
@@ -30949,6 +31006,13 @@ func (m *ImageGenerationJobMutation) SetField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPublicModel(v)
+		return nil
+	case imagegenerationjob.FieldDisplayName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDisplayName(v)
 		return nil
 	case imagegenerationjob.FieldUpstreamModel:
 		v, ok := value.(string)
@@ -31343,6 +31407,9 @@ func (m *ImageGenerationJobMutation) ClearedFields() []string {
 	if m.FieldCleared(imagegenerationjob.FieldAccountID) {
 		fields = append(fields, imagegenerationjob.FieldAccountID)
 	}
+	if m.FieldCleared(imagegenerationjob.FieldDisplayName) {
+		fields = append(fields, imagegenerationjob.FieldDisplayName)
+	}
 	if m.FieldCleared(imagegenerationjob.FieldUpstreamModel) {
 		fields = append(fields, imagegenerationjob.FieldUpstreamModel)
 	}
@@ -31419,6 +31486,9 @@ func (m *ImageGenerationJobMutation) ClearField(name string) error {
 		return nil
 	case imagegenerationjob.FieldAccountID:
 		m.ClearAccountID()
+		return nil
+	case imagegenerationjob.FieldDisplayName:
+		m.ClearDisplayName()
 		return nil
 	case imagegenerationjob.FieldUpstreamModel:
 		m.ClearUpstreamModel()
@@ -31508,6 +31578,9 @@ func (m *ImageGenerationJobMutation) ResetField(name string) error {
 		return nil
 	case imagegenerationjob.FieldPublicModel:
 		m.ResetPublicModel()
+		return nil
+	case imagegenerationjob.FieldDisplayName:
+		m.ResetDisplayName()
 		return nil
 	case imagegenerationjob.FieldUpstreamModel:
 		m.ResetUpstreamModel()

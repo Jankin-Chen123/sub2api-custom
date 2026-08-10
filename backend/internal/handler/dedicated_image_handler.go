@@ -14,6 +14,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	pkghttputil "github.com/Wei-Shaw/sub2api/internal/pkg/httputil"
+	pkgopenai "github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -21,16 +22,18 @@ import (
 )
 
 type DedicatedImageHandler struct {
-	orchestrator *service.ImageGenerationOrchestrator
-	repo         service.ImageGenerationJobRepository
-	results      service.ImageGenerationResultReader
-	billing      *service.BillingService
-	worker       *service.ImageGenerationWorkerRuntime
-	openAI       *OpenAIGatewayHandler
-	imageStorage *service.ImageStorageSettingService
-	enabled      bool
-	syncTimeout  time.Duration
-	maxReadBytes int64
+	orchestrator   *service.ImageGenerationOrchestrator
+	repo           service.ImageGenerationJobRepository
+	results        service.ImageGenerationResultReader
+	billing        *service.BillingService
+	worker         *service.ImageGenerationWorkerRuntime
+	openAI         *OpenAIGatewayHandler
+	imageStorage   *service.ImageStorageSettingService
+	enabled        bool
+	forceCodexCLI  bool
+	syncTimeout    time.Duration
+	codexHeartbeat time.Duration
+	maxReadBytes   int64
 }
 
 func NewDedicatedImageHandler(
@@ -46,10 +49,14 @@ func NewDedicatedImageHandler(
 	h := &DedicatedImageHandler{
 		orchestrator: orchestrator, repo: repo, results: results, billing: billing,
 		worker: worker, openAI: openAI, imageStorage: imageStorage,
-		syncTimeout: 3 * time.Minute, maxReadBytes: 64 << 20,
+		syncTimeout: 3 * time.Minute, codexHeartbeat: 15 * time.Second, maxReadBytes: 64 << 20,
 	}
 	if cfg != nil {
 		h.enabled = cfg.DedicatedImage.Enabled
+		h.forceCodexCLI = cfg.Gateway.ForceCodexCLI
+		if cfg.Gateway.ImageNonstreamKeepaliveInterval > 0 {
+			h.codexHeartbeat = time.Duration(cfg.Gateway.ImageNonstreamKeepaliveInterval) * time.Second
+		}
 		if cfg.DedicatedImage.SyncWaitTimeoutSeconds > 0 {
 			h.syncTimeout = time.Duration(cfg.DedicatedImage.SyncWaitTimeoutSeconds) * time.Second
 		}
@@ -81,6 +88,7 @@ func (h *DedicatedImageHandler) Dispatch(c *gin.Context, fallback gin.HandlerFun
 		fallback(c)
 		return
 	}
+	codexNativeImage := h.normalizeCodexNativeImageRequest(c, parsed)
 	if !isDedicatedCangyuanModel(parsed.Model) {
 		fallback(c)
 		return
@@ -89,10 +97,10 @@ func (h *DedicatedImageHandler) Dispatch(c *gin.Context, fallback gin.HandlerFun
 		h.writeError(c, http.StatusBadRequest, "image_stream_not_supported", "dedicated Cangyuan image models do not support streaming responses")
 		return
 	}
-	h.submit(c, body, parsed, parsed.Async || strings.Contains(c.Request.URL.Path, "/async"))
+	h.submit(c, body, parsed, parsed.Async || strings.Contains(c.Request.URL.Path, "/async"), codexNativeImage)
 }
 
-func (h *DedicatedImageHandler) submit(c *gin.Context, body []byte, parsed *service.OpenAIImagesRequest, forceAsync bool) {
+func (h *DedicatedImageHandler) submit(c *gin.Context, body []byte, parsed *service.OpenAIImagesRequest, forceAsync, codexNativeImage bool) {
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok || apiKey == nil || apiKey.UserID <= 0 || apiKey.ID <= 0 {
 		h.writeError(c, http.StatusUnauthorized, "authentication_error", "Invalid API key")
@@ -182,10 +190,14 @@ func (h *DedicatedImageHandler) submit(c *gin.Context, body []byte, parsed *serv
 		h.writeServiceError(c, err)
 		return
 	}
+	source := service.ImageGenerationJobSourceAPI
+	if codexNativeImage {
+		source = service.ImageGenerationJobSourceCodex
+	}
 	job, _, err := h.orchestrator.Create(c.Request.Context(), service.CreateDedicatedImageJobParams{
 		UserID: apiKey.UserID, APIKeyID: apiKey.ID, GroupID: dedicatedImageGroupID(apiKey),
 		SubscriptionID: subscriptionID, BillingType: billingType,
-		Source: service.ImageGenerationJobSourceAPI, Operation: operation,
+		Source: source, Operation: operation,
 		PublicModel: parsed.Model, Request: request,
 		IdempotencyKey: dedicatedImageIdempotencyKey(c, string(operation)),
 		BaseCost:       costEstimate.BaseCost, RateMultiplier: costEstimate.RateMultiplier, EstimatedCost: costEstimate.ActualCost,
@@ -205,7 +217,29 @@ func (h *DedicatedImageHandler) submit(c *gin.Context, body []byte, parsed *serv
 		h.writeTaskAccepted(c, job)
 		return
 	}
-	h.waitForCompletion(c, apiKey, job)
+	h.waitForCompletion(c, apiKey, job, codexNativeImage)
+}
+
+// normalizeCodexNativeImageRequest maps the fixed request emitted by Codex's
+// client-side image_gen extension onto the default dedicated Cangyuan tier.
+// The extension always sends model=gpt-image-2 with size=auto and expects a
+// synchronous data[].b64_json response. Restrict the alias to official Codex
+// clients (or the existing force_codex_cli compatibility switch) so ordinary
+// Images API callers keep the upstream gpt-image-2 behavior unchanged.
+func (h *DedicatedImageHandler) normalizeCodexNativeImageRequest(c *gin.Context, parsed *service.OpenAIImagesRequest) bool {
+	if h == nil || c == nil || parsed == nil || strings.TrimSpace(parsed.Model) != "gpt-image-2" {
+		return false
+	}
+	if !h.forceCodexCLI && !pkgopenai.IsCodexOfficialClientByHeaders(c.GetHeader("User-Agent"), c.GetHeader("originator")) {
+		return false
+	}
+	parsed.Model = service.CangyuanImageModel1K
+	if strings.EqualFold(strings.TrimSpace(parsed.Size), "auto") {
+		parsed.Size = ""
+		parsed.ExplicitSize = false
+	}
+	parsed.ResponseFormat = "b64_json"
+	return true
 }
 
 // dedicatedImageGroupID keeps the task's scheduling scope stable even when
@@ -227,7 +261,21 @@ func dedicatedImageGroupID(apiKey *service.APIKey) *int64 {
 	return nil
 }
 
-func (h *DedicatedImageHandler) waitForCompletion(c *gin.Context, apiKey *service.APIKey, job *service.ImageGenerationJob) {
+func (h *DedicatedImageHandler) waitForCompletion(c *gin.Context, apiKey *service.APIKey, job *service.ImageGenerationJob, codexNativeImage bool) {
+	stopHeartbeat := func() {}
+	if codexNativeImage {
+		// Cloudflare proxies abort silent origin reads after roughly two minutes.
+		// Codex's image client expects one JSON document and does not support the
+		// async task response, so send legal leading JSON whitespace before that
+		// deadline and periodically thereafter. The guarded writer stops the
+		// heartbeat before terminal JSON is emitted, preventing concurrent writes.
+		interval := h.codexHeartbeat
+		if interval <= 0 {
+			interval = 15 * time.Second
+		}
+		stopHeartbeat = service.StartOpenAIImagesJSONKeepalive(c, interval)
+	}
+	defer stopHeartbeat()
 	deadline := time.NewTimer(h.syncTimeout)
 	defer deadline.Stop()
 	ticker := time.NewTicker(250 * time.Millisecond)

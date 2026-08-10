@@ -16,8 +16,7 @@ export default {
     },
     form: {
       apiKey: 'Image generation key',
-      selectApiKey: 'Select an image-enabled key',
-      noApiKey: 'No active OpenAI key with image permission is available.',
+      noApiKey: 'No image generation keys available',
       model: 'Resolution tier',
       quality: 'Quality',
       qualityOptions: { auto: 'Auto', low: 'Low', medium: 'Medium', high: 'High' },
@@ -31,8 +30,6 @@ export default {
       unspecified: 'Any',
       width: 'Width',
       height: 'Height',
-      confirmSize: 'Confirm size',
-      sizeConfirmed: 'Image size confirmed.',
       dimensionLimitsHint: 'Each edge must be a multiple of 16, no more than 3840px, and within the 3:1 ratio. Current model cap: {maxPixels} pixels.',
       experimentalHint: 'Above 2560×1440 is experimental and may be less stable.',
       dimensionErrors: {
@@ -66,7 +63,10 @@ export default {
       downloadCurrent: 'Download current',
       downloadAll: 'Download all',
       downloading: 'Downloading...',
-      newCanvas: 'New canvas'
+      newCanvas: 'New canvas',
+      rename: 'Rename',
+      saveName: 'Save',
+      cancel: 'Cancel'
     },
     preview: {
       syncWait: 'Sync {time}',
@@ -78,12 +78,15 @@ export default {
       batchTitle: 'Generation batches',
       blankCanvasTitle: 'Blank canvas',
       blankCanvasHint: 'The generated image will appear here.',
-      blankCanvasStatus: 'Not generated'
+      blankCanvasStatus: 'Not generated',
+      taskCanvasHint: 'The target canvas remains visible while this task is generating.'
     },
     library: {
       title: 'Library',
       subtitle: 'Completed images from this account.',
-      empty: 'No completed images yet.'
+      empty: 'No completed images yet.',
+      nameLabel: 'Artwork name',
+      namePlaceholder: 'Enter an artwork name'
     },
     editor: {
       title: 'Expand edit',
@@ -113,6 +116,7 @@ export default {
     },
     messages: {
       submitted: 'Job submitted. It will continue if you leave this page.',
+      renamed: 'Artwork name updated.',
       downloadAllSuccess: 'Started downloading {count} images.'
     },
     errors: {
@@ -126,6 +130,7 @@ export default {
       tooManyReferenceFiles: 'Select no more than 9 reference images',
       invalidMask: 'Mask must be a PNG no larger than 10 MB',
       preview: 'Failed to load preview',
+      rename: 'Failed to rename artwork',
       download: 'Failed to download image'
     }
   }

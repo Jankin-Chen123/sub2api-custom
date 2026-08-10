@@ -46,6 +46,7 @@ func RegisterUserRoutes(
 				imageWorkbench.POST("/jobs", panelRateLimiter.Heavy(), h.DedicatedImage.CreateWorkbenchJob)
 				imageWorkbench.GET("/jobs", h.DedicatedImage.ListWorkbenchJobs)
 				imageWorkbench.GET("/jobs/:id", h.DedicatedImage.GetWorkbenchJob)
+				imageWorkbench.PATCH("/jobs/:id", h.DedicatedImage.RenameWorkbenchJob)
 				imageWorkbench.GET("/jobs/:id/content", panelRateLimiter.Heavy(), h.DedicatedImage.WorkbenchContent)
 			}
 

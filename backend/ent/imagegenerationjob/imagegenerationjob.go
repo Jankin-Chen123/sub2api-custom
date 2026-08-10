@@ -35,6 +35,8 @@ const (
 	FieldStatus = "status"
 	// FieldPublicModel holds the string denoting the public_model field in the database.
 	FieldPublicModel = "public_model"
+	// FieldDisplayName holds the string denoting the display_name field in the database.
+	FieldDisplayName = "display_name"
 	// FieldUpstreamModel holds the string denoting the upstream_model field in the database.
 	FieldUpstreamModel = "upstream_model"
 	// FieldRequestedSize holds the string denoting the requested_size field in the database.
@@ -107,6 +109,7 @@ var Columns = []string{
 	FieldOperation,
 	FieldStatus,
 	FieldPublicModel,
+	FieldDisplayName,
 	FieldUpstreamModel,
 	FieldRequestedSize,
 	FieldActualSize,
@@ -161,6 +164,8 @@ var (
 	StatusValidator func(string) error
 	// PublicModelValidator is a validator for the "public_model" field. It is called by the builders before save.
 	PublicModelValidator func(string) error
+	// DisplayNameValidator is a validator for the "display_name" field. It is called by the builders before save.
+	DisplayNameValidator func(string) error
 	// UpstreamModelValidator is a validator for the "upstream_model" field. It is called by the builders before save.
 	UpstreamModelValidator func(string) error
 	// RequestedSizeValidator is a validator for the "requested_size" field. It is called by the builders before save.
@@ -268,6 +273,11 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 // ByPublicModel orders the results by the public_model field.
 func ByPublicModel(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPublicModel, opts...).ToFunc()
+}
+
+// ByDisplayName orders the results by the display_name field.
+func ByDisplayName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDisplayName, opts...).ToFunc()
 }
 
 // ByUpstreamModel orders the results by the upstream_model field.

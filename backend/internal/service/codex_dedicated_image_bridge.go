@@ -74,6 +74,7 @@ type CodexDedicatedImageBridge struct {
 	enabled       bool
 	forceCodexCLI bool
 	syncTimeout   time.Duration
+	sseKeepalive  time.Duration
 	maxReadBytes  int64
 	replayStore   CodexDedicatedImageReplayStore
 	replayMu      sync.RWMutex
@@ -102,6 +103,7 @@ func NewCodexDedicatedImageBridge(
 	b := &CodexDedicatedImageBridge{
 		gateway: gateway, orchestrator: orchestrator, repo: repo, results: results,
 		billing: billing, worker: worker, syncTimeout: 3 * time.Minute,
+		sseKeepalive: 10 * time.Second,
 		maxReadBytes: 64 << 20,
 		replays:      make(map[string]codexDedicatedImageReplay),
 	}
@@ -119,6 +121,9 @@ func NewCodexDedicatedImageBridge(
 		if cfg.DedicatedImage.MaxOutputBytes > 0 {
 			b.maxReadBytes = cfg.DedicatedImage.MaxOutputBytes
 		}
+		// The gateway setting defaults to 10 seconds. Preserve its documented
+		// zero=disabled behavior when an explicit Config is supplied.
+		b.sseKeepalive = time.Duration(cfg.Gateway.ImageStreamKeepaliveInterval) * time.Second
 	}
 	return b
 }
@@ -202,6 +207,14 @@ func (b *CodexDedicatedImageBridge) Forward(
 	if b == nil || b.gateway == nil || account == nil || apiKey == nil {
 		return nil, errors.New("codex dedicated image bridge is not configured")
 	}
+	if c == nil {
+		return nil, errors.New("codex image result context is unavailable")
+	}
+	stopSSEKeepalive := func() {}
+	if codexDedicatedImageRequestStream(body) {
+		stopSSEKeepalive = StartCodexDedicatedImageSSEKeepalive(c, b.sseKeepalive)
+	}
+	defer stopSSEKeepalive()
 	plannerSourceBody, err := b.resolveDedicatedImageReplay(ctx, body)
 	if err != nil {
 		return nil, fmt.Errorf("resolve Codex image replay: %w", err)
@@ -235,10 +248,6 @@ func (b *CodexDedicatedImageBridge) Forward(
 		}
 		return plannerResult, nil
 	}
-	if c == nil {
-		return plannerResult, errors.New("codex image result context is unavailable")
-	}
-
 	job, err := b.createCodexImageJob(ctx, c, apiKey, subscription, plan, body)
 	if err != nil {
 		return plannerResult, err
@@ -805,6 +814,35 @@ func buildCodexDedicatedImagePlannerBody(body []byte) ([]byte, error) {
 		return nil, errors.New("codex image planner received invalid JSON")
 	}
 	tools, _ := root["tools"].([]any)
+	clientImageToolAvailable := false
+	for _, rawTool := range tools {
+		tool, _ := rawTool.(map[string]any)
+		if isCodexClientLocalImageGenerationTool(tool) {
+			clientImageToolAvailable = true
+			break
+		}
+	}
+	// Modern Codex clients expose image_gen as a client-executed namespace.
+	// Keep that tool on the planner request so Codex can execute it locally and
+	// publish its native image-generation UI item. The resulting Images API call
+	// is routed to the dedicated image-only account by DedicatedImageHandler.
+	// A hosted image_generation declaration is still removed here because it
+	// would execute on the general planner account instead of the image account.
+	if clientImageToolAvailable {
+		filtered := make([]any, 0, len(tools))
+		for _, rawTool := range tools {
+			tool, _ := rawTool.(map[string]any)
+			if strings.TrimSpace(codexStringValue(tool["type"])) == "image_generation" {
+				continue
+			}
+			filtered = append(filtered, rawTool)
+		}
+		root["tools"] = filtered
+		if isCodexHostedImageGenerationToolChoice(root["tool_choice"]) {
+			root["tool_choice"] = "auto"
+		}
+		return json.Marshal(root)
+	}
 	filtered := make([]any, 0, len(tools)+1)
 	for _, rawTool := range tools {
 		tool, _ := rawTool.(map[string]any)
@@ -825,6 +863,28 @@ func buildCodexDedicatedImagePlannerBody(body []byte) ([]byte, error) {
 		root["instructions"] = instruction
 	}
 	return json.Marshal(root)
+}
+
+func isCodexClientLocalImageGenerationTool(tool map[string]any) bool {
+	if tool == nil {
+		return false
+	}
+	toolType := strings.TrimSpace(codexStringValue(tool["type"]))
+	name := strings.TrimSpace(codexStringValue(tool["name"]))
+	namespace := strings.TrimSpace(codexStringValue(tool["namespace"]))
+	if toolType == "namespace" && (isOpenAIImageGenNamespaceName(name) || isOpenAIImageGenNamespaceName(namespace)) {
+		return true
+	}
+	if isOpenAIImageGenFunctionReference(namespace, name) {
+		return true
+	}
+	if function, ok := tool["function"].(map[string]any); ok {
+		return isOpenAIImageGenFunctionReference(
+			strings.TrimSpace(codexStringValue(function["namespace"])),
+			strings.TrimSpace(codexStringValue(function["name"])),
+		)
+	}
+	return false
 }
 
 // prepareCodexDedicatedImagePlannerHTTPBody converts a Responses WebSocket
@@ -902,6 +962,20 @@ func isCodexClientImageGenerationTool(tool map[string]any) bool {
 			strings.TrimSpace(codexStringValue(function["namespace"])),
 			strings.TrimSpace(codexStringValue(function["name"])),
 		)
+	}
+	return false
+}
+
+func isCodexHostedImageGenerationToolChoice(choice any) bool {
+	value, ok := choice.(map[string]any)
+	if !ok {
+		return strings.EqualFold(strings.TrimSpace(codexStringValue(choice)), "image_generation")
+	}
+	if strings.EqualFold(strings.TrimSpace(codexStringValue(value["type"])), "image_generation") {
+		return true
+	}
+	if tool, ok := value["tool"].(map[string]any); ok {
+		return isCodexHostedImageGenerationToolChoice(tool)
 	}
 	return false
 }
@@ -1561,7 +1635,7 @@ func codexDedicatedImageRequestStream(body []byte) bool {
 }
 
 const (
-	codexDedicatedImageReplayTTL        = time.Hour
+	codexDedicatedImageReplayTTL        = 7 * 24 * time.Hour
 	codexDedicatedImageReplayMaxEntries = 65536
 )
 
@@ -1689,7 +1763,11 @@ func (b *CodexDedicatedImageBridge) rememberDedicatedImageReplay(ctx context.Con
 	if b.gateway != nil && groupID != nil && *groupID > 0 && accountID > 0 {
 		store := b.gateway.getOpenAIWSStateStore()
 		if store != nil {
-			if err := store.BindResponseAccount(ctx, *groupID, responseID, accountID, b.gateway.openAIWSResponseStickyTTL()); err != nil {
+			bindingTTL := b.gateway.openAIWSResponseStickyTTL()
+			if bindingTTL < codexDedicatedImageReplayTTL {
+				bindingTTL = codexDedicatedImageReplayTTL
+			}
+			if err := store.BindResponseAccount(ctx, *groupID, responseID, accountID, bindingTTL); err != nil {
 				return fmt.Errorf("persist Codex image planner account binding: %w", err)
 			}
 		}

@@ -1092,6 +1092,7 @@ var (
 		{Name: "operation", Type: field.TypeString, Size: 32},
 		{Name: "status", Type: field.TypeString, Size: 32, Default: "created"},
 		{Name: "public_model", Type: field.TypeString, Size: 128},
+		{Name: "display_name", Type: field.TypeString, Nullable: true, Size: 80},
 		{Name: "upstream_model", Type: field.TypeString, Nullable: true, Size: 128},
 		{Name: "requested_size", Type: field.TypeString, Nullable: true, Size: 32},
 		{Name: "actual_size", Type: field.TypeString, Nullable: true, Size: 32},
@@ -1134,12 +1135,12 @@ var (
 			{
 				Name:    "imagegenerationjob_user_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{ImageGenerationJobsColumns[2], ImageGenerationJobsColumns[34]},
+				Columns: []*schema.Column{ImageGenerationJobsColumns[2], ImageGenerationJobsColumns[35]},
 			},
 			{
 				Name:    "imagegenerationjob_api_key_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{ImageGenerationJobsColumns[3], ImageGenerationJobsColumns[34]},
+				Columns: []*schema.Column{ImageGenerationJobsColumns[3], ImageGenerationJobsColumns[35]},
 			},
 			{
 				Name:    "imagegenerationjob_account_id_status",
@@ -1149,22 +1150,22 @@ var (
 			{
 				Name:    "imagegenerationjob_status_next_attempt_at_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{ImageGenerationJobsColumns[10], ImageGenerationJobsColumns[33], ImageGenerationJobsColumns[34]},
+				Columns: []*schema.Column{ImageGenerationJobsColumns[10], ImageGenerationJobsColumns[34], ImageGenerationJobsColumns[35]},
 			},
 			{
 				Name:    "imagegenerationjob_lease_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{ImageGenerationJobsColumns[32]},
+				Columns: []*schema.Column{ImageGenerationJobsColumns[33]},
 			},
 			{
 				Name:    "imagegenerationjob_account_id_upstream_task_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImageGenerationJobsColumns[6], ImageGenerationJobsColumns[17]},
+				Columns: []*schema.Column{ImageGenerationJobsColumns[6], ImageGenerationJobsColumns[18]},
 			},
 			{
 				Name:    "imagegenerationjob_completed_at",
 				Unique:  false,
-				Columns: []*schema.Column{ImageGenerationJobsColumns[37]},
+				Columns: []*schema.Column{ImageGenerationJobsColumns[38]},
 			},
 		},
 	}

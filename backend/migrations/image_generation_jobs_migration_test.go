@@ -52,3 +52,11 @@ func TestMigration195ClaimIndexIncludesCreatedJobs(t *testing.T) {
 	require.Contains(t, sql, "'created'")
 	require.Contains(t, sql, "'settling'")
 }
+
+func TestMigration197AddsImageWorkbenchDisplayName(t *testing.T) {
+	content, err := FS.ReadFile("197_image_generation_job_display_name.sql")
+	require.NoError(t, err)
+	sql := strings.ToLower(string(content))
+	require.Contains(t, sql, "alter table image_generation_jobs")
+	require.Contains(t, sql, "add column if not exists display_name varchar(80)")
+}

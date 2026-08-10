@@ -46,6 +46,22 @@ func StartOpenAICompactSSEKeepalive(c *gin.Context, interval time.Duration) func
 	if c == nil || c.Writer == nil || interval <= 0 || !openAICompactClientWantsStream(c) {
 		return func() {}
 	}
+	return startOpenAIResponsesSSEKeepalive(c, interval)
+}
+
+// StartCodexDedicatedImageSSEKeepalive keeps the legacy synthetic Codex image
+// bridge alive while its durable image job is running. It intentionally uses
+// the same guarded writer and context state as compact streaming so the common
+// handler can safely convert a late failure into response.failed after a
+// heartbeat has committed HTTP 200.
+func StartCodexDedicatedImageSSEKeepalive(c *gin.Context, interval time.Duration) func() {
+	if c == nil || c.Writer == nil || interval <= 0 {
+		return func() {}
+	}
+	return startOpenAIResponsesSSEKeepalive(c, interval)
+}
+
+func startOpenAIResponsesSSEKeepalive(c *gin.Context, interval time.Duration) func() {
 	originalWriter := c.Writer
 	k := &openAICompactSSEKeepalive{
 		writer: originalWriter,

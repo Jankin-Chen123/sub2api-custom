@@ -8,16 +8,30 @@ const createJob = vi.hoisted(() => vi.fn())
 const estimateCost = vi.hoisted(() => vi.fn())
 const getJob = vi.hoisted(() => vi.fn())
 const getContent = vi.hoisted(() => vi.fn())
+const renameJob = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
 const showSuccess = vi.hoisted(() => vi.fn())
+const getCachedImageWorkbenchBlob = vi.hoisted(() => vi.fn())
+const listCachedImageWorkbenchEntries = vi.hoisted(() => vi.fn())
+const putCachedImageWorkbenchBlob = vi.hoisted(() => vi.fn())
 
 vi.mock('@/api', () => ({
-  imageWorkbenchAPI: { createJob, estimateCost, listJobs, getJob, getContent },
+  imageWorkbenchAPI: { createJob, estimateCost, listJobs, getJob, getContent, renameJob },
   keysAPI: { list: listKeys }
 }))
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({ showError, showSuccess })
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ user: { id: 42 } })
+}))
+
+vi.mock('@/utils/imageWorkbenchCache', () => ({
+  getCachedImageWorkbenchBlob,
+  listCachedImageWorkbenchEntries,
+  putCachedImageWorkbenchBlob
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -52,12 +66,12 @@ const completedJob = {
   updated_at: '2026-08-04T00:00:00.000Z'
 } as const
 
-async function mountWorkbench(jobs: unknown[] = []) {
-  listKeys.mockResolvedValue({ items: [eligibleKey] })
+async function mountWorkbench(jobs: unknown[] = [], keys: unknown[] = [eligibleKey], createdJob: unknown = { ...completedJob, id: 'imgjob_created' }) {
+  listKeys.mockResolvedValue({ items: keys })
   listJobs.mockResolvedValue({ data: jobs, limit: 30, offset: 0 })
   getJob.mockResolvedValue(jobs[0])
   estimateCost.mockResolvedValue({ model: 'gpt-image-2-1k', size_tier: '1K', base_cost: 0.01, rate_multiplier: 1, estimated_cost: 0.01 })
-  createJob.mockResolvedValue({ ...completedJob, id: 'imgjob_created' })
+  createJob.mockResolvedValue(createdJob)
 
   const wrapper = shallowMount(ImageWorkbenchView, {
     global: {
@@ -81,8 +95,54 @@ describe('ImageWorkbenchView', () => {
     estimateCost.mockReset()
     getJob.mockReset()
     getContent.mockReset()
+    renameJob.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
+    getCachedImageWorkbenchBlob.mockReset()
+    listCachedImageWorkbenchEntries.mockReset()
+    putCachedImageWorkbenchBlob.mockReset()
+    getCachedImageWorkbenchBlob.mockResolvedValue(null)
+    listCachedImageWorkbenchEntries.mockResolvedValue([])
+    putCachedImageWorkbenchBlob.mockResolvedValue(undefined)
+  })
+
+  it('shows only the image-key empty state until an eligible key exists', async () => {
+    const emptyWrapper = await mountWorkbench([], [])
+
+    expect(emptyWrapper.find('[data-testid="no-image-api-key"]').text()).toBe('imageWorkbench.form.noApiKey')
+    expect(emptyWrapper.find('select[required]').exists()).toBe(false)
+    expect(emptyWrapper.text()).not.toContain('imageWorkbench.form.confirmSize')
+    emptyWrapper.unmount()
+
+    const keyedWrapper = await mountWorkbench()
+    expect(keyedWrapper.find('[data-testid="no-image-api-key"]').exists()).toBe(false)
+    expect(keyedWrapper.find('select[required]').text()).toContain('image-key')
+    keyedWrapper.unmount()
+  })
+
+  it('shows a canvas before any task and switches to the submitted task dimensions', async () => {
+    const queuedJob = {
+      ...completedJob,
+      id: 'imgjob_queued',
+      status: 'queued',
+      requested_size: '1024x768',
+      actual_size: ''
+    }
+    const wrapper = await mountWorkbench([], [eligibleKey], queuedJob)
+
+    expect(wrapper.find('[data-testid="preview-canvas"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="preview-canvas"]').text()).toContain('1024x1024')
+
+    ;(wrapper.vm as any).form.width = 1024
+    ;(wrapper.vm as any).form.height = 768
+    ;(wrapper.vm as any).form.prompt = 'a bird on a branch'
+    await (wrapper.vm as any).submitJob()
+    await flushPromises()
+
+    expect(createJob).toHaveBeenCalledWith(expect.objectContaining({ size: '1024x768' }))
+    expect(wrapper.find('[data-testid="preview-canvas"]').text()).toContain('1024x768')
+    expect(wrapper.find('[data-testid="preview-canvas"]').text()).toContain('imageWorkbench.status.queued')
+    wrapper.unmount()
   })
 
   it('submits from the prompt with Ctrl/⌘ + Enter and uses the eligible key', async () => {
@@ -154,24 +214,118 @@ describe('ImageWorkbenchView', () => {
     wrapper.unmount()
   })
 
-  it('refreshes previews through the authenticated content endpoint on every request', async () => {
-    getContent.mockResolvedValue(new Blob(['image-bytes'], { type: 'image/png' }))
+  it('stores the first authenticated image response and reuses it for previews and downloads', async () => {
+    const imageBlob = new Blob(['image-bytes'], { type: 'image/png' })
+    getContent.mockResolvedValue(imageBlob)
     const createObjectURL = vi.fn(() => 'blob:preview')
     const revokeObjectURL = vi.fn()
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL })
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL })
     const wrapper = await mountWorkbench([completedJob])
-    getContent.mockClear()
-    createObjectURL.mockClear()
-    revokeObjectURL.mockClear()
-    await (wrapper.vm as any).loadPreview(completedJob)
-    await (wrapper.vm as any).loadPreview(completedJob)
 
-    expect(getContent).toHaveBeenCalledTimes(2)
+    expect(getContent).toHaveBeenCalledTimes(1)
+    expect(putCachedImageWorkbenchBlob).toHaveBeenCalledWith(42, completedJob, imageBlob)
+    await (wrapper.vm as any).loadPreview(completedJob)
+    await (wrapper.vm as any).downloadResult(completedJob)
+
+    expect(getContent).toHaveBeenCalledTimes(1)
     expect(createObjectURL).toHaveBeenCalledTimes(2)
     expect(revokeObjectURL).toHaveBeenCalled()
+    expect(click).toHaveBeenCalled()
     wrapper.unmount()
+    click.mockRestore()
     delete (URL as typeof URL & { createObjectURL?: typeof createObjectURL }).createObjectURL
     delete (URL as typeof URL & { revokeObjectURL?: typeof revokeObjectURL }).revokeObjectURL
+  })
+
+  it('restores cached library images after reopening and downloads without fetching image content again', async () => {
+    const cachedBlob = new Blob(['persisted-image'], { type: 'image/png' })
+    listCachedImageWorkbenchEntries.mockResolvedValue([{ job: completedJob, blob: cachedBlob }])
+    getCachedImageWorkbenchBlob.mockResolvedValue(cachedBlob)
+    const createObjectURL = vi.fn(() => 'blob:cached-preview')
+    const revokeObjectURL = vi.fn()
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL })
+
+    const wrapper = await mountWorkbench([completedJob])
+    await (wrapper.vm as any).downloadResult(completedJob)
+
+    expect(listCachedImageWorkbenchEntries).toHaveBeenCalledWith(42)
+    expect(getContent).not.toHaveBeenCalled()
+    expect(putCachedImageWorkbenchBlob).not.toHaveBeenCalled()
+    expect(click).toHaveBeenCalled()
+    wrapper.unmount()
+    click.mockRestore()
+    delete (URL as typeof URL & { createObjectURL?: typeof createObjectURL }).createObjectURL
+    delete (URL as typeof URL & { revokeObjectURL?: typeof revokeObjectURL }).revokeObjectURL
+  })
+
+  it('submits editor reference images and masks as PNG data URLs', async () => {
+    const pngDataURL = 'data:image/png;base64,cG5n'
+    const drawImage = vi.fn()
+    const closeBitmap = vi.fn()
+    const maskCompositeOperations: string[] = []
+    const canvasContext = {
+      drawImage,
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillStyle: '',
+      get globalCompositeOperation() { return maskCompositeOperations.at(-1) || 'source-over' },
+      set globalCompositeOperation(value: string) { maskCompositeOperations.push(value) }
+    }
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContext as unknown as CanvasRenderingContext2D)
+    const toDataURL = vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(pngDataURL)
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 1024, height: 1024, close: closeBitmap }))
+    getContent.mockResolvedValue(new Blob(['image-bytes'], { type: 'image/jpeg' }))
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:preview') })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
+
+    const wrapper = await mountWorkbench([completedJob])
+    await (wrapper.vm as any).openEditor(completedJob)
+    ;(wrapper.vm as any).redrawBrushStrokes()
+    ;(wrapper.vm as any).editor.prompt = 'add a flower'
+    ;(wrapper.vm as any).editor.hasMarks = true
+    await (wrapper.vm as any).submitEditFromEditor()
+
+    expect(toDataURL).toHaveBeenCalledWith('image/png')
+    expect(createJob).toHaveBeenCalledWith(expect.objectContaining({
+      operation: 'edit',
+      images: [pngDataURL],
+      mask: pngDataURL
+    }))
+    expect(drawImage).toHaveBeenCalled()
+    expect(closeBitmap).toHaveBeenCalled()
+    expect(canvasContext.fillRect).toHaveBeenCalled()
+    expect(maskCompositeOperations).toContain('destination-out')
+    wrapper.unmount()
+    getContext.mockRestore()
+    toDataURL.mockRestore()
+    vi.unstubAllGlobals()
+    delete (URL as typeof URL & { createObjectURL?: () => string }).createObjectURL
+    delete (URL as typeof URL & { revokeObjectURL?: () => void }).revokeObjectURL
+  })
+
+  it('renames a library artwork and immediately uses the same name in the task queue', async () => {
+    const imageBlob = new Blob(['image-bytes'], { type: 'image/png' })
+    getContent.mockResolvedValue(imageBlob)
+    renameJob.mockResolvedValue({ ...completedJob, name: '蓝色知更鸟' })
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:preview') })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
+    const wrapper = await mountWorkbench([completedJob])
+
+    await wrapper.find('[data-testid="rename-work-imgjob_completed"]').trigger('click')
+    await wrapper.find('[data-testid="work-name-input"]').setValue('蓝色知更鸟')
+    await wrapper.find('[data-testid="work-name-input"]').element.closest('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flushPromises()
+
+    expect(renameJob).toHaveBeenCalledWith('imgjob_completed', '蓝色知更鸟')
+    expect((wrapper.text().match(/蓝色知更鸟/g) || []).length).toBeGreaterThanOrEqual(2)
+    wrapper.unmount()
+    delete (URL as typeof URL & { createObjectURL?: () => string }).createObjectURL
+    delete (URL as typeof URL & { revokeObjectURL?: () => void }).revokeObjectURL
   })
 })

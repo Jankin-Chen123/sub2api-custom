@@ -38,6 +38,7 @@ func (ImageGenerationJob) Fields() []ent.Field {
 		field.String("operation").MaxLen(32),
 		field.String("status").MaxLen(32).Default("created"),
 		field.String("public_model").MaxLen(128),
+		field.String("display_name").Optional().Nillable().MaxLen(80),
 		field.String("upstream_model").Optional().Nillable().MaxLen(128),
 		field.String("requested_size").Optional().Nillable().MaxLen(32),
 		field.String("actual_size").Optional().Nillable().MaxLen(32),

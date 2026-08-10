@@ -273,6 +273,9 @@ func TestContentModerationRuntimeSnapshotRefreshFailureKeepsStaleConfig(t *testi
 	require.True(t, decision.Blocked)
 
 	repo.failMultiple(errors.New("database unavailable"))
+	// Windows' monotonic clock can report the same tick for adjacent calls, so
+	// make the 1ns test TTL deterministically expire before requesting refresh.
+	time.Sleep(time.Millisecond)
 	decision, err = svc.Check(context.Background(), input)
 	require.NoError(t, err)
 	require.True(t, decision.Blocked)

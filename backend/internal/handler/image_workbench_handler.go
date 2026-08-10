@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -30,6 +31,10 @@ type imageWorkbenchCreateRequest struct {
 type imageWorkbenchEstimateRequest struct {
 	APIKeyID int64  `json:"api_key_id" binding:"required"`
 	Model    string `json:"model" binding:"required"`
+}
+
+type imageWorkbenchRenameRequest struct {
+	Name string `json:"name"`
 }
 
 // EstimateWorkbenchCost returns the current non-binding price snapshot for a
@@ -292,6 +297,31 @@ func (h *DedicatedImageHandler) GetWorkbenchJob(c *gin.Context) {
 	c.JSON(http.StatusOK, workbenchImageJobResponse(job))
 }
 
+func (h *DedicatedImageHandler) RenameWorkbenchJob(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		h.writeError(c, http.StatusUnauthorized, "authentication_error", "User not authenticated")
+		return
+	}
+	var input imageWorkbenchRenameRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		h.writeError(c, http.StatusBadRequest, "invalid_request_error", "invalid image workbench rename request")
+		return
+	}
+	name := strings.TrimSpace(input.Name)
+	if name == "" || utf8.RuneCountInString(name) > 80 {
+		h.writeError(c, http.StatusBadRequest, "invalid_request_error", "artwork name must contain 1 to 80 characters")
+		return
+	}
+	job, err := h.repo.RenameImageGenerationJobForUser(c.Request.Context(), subject.UserID, c.Param("id"), name)
+	if err != nil || job == nil {
+		h.writeError(c, http.StatusNotFound, "image_task_not_found", "image task not found")
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, workbenchImageJobResponse(job))
+}
+
 func (h *DedicatedImageHandler) WorkbenchContent(c *gin.Context) {
 	job, ok := h.workbenchOwnedJob(c)
 	if !ok {
@@ -335,7 +365,7 @@ func (h *DedicatedImageHandler) workbenchOwnedJob(c *gin.Context) (*service.Imag
 func workbenchImageJobResponse(job *service.ImageGenerationJob) gin.H {
 	response := gin.H{
 		"id": job.JobID, "status": publicDedicatedImageStatus(job.Status),
-		"operation": job.Operation, "model": job.PublicModel,
+		"operation": job.Operation, "model": job.PublicModel, "name": imageJobString(job.DisplayName, ""),
 		"requested_size": imageJobString(job.RequestedSize, ""), "actual_size": imageJobString(job.ActualSize, ""),
 		"estimated_cost": job.EstimatedCost, "settled_cost": job.SettledCost,
 		"created_at": job.CreatedAt, "updated_at": job.UpdatedAt,

@@ -6,6 +6,7 @@ export type ImageWorkbenchStatus = 'queued' | 'in_progress' | 'completed' | 'fai
 
 export interface ImageWorkbenchJob {
   id: string
+  name?: string
   status: ImageWorkbenchStatus
   operation: 'generation' | 'edit'
   model: ImageWorkbenchModel
@@ -77,4 +78,9 @@ export async function getContent(id: string): Promise<Blob> {
   return data
 }
 
-export const imageWorkbenchAPI = { createJob, estimateCost, listJobs, getJob, getContent }
+export async function renameJob(id: string, name: string): Promise<ImageWorkbenchJob> {
+  const { data } = await apiClient.patch<ImageWorkbenchJob>(`/user/image-workbench/jobs/${encodeURIComponent(id)}`, { name })
+  return data
+}
+
+export const imageWorkbenchAPI = { createJob, estimateCost, listJobs, getJob, getContent, renameJob }

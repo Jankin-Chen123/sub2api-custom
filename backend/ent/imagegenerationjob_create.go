@@ -144,6 +144,20 @@ func (_c *ImageGenerationJobCreate) SetPublicModel(v string) *ImageGenerationJob
 	return _c
 }
 
+// SetDisplayName sets the "display_name" field.
+func (_c *ImageGenerationJobCreate) SetDisplayName(v string) *ImageGenerationJobCreate {
+	_c.mutation.SetDisplayName(v)
+	return _c
+}
+
+// SetNillableDisplayName sets the "display_name" field if the given value is not nil.
+func (_c *ImageGenerationJobCreate) SetNillableDisplayName(v *string) *ImageGenerationJobCreate {
+	if v != nil {
+		_c.SetDisplayName(*v)
+	}
+	return _c
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_c *ImageGenerationJobCreate) SetUpstreamModel(v string) *ImageGenerationJobCreate {
 	_c.mutation.SetUpstreamModel(v)
@@ -636,6 +650,11 @@ func (_c *ImageGenerationJobCreate) check() error {
 			return &ValidationError{Name: "public_model", err: fmt.Errorf(`ent: validator failed for field "ImageGenerationJob.public_model": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.DisplayName(); ok {
+		if err := imagegenerationjob.DisplayNameValidator(v); err != nil {
+			return &ValidationError{Name: "display_name", err: fmt.Errorf(`ent: validator failed for field "ImageGenerationJob.display_name": %w`, err)}
+		}
+	}
 	if v, ok := _c.mutation.UpstreamModel(); ok {
 		if err := imagegenerationjob.UpstreamModelValidator(v); err != nil {
 			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`ent: validator failed for field "ImageGenerationJob.upstream_model": %w`, err)}
@@ -794,6 +813,10 @@ func (_c *ImageGenerationJobCreate) createSpec() (*ImageGenerationJob, *sqlgraph
 	if value, ok := _c.mutation.PublicModel(); ok {
 		_spec.SetField(imagegenerationjob.FieldPublicModel, field.TypeString, value)
 		_node.PublicModel = value
+	}
+	if value, ok := _c.mutation.DisplayName(); ok {
+		_spec.SetField(imagegenerationjob.FieldDisplayName, field.TypeString, value)
+		_node.DisplayName = &value
 	}
 	if value, ok := _c.mutation.UpstreamModel(); ok {
 		_spec.SetField(imagegenerationjob.FieldUpstreamModel, field.TypeString, value)
@@ -1138,6 +1161,24 @@ func (u *ImageGenerationJobUpsert) SetPublicModel(v string) *ImageGenerationJobU
 // UpdatePublicModel sets the "public_model" field to the value that was provided on create.
 func (u *ImageGenerationJobUpsert) UpdatePublicModel() *ImageGenerationJobUpsert {
 	u.SetExcluded(imagegenerationjob.FieldPublicModel)
+	return u
+}
+
+// SetDisplayName sets the "display_name" field.
+func (u *ImageGenerationJobUpsert) SetDisplayName(v string) *ImageGenerationJobUpsert {
+	u.Set(imagegenerationjob.FieldDisplayName, v)
+	return u
+}
+
+// UpdateDisplayName sets the "display_name" field to the value that was provided on create.
+func (u *ImageGenerationJobUpsert) UpdateDisplayName() *ImageGenerationJobUpsert {
+	u.SetExcluded(imagegenerationjob.FieldDisplayName)
+	return u
+}
+
+// ClearDisplayName clears the value of the "display_name" field.
+func (u *ImageGenerationJobUpsert) ClearDisplayName() *ImageGenerationJobUpsert {
+	u.SetNull(imagegenerationjob.FieldDisplayName)
 	return u
 }
 
@@ -1853,6 +1894,27 @@ func (u *ImageGenerationJobUpsertOne) SetPublicModel(v string) *ImageGenerationJ
 func (u *ImageGenerationJobUpsertOne) UpdatePublicModel() *ImageGenerationJobUpsertOne {
 	return u.Update(func(s *ImageGenerationJobUpsert) {
 		s.UpdatePublicModel()
+	})
+}
+
+// SetDisplayName sets the "display_name" field.
+func (u *ImageGenerationJobUpsertOne) SetDisplayName(v string) *ImageGenerationJobUpsertOne {
+	return u.Update(func(s *ImageGenerationJobUpsert) {
+		s.SetDisplayName(v)
+	})
+}
+
+// UpdateDisplayName sets the "display_name" field to the value that was provided on create.
+func (u *ImageGenerationJobUpsertOne) UpdateDisplayName() *ImageGenerationJobUpsertOne {
+	return u.Update(func(s *ImageGenerationJobUpsert) {
+		s.UpdateDisplayName()
+	})
+}
+
+// ClearDisplayName clears the value of the "display_name" field.
+func (u *ImageGenerationJobUpsertOne) ClearDisplayName() *ImageGenerationJobUpsertOne {
+	return u.Update(func(s *ImageGenerationJobUpsert) {
+		s.ClearDisplayName()
 	})
 }
 
@@ -2809,6 +2871,27 @@ func (u *ImageGenerationJobUpsertBulk) SetPublicModel(v string) *ImageGeneration
 func (u *ImageGenerationJobUpsertBulk) UpdatePublicModel() *ImageGenerationJobUpsertBulk {
 	return u.Update(func(s *ImageGenerationJobUpsert) {
 		s.UpdatePublicModel()
+	})
+}
+
+// SetDisplayName sets the "display_name" field.
+func (u *ImageGenerationJobUpsertBulk) SetDisplayName(v string) *ImageGenerationJobUpsertBulk {
+	return u.Update(func(s *ImageGenerationJobUpsert) {
+		s.SetDisplayName(v)
+	})
+}
+
+// UpdateDisplayName sets the "display_name" field to the value that was provided on create.
+func (u *ImageGenerationJobUpsertBulk) UpdateDisplayName() *ImageGenerationJobUpsertBulk {
+	return u.Update(func(s *ImageGenerationJobUpsert) {
+		s.UpdateDisplayName()
+	})
+}
+
+// ClearDisplayName clears the value of the "display_name" field.
+func (u *ImageGenerationJobUpsertBulk) ClearDisplayName() *ImageGenerationJobUpsertBulk {
+	return u.Update(func(s *ImageGenerationJobUpsert) {
+		s.ClearDisplayName()
 	})
 }
 

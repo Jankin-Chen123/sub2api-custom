@@ -62,6 +62,19 @@ func TestOpenAICompactSSEKeepalive_CommitsHeadersAndComments(t *testing.T) {
 	require.Contains(t, rec.Body.String(), ": keepalive\n\n")
 }
 
+func TestCodexDedicatedImageSSEKeepalive_DoesNotRequireCompactMarker(t *testing.T) {
+	c, rec := newCompactBridgeTestContext(t, false)
+	stop := StartCodexDedicatedImageSSEKeepalive(c, keepaliveTestInterval)
+	defer stop()
+	waitForKeepaliveBeats()
+
+	require.True(t, StopOpenAICompactSSEKeepaliveCommitted(c))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "text/event-stream", rec.Header().Get("Content-Type"))
+	require.Equal(t, "no", rec.Header().Get("X-Accel-Buffering"))
+	require.Contains(t, rec.Body.String(), ": keepalive\n\n")
+}
+
 func TestOpenAICompactSSEKeepalive_StopBeforeFirstBeatKeepsWriterUntouched(t *testing.T) {
 	c, rec := newCompactBridgeTestContext(t, true)
 	stop := StartOpenAICompactSSEKeepalive(c, time.Hour)

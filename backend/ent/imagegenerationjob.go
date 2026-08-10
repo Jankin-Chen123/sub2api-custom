@@ -40,6 +40,8 @@ type ImageGenerationJob struct {
 	Status string `json:"status,omitempty"`
 	// PublicModel holds the value of the "public_model" field.
 	PublicModel string `json:"public_model,omitempty"`
+	// DisplayName holds the value of the "display_name" field.
+	DisplayName *string `json:"display_name,omitempty"`
 	// UpstreamModel holds the value of the "upstream_model" field.
 	UpstreamModel *string `json:"upstream_model,omitempty"`
 	// RequestedSize holds the value of the "requested_size" field.
@@ -108,7 +110,7 @@ func (*ImageGenerationJob) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case imagegenerationjob.FieldID, imagegenerationjob.FieldUserID, imagegenerationjob.FieldAPIKeyID, imagegenerationjob.FieldGroupID, imagegenerationjob.FieldSubscriptionID, imagegenerationjob.FieldAccountID, imagegenerationjob.FieldBillingType, imagegenerationjob.FieldAttemptCount, imagegenerationjob.FieldClaimVersion:
 			values[i] = new(sql.NullInt64)
-		case imagegenerationjob.FieldJobID, imagegenerationjob.FieldSource, imagegenerationjob.FieldOperation, imagegenerationjob.FieldStatus, imagegenerationjob.FieldPublicModel, imagegenerationjob.FieldUpstreamModel, imagegenerationjob.FieldRequestedSize, imagegenerationjob.FieldActualSize, imagegenerationjob.FieldQuality, imagegenerationjob.FieldResponseFormat, imagegenerationjob.FieldUpstreamTaskID, imagegenerationjob.FieldIdempotencyKey, imagegenerationjob.FieldRequestHash, imagegenerationjob.FieldPromptHash, imagegenerationjob.FieldPayloadObjectRef, imagegenerationjob.FieldErrorCode, imagegenerationjob.FieldErrorMessage:
+		case imagegenerationjob.FieldJobID, imagegenerationjob.FieldSource, imagegenerationjob.FieldOperation, imagegenerationjob.FieldStatus, imagegenerationjob.FieldPublicModel, imagegenerationjob.FieldDisplayName, imagegenerationjob.FieldUpstreamModel, imagegenerationjob.FieldRequestedSize, imagegenerationjob.FieldActualSize, imagegenerationjob.FieldQuality, imagegenerationjob.FieldResponseFormat, imagegenerationjob.FieldUpstreamTaskID, imagegenerationjob.FieldIdempotencyKey, imagegenerationjob.FieldRequestHash, imagegenerationjob.FieldPromptHash, imagegenerationjob.FieldPayloadObjectRef, imagegenerationjob.FieldErrorCode, imagegenerationjob.FieldErrorMessage:
 			values[i] = new(sql.NullString)
 		case imagegenerationjob.FieldLeaseExpiresAt, imagegenerationjob.FieldNextAttemptAt, imagegenerationjob.FieldCreatedAt, imagegenerationjob.FieldUpdatedAt, imagegenerationjob.FieldSubmittedAt, imagegenerationjob.FieldCompletedAt, imagegenerationjob.FieldSettledAt:
 			values[i] = new(sql.NullTime)
@@ -203,6 +205,13 @@ func (_m *ImageGenerationJob) assignValues(columns []string, values []any) error
 				return fmt.Errorf("unexpected type %T for field public_model", values[i])
 			} else if value.Valid {
 				_m.PublicModel = value.String
+			}
+		case imagegenerationjob.FieldDisplayName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field display_name", values[i])
+			} else if value.Valid {
+				_m.DisplayName = new(string)
+				*_m.DisplayName = value.String
 			}
 		case imagegenerationjob.FieldUpstreamModel:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -462,6 +471,11 @@ func (_m *ImageGenerationJob) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("public_model=")
 	builder.WriteString(_m.PublicModel)
+	builder.WriteString(", ")
+	if v := _m.DisplayName; v != nil {
+		builder.WriteString("display_name=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	if v := _m.UpstreamModel; v != nil {
 		builder.WriteString("upstream_model=")

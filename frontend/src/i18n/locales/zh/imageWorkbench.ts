@@ -21,8 +21,6 @@ export default {
       unspecified: '不指定',
       width: '宽度',
       height: '高度',
-      confirmSize: '确定尺寸',
-      sizeConfirmed: '图片尺寸已确定。',
       dimensionLimitsHint: '宽高必须是 16 的整数倍，单边不超过 3840px，长宽比不超过 3:1；当前模型最多支持 {maxPixels} 像素。',
       experimentalHint: '超过 2560×1440 属于实验性分辨率，稳定性可能下降。',
       dimensionErrors: {
@@ -41,8 +39,7 @@ export default {
       importReference: '导入',
       clearReferences: '清空',
       apiKey: '生图密钥',
-      selectApiKey: '请选择可生图的密钥',
-      noApiKey: '暂无具备生图权限的可用 OpenAI 密钥。',
+      noApiKey: '暂无可用生图密钥',
       model: '分辨率档位',
       quality: '质量',
       qualityOptions: { auto: '自动', low: '低', medium: '中', high: '高' },
@@ -66,7 +63,10 @@ export default {
       downloadCurrent: '下载当前图片',
       downloadAll: '下载全部',
       downloading: '下载中……',
-      newCanvas: '新建画布'
+      newCanvas: '新建画布',
+      rename: '重命名',
+      saveName: '保存',
+      cancel: '取消'
     },
     preview: {
       syncWait: '同步 {time}',
@@ -78,12 +78,15 @@ export default {
       batchTitle: '生成批次',
       blankCanvasTitle: '空白画布',
       blankCanvasHint: '生成的图片会显示在这里。',
-      blankCanvasStatus: '未生成'
+      blankCanvasStatus: '未生成',
+      taskCanvasHint: '图片生成期间会保留该任务的目标画布。'
     },
     library: {
       title: '作品库',
       subtitle: '当前账号下已完成的图片。',
-      empty: '暂无已完成的图片。'
+      empty: '暂无已完成的图片。',
+      nameLabel: '作品名称',
+      namePlaceholder: '请输入作品名称'
     },
     editor: {
       title: '展开编辑',
@@ -113,6 +116,7 @@ export default {
     },
     messages: {
       submitted: '任务已提交；即使离开页面也会继续执行。',
+      renamed: '作品名称已更新。',
       downloadAllSuccess: '已开始下载 {count} 张图片。'
     },
     errors: {
@@ -126,6 +130,7 @@ export default {
       tooManyReferenceFiles: '最多只能选择 9 张参考图',
       invalidMask: '蒙版必须是 10 MB 以内的 PNG',
       preview: '加载预览失败',
+      rename: '重命名作品失败',
       download: '下载图片失败'
     }
   }

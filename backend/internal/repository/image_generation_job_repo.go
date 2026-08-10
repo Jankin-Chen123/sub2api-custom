@@ -238,6 +238,21 @@ func (r *imageGenerationJobRepository) ListImageGenerationJobsForOwner(ctx conte
 	return jobs, rows.Err()
 }
 
+func (r *imageGenerationJobRepository) RenameImageGenerationJobForUser(ctx context.Context, userID int64, jobID, displayName string) (*service.ImageGenerationJob, error) {
+	displayName = strings.TrimSpace(displayName)
+	job, err := scanImageGenerationJob(r.sql.QueryRowContext(ctx, `
+UPDATE image_generation_jobs
+SET display_name = $3
+WHERE job_id = $1
+  AND user_id = $2
+  AND source = 'workbench'
+RETURNING `+imageGenerationJobReturningColumns, jobID, userID, displayName))
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrImageGenerationJobNotFound, nil)
+	}
+	return job, nil
+}
+
 func (r *imageGenerationJobRepository) ClaimNextImageGenerationJob(ctx context.Context, now time.Time, leaseDuration time.Duration) (*service.ImageGenerationJob, error) {
 	if leaseDuration <= 0 {
 		leaseDuration = time.Minute
@@ -649,7 +664,7 @@ RETURNING `+imageGenerationJobReturningColumns,
 
 const imageGenerationJobReturningColumns = `
     id, job_id, user_id, api_key_id, group_id, subscription_id, account_id, billing_type,
-    source, operation, status, public_model, upstream_model,
+    source, operation, status, public_model, display_name, upstream_model,
     requested_size, actual_size, quality, response_format,
     upstream_task_id, idempotency_key, request_hash, prompt_hash,
     payload_object_ref, result_object_refs,
@@ -669,7 +684,7 @@ func scanImageGenerationJob(scanner imageGenerationJobScanner) (*service.ImageGe
 	var resultRefs []byte
 	err := scanner.Scan(
 		&job.ID, &job.JobID, &job.UserID, &job.APIKeyID, &job.GroupID, &job.SubscriptionID, &job.AccountID, &job.BillingType,
-		&job.Source, &job.Operation, &job.Status, &job.PublicModel, &job.UpstreamModel,
+		&job.Source, &job.Operation, &job.Status, &job.PublicModel, &job.DisplayName, &job.UpstreamModel,
 		&job.RequestedSize, &job.ActualSize, &job.Quality, &job.ResponseFormat,
 		&job.UpstreamTaskID, &job.IdempotencyKey, &job.RequestHash, &job.PromptHash,
 		&job.PayloadObjectRef, &resultRefs,

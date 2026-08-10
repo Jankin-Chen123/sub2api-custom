@@ -64,6 +64,51 @@ func TestDedicatedImageDispatchDisabledPreservesFallbackBody(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, rec.Code)
 }
 
+func TestNormalizeCodexNativeImageRequestUsesDedicated1KAndBase64(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	c.Request.Header.Set("originator", "codex-tui")
+	parsed := &service.OpenAIImagesRequest{
+		Model: "gpt-image-2", Size: "auto", ExplicitSize: true, Quality: "auto",
+	}
+
+	require.True(t, (&DedicatedImageHandler{}).normalizeCodexNativeImageRequest(c, parsed))
+	require.Equal(t, service.CangyuanImageModel1K, parsed.Model)
+	require.Empty(t, parsed.Size)
+	require.False(t, parsed.ExplicitSize)
+	require.Equal(t, "b64_json", parsed.ResponseFormat)
+}
+
+func TestNormalizeCodexNativeImageRequestDoesNotAliasOrdinaryClients(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	c.Request.Header.Set("User-Agent", "openai-node/6")
+	parsed := &service.OpenAIImagesRequest{Model: "gpt-image-2", Size: "auto"}
+
+	require.False(t, (&DedicatedImageHandler{}).normalizeCodexNativeImageRequest(c, parsed))
+	require.Equal(t, "gpt-image-2", parsed.Model)
+	require.Equal(t, "auto", parsed.Size)
+}
+
+func TestCodexImageJSONHeartbeatWritesOnlyWhitespaceAndStops(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	stop := service.StartOpenAIImagesJSONKeepalive(c, time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
+	stop()
+
+	require.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
+	require.Equal(t, "no", rec.Header().Get("X-Accel-Buffering"))
+	require.Empty(t, bytes.TrimSpace(rec.Body.Bytes()))
+}
+
 func TestDedicatedImageIdempotencyKeyPrefersExplicitAndScopesFallback(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()

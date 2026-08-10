@@ -20,6 +20,7 @@ type imageWorkbenchRepo struct {
 	service.ImageGenerationJobRepository
 	jobs       []*service.ImageGenerationJob
 	lastUserID int64
+	lastName   string
 	lastFilter service.ImageGenerationJobFilter
 }
 
@@ -111,6 +112,18 @@ func (r *imageWorkbenchRepo) ListImageGenerationJobsForOwner(_ context.Context, 
 		result = append(result, job)
 	}
 	return result, nil
+}
+
+func (r *imageWorkbenchRepo) RenameImageGenerationJobForUser(_ context.Context, userID int64, jobID, displayName string) (*service.ImageGenerationJob, error) {
+	r.lastUserID = userID
+	r.lastName = displayName
+	for _, job := range r.jobs {
+		if job != nil && job.JobID == jobID && job.UserID != nil && *job.UserID == userID && job.Source == service.ImageGenerationJobSourceWorkbench {
+			job.DisplayName = &displayName
+			return job, nil
+		}
+	}
+	return nil, service.ErrImageGenerationJobNotFound
 }
 
 func setWorkbenchSubject(c *gin.Context, userID int64) {
@@ -220,6 +233,54 @@ func TestWorkbenchResponseDoesNotExposePromptOrUpstreamBinding(t *testing.T) {
 	require.NotContains(t, string(raw), "account_id")
 	require.NotContains(t, string(raw), "upstream_task")
 	require.NotContains(t, string(raw), requestHash)
+}
+
+func TestWorkbenchRenamePersistsOwnerScopedArtworkName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ownerID := int64(11)
+	job := &service.ImageGenerationJob{
+		JobID: "imgjob_rename", UserID: &ownerID, Source: service.ImageGenerationJobSourceWorkbench,
+		Status: service.ImageGenerationJobStatusCompleted, Operation: service.ImageGenerationJobOperationGeneration,
+		PublicModel: service.CangyuanImageModel1K, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+	repo := &imageWorkbenchRepo{jobs: []*service.ImageGenerationJob{job}}
+	h := &DedicatedImageHandler{repo: repo}
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/user/image-workbench/jobs/imgjob_rename", bytes.NewReader([]byte(`{"name":"  蓝色知更鸟  "}`)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	c.Params = gin.Params{{Key: "id", Value: job.JobID}}
+	setWorkbenchSubject(c, ownerID)
+
+	h.RenameWorkbenchJob(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, ownerID, repo.lastUserID)
+	require.Equal(t, "蓝色知更鸟", repo.lastName)
+	var response map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Equal(t, "蓝色知更鸟", response["name"])
+}
+
+func TestWorkbenchRenameHidesAnotherUsersJob(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ownerID := int64(11)
+	job := &service.ImageGenerationJob{JobID: "imgjob_private_rename", UserID: &ownerID, Source: service.ImageGenerationJobSourceWorkbench}
+	repo := &imageWorkbenchRepo{jobs: []*service.ImageGenerationJob{job}}
+	h := &DedicatedImageHandler{repo: repo}
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/user/image-workbench/jobs/imgjob_private_rename", bytes.NewReader([]byte(`{"name":"not allowed"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	c.Params = gin.Params{{Key: "id", Value: job.JobID}}
+	setWorkbenchSubject(c, 12)
+
+	h.RenameWorkbenchJob(c)
+
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.Nil(t, job.DisplayName)
 }
 
 func TestWorkbenchAPIKeyMustBelongToJWTUser(t *testing.T) {

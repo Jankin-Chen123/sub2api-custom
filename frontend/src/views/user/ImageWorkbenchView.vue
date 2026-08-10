@@ -66,15 +66,15 @@
           <div class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 pt-3 sm:pt-4">
           <div>
             <label class="input-label">{{ t('imageWorkbench.form.apiKey') }}</label>
-            <select v-model.number="form.apiKeyId" class="input" required>
-              <option :value="0">{{ loadingKeys ? t('common.loading') : t('imageWorkbench.form.selectApiKey') }}</option>
+            <div v-if="loadingKeys" class="input flex items-center text-gray-400" aria-live="polite">{{ t('common.loading') }}</div>
+            <p v-else-if="eligibleKeys.length === 0" class="input flex items-center text-amber-600 dark:text-amber-400" data-testid="no-image-api-key">
+              {{ t('imageWorkbench.form.noApiKey') }}
+            </p>
+            <select v-else v-model.number="form.apiKeyId" class="input" required>
               <option v-for="key in eligibleKeys" :key="key.id" :value="key.id">
                 {{ key.name }} · {{ key.group?.name || '#' + key.group_id }}
               </option>
             </select>
-            <p v-if="!loadingKeys && eligibleKeys.length === 0" class="input-hint text-amber-600 dark:text-amber-400">
-              {{ t('imageWorkbench.form.noApiKey') }}
-            </p>
           </div>
 
           <div class="grid grid-cols-2 gap-2">
@@ -126,9 +126,6 @@
               </div>
             </div>
 
-            <button class="btn btn-secondary mt-2 w-full border-blue-300 bg-blue-50 py-2 text-xs text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-300" type="button" @click="confirmDimensions">
-              {{ t('imageWorkbench.form.confirmSize') }}
-            </button>
             <p v-if="dimensionErrorMessage" class="mt-2 text-xs leading-5 text-red-600 dark:text-red-400">{{ dimensionErrorMessage }}</p>
             <p v-else class="input-hint">{{ t('imageWorkbench.form.dimensionLimitsHint', { maxPixels: formatInteger(selectedModelMaxPixels) }) }}</p>
             <p v-if="experimentalDimensions" class="mt-1 text-xs leading-5 text-amber-600 dark:text-amber-400">{{ t('imageWorkbench.form.experimentalHint') }}</p>
@@ -211,29 +208,24 @@
 
             <div class="grid min-h-[420px] gap-3 lg:grid-cols-[minmax(0,1fr)_250px]">
               <div class="flex min-h-[420px] items-center justify-center rounded-xl border border-gray-200 bg-[linear-gradient(135deg,#f8fafc_25%,#eef2f7_25%,#eef2f7_50%,#f8fafc_50%,#f8fafc_75%,#eef2f7_75%)] bg-[length:28px_28px] p-3 dark:border-dark-700 dark:bg-dark-900">
-                <div v-if="blankCanvasOpen" class="relative max-h-[420px] max-w-full overflow-hidden rounded-xl bg-white shadow-sm transition-[width,aspect-ratio] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width,aspect-ratio] dark:bg-dark-800" :style="blankCanvasStyle">
+                <div v-if="blankCanvasOpen || !currentPreviewURL" class="relative max-h-[420px] max-w-full overflow-hidden rounded-xl bg-white shadow-sm transition-[width,aspect-ratio] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width,aspect-ratio] dark:bg-dark-800" :style="activeCanvasStyle" data-testid="preview-canvas">
                   <div class="flex h-full min-h-24 items-center justify-center px-6 text-center text-gray-400 dark:text-gray-500">
                     <div>
-                      <p class="text-lg font-medium text-gray-600 dark:text-gray-300">{{ t('imageWorkbench.preview.blankCanvasTitle') }}</p>
-                      <p class="mt-1 text-sm">{{ t('imageWorkbench.preview.blankCanvasHint') }}</p>
+                      <p class="text-lg font-medium text-gray-600 dark:text-gray-300">{{ activeCanvasTitle }}</p>
+                      <p class="mt-1 text-sm">{{ activeCanvasHint }}</p>
                     </div>
                   </div>
                   <div class="absolute inset-x-3 bottom-3 flex items-center justify-between rounded-lg bg-gray-500/80 px-3 py-2 text-xs text-white">
-                    <span>{{ t('imageWorkbench.preview.blankCanvasStatus') }}</span>
-                    <span>{{ blankCanvasSize }}</span>
+                    <span>{{ activeCanvasStatus }}</span>
+                    <span>{{ activeCanvasSize }}</span>
                   </div>
                 </div>
-                <div v-else-if="currentPreviewURL" class="relative flex max-h-[420px] max-w-full items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm dark:bg-dark-800">
-                  <img :src="currentPreviewURL" :alt="currentJob?.id || 'generated image'" class="max-h-[420px] max-w-full object-contain" />
+                <div v-else class="relative flex max-h-[420px] max-w-full items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm dark:bg-dark-800">
+                  <img :src="currentPreviewURL" :alt="currentJob ? jobDisplayName(currentJob) : 'generated image'" class="max-h-[420px] max-w-full object-contain" />
                   <div class="absolute inset-x-3 bottom-3 flex items-center justify-between rounded-lg bg-black/65 px-3 py-2 text-xs text-white">
                     <span>{{ currentJob?.status === 'completed' ? t('imageWorkbench.preview.ready') : statusText(currentJob?.status || 'in_progress') }}</span>
                     <span>{{ currentJob?.actual_size || currentJob?.requested_size || '—' }}</span>
                   </div>
-                </div>
-                <div v-else class="text-center text-gray-400">
-                  <div class="text-4xl">🖼️</div>
-                  <p class="mt-3 text-lg font-medium">{{ t('imageWorkbench.preview.emptyTitle') }}</p>
-                  <p class="mt-1 text-sm">{{ t('imageWorkbench.preview.emptyHint') }}</p>
                 </div>
               </div>
 
@@ -255,7 +247,7 @@
                     @click="selectJob(job)"
                   >
                     <div class="flex items-start justify-between gap-2">
-                      <span class="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{{ modelLabel(job.model) }}</span>
+                      <span class="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{{ jobDisplayName(job) }}</span>
                       <span :class="statusClass(job.status)" class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium">{{ statusText(job.status) }}</span>
                     </div>
                     <p class="mt-2 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{{ job.actual_size || job.requested_size || job.id }}</p>
@@ -281,16 +273,30 @@
               {{ t('imageWorkbench.library.empty') }}
             </div>
             <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <button v-for="job in completedJobs" :key="job.id" class="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50 text-left dark:border-dark-700 dark:bg-dark-900" @click="selectJob(job)">
-                <div class="aspect-square overflow-hidden bg-gray-100 dark:bg-dark-800">
-                  <img v-if="previewURLs[job.id]" :src="previewURLs[job.id]" :alt="job.id" class="h-full w-full object-cover transition group-hover:scale-105" />
-                  <span v-else class="flex h-full items-center justify-center text-xs text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</span>
-                </div>
+              <article v-for="job in completedJobs" :key="job.id" class="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-900">
+                <button class="block w-full text-left" type="button" @click="selectJob(job)">
+                  <div class="aspect-square overflow-hidden bg-gray-100 dark:bg-dark-800">
+                    <img v-if="previewURLs[job.id]" :src="previewURLs[job.id]" :alt="jobDisplayName(job)" class="h-full w-full object-cover transition group-hover:scale-105" />
+                    <span v-else class="flex h-full items-center justify-center text-xs text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</span>
+                  </div>
+                </button>
                 <div class="p-3">
-                  <p class="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{{ modelLabel(job.model) }}</p>
-                  <p class="mt-1 text-[10px] text-gray-400">{{ job.actual_size || job.requested_size }}</p>
+                  <form v-if="renamingJobId === job.id" class="space-y-2" @submit.prevent="saveJobName(job)">
+                    <input v-model="renameDraft" class="input" maxlength="80" :aria-label="t('imageWorkbench.library.nameLabel')" :placeholder="t('imageWorkbench.library.namePlaceholder')" data-testid="work-name-input" />
+                    <div class="flex gap-2">
+                      <button class="btn btn-primary btn-sm flex-1" type="submit" :disabled="savingJobNameId === job.id || !renameDraft.trim()">{{ t('imageWorkbench.actions.saveName') }}</button>
+                      <button class="btn btn-secondary btn-sm flex-1" type="button" :disabled="savingJobNameId === job.id" @click="cancelRename">{{ t('imageWorkbench.actions.cancel') }}</button>
+                    </div>
+                  </form>
+                  <template v-else>
+                    <div class="flex items-center gap-2">
+                      <button class="min-w-0 flex-1 truncate text-left text-xs font-medium text-gray-800 dark:text-gray-200" type="button" @click="selectJob(job)">{{ jobDisplayName(job) }}</button>
+                      <button class="shrink-0 text-[11px] font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400" type="button" :data-testid="`rename-work-${job.id}`" @click="startRename(job)">{{ t('imageWorkbench.actions.rename') }}</button>
+                    </div>
+                    <p class="mt-1 text-[10px] text-gray-400">{{ job.actual_size || job.requested_size }}</p>
+                  </template>
                 </div>
-              </button>
+              </article>
             </div>
           </div>
         </section>
@@ -355,6 +361,7 @@ import { imageWorkbenchAPI, keysAPI } from '@/api'
 import type { ImageWorkbenchCostEstimate, ImageWorkbenchJob, ImageWorkbenchModel, ImageWorkbenchQuality, ImageWorkbenchStatus } from '@/api'
 import type { ApiKey } from '@/types'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 import { validateReferenceFiles } from './imageWorkbenchValidation'
 import {
   IMAGE_DIMENSION_MAX_EDGE,
@@ -365,9 +372,15 @@ import {
   isExperimentalImageDimensions,
   validateImageDimensions
 } from '@/utils/imageWorkbenchDimensions'
+import {
+  getCachedImageWorkbenchBlob,
+  listCachedImageWorkbenchEntries,
+  putCachedImageWorkbenchBlob
+} from '@/utils/imageWorkbenchCache'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
+const authStore = useAuthStore()
 const workbenchAnnouncements = computed(() => appStore.cachedPublicSettings?.image_workbench_announcements ?? [])
 const announcementIntervalSeconds = computed(() => {
   const configured = Number(appStore.cachedPublicSettings?.image_workbench_announcement_interval_seconds)
@@ -390,6 +403,7 @@ const modelMaxPixels: Record<ImageWorkbenchModel, number> = {
   'gpt-image-2-2k': 4_194_304,
   'gpt-image-2-4k': IMAGE_DIMENSION_MAX_PIXELS
 }
+const EDITOR_REFERENCE_MAX_BYTES = 10 * 1024 * 1024
 
 const form = reactive({
   apiKeyId: 0,
@@ -419,7 +433,10 @@ const editor = reactive({
 const apiKeys = ref<ApiKey[]>([])
 const jobs = ref<ImageWorkbenchJob[]>([])
 const selectedJobId = ref('')
-const blankCanvasOpen = ref(false)
+const blankCanvasOpen = ref(true)
+const renamingJobId = ref('')
+const renameDraft = ref('')
+const savingJobNameId = ref('')
 const loadingKeys = ref(false)
 const loadingJobs = ref(false)
 const submitting = ref(false)
@@ -433,6 +450,8 @@ const referenceUrlInput = ref('')
 const isReferenceDragOver = ref(false)
 const previewURLs = reactive<Record<string, string>>({})
 const previewDataURLs = reactive<Record<string, string>>({})
+const previewBlobs = new Map<string, { version: string; blob: Blob }>()
+const pendingBlobLoads = new Map<string, Promise<Blob>>()
 const referenceInputRef = ref<HTMLInputElement | null>(null)
 const editorCanvasRef = ref<HTMLCanvasElement | null>(null)
 const editorMaskCanvasRef = ref<HTMLCanvasElement | null>(null)
@@ -446,6 +465,7 @@ type BrushStroke = { points: BrushPoint[]; size: number }
 const brushStrokes: BrushStroke[] = []
 
 const selectedModel = computed(() => models.find(item => item.value === form.model) || models[0]!)
+const imageCacheUserId = computed(() => Number(authStore.user?.id || 0))
 const eligibleKeys = computed(() => apiKeys.value.filter(key => key.status === 'active' && key.group?.platform === 'openai' && key.group.allow_image_generation))
 const currentJob = computed(() => jobs.value.find(job => job.id === selectedJobId.value) || null)
 const currentPreviewURL = computed(() => selectedJobId.value ? previewURLs[selectedJobId.value] : '')
@@ -456,10 +476,20 @@ const queueSummary = computed(() => t('imageWorkbench.header.queueValue', { coun
 const interfaceConnected = computed(() => form.apiKeyId > 0 && eligibleKeys.value.some(key => key.id === form.apiKeyId))
 const interfaceStatus = computed(() => interfaceConnected.value ? t('imageWorkbench.header.connected') : t('imageWorkbench.header.disconnected'))
 const blankCanvasSize = computed(() => `${form.width}x${form.height}`)
-const blankCanvasStyle = computed(() => ({
-  aspectRatio: `${form.width} / ${form.height}`,
-  width: `min(100%, ${Math.round((420 * Number(form.width)) / Number(form.height))}px)`
-}))
+const activeCanvasSize = computed(() => {
+  if (!blankCanvasOpen.value && currentJob.value) return currentJob.value.actual_size || currentJob.value.requested_size || blankCanvasSize.value
+  return blankCanvasSize.value
+})
+const activeCanvasStyle = computed(() => {
+  const [width, height] = parseSize(activeCanvasSize.value)
+  return {
+    aspectRatio: `${width} / ${height}`,
+    width: `min(100%, ${Math.round((420 * width) / height)}px)`
+  }
+})
+const activeCanvasTitle = computed(() => !blankCanvasOpen.value && currentJob.value ? jobDisplayName(currentJob.value) : t('imageWorkbench.preview.blankCanvasTitle'))
+const activeCanvasHint = computed(() => !blankCanvasOpen.value && currentJob.value ? t('imageWorkbench.preview.taskCanvasHint') : t('imageWorkbench.preview.blankCanvasHint'))
+const activeCanvasStatus = computed(() => !blankCanvasOpen.value && currentJob.value ? statusText(currentJob.value.status) : t('imageWorkbench.preview.blankCanvasStatus'))
 const completedJobs = computed(() => jobs.value.filter(job => job.status === 'completed'))
 const referenceUrlList = computed(() => form.referenceUrls.split(/\r?\n/).map(value => value.trim()).filter(Boolean))
 const referenceCount = computed(() => referenceUrlList.value.length + referenceFiles.value.length + referenceDataURLs.value.length)
@@ -532,13 +562,122 @@ async function loadCostEstimate() {
   }
 }
 
+function jobImageVersion(job: ImageWorkbenchJob) {
+  return job.content_url || job.updated_at || job.id
+}
+
+function hasCurrentPreview(job: ImageWorkbenchJob) {
+  return previewBlobs.get(job.id)?.version === jobImageVersion(job) && Boolean(previewURLs[job.id])
+}
+
+function releasePreview(jobId: string) {
+  const url = previewURLs[jobId]
+  if (url) URL.revokeObjectURL(url)
+  delete previewURLs[jobId]
+  delete previewDataURLs[jobId]
+  previewBlobs.delete(jobId)
+}
+
+function setPreviewBlob(job: ImageWorkbenchJob, blob: Blob) {
+  const version = jobImageVersion(job)
+  const existing = previewBlobs.get(job.id)
+  if (existing?.version === version && previewURLs[job.id]) return
+  if (existing?.version !== version) delete previewDataURLs[job.id]
+  if (previewURLs[job.id]) URL.revokeObjectURL(previewURLs[job.id])
+  previewBlobs.set(job.id, { version, blob })
+  previewURLs[job.id] = URL.createObjectURL(blob)
+}
+
+async function restoreCachedLibrary() {
+  const userId = imageCacheUserId.value
+  if (userId <= 0) return
+  try {
+    const entries = (await listCachedImageWorkbenchEntries(userId)).slice(0, 30)
+    if (!entries.length) return
+    jobs.value = entries.map(entry => entry.job)
+    entries.forEach(entry => setPreviewBlob(entry.job, entry.blob))
+    const preferred = jobs.value.find(job => job.status === 'completed') || jobs.value[0]
+    if (preferred) selectedJobId.value = preferred.id
+  } catch {
+    // IndexedDB is an optional acceleration layer; the server remains the source of truth.
+  }
+}
+
+async function hydrateCachedPreviews(imageJobs: ImageWorkbenchJob[]) {
+  const userId = imageCacheUserId.value
+  if (userId <= 0) return
+  await Promise.all(imageJobs.map(async job => {
+    if (hasCurrentPreview(job)) return
+    try {
+      const blob = await getCachedImageWorkbenchBlob(userId, job)
+      if (blob) setPreviewBlob(job, blob)
+    } catch {
+      // Cache read failures fall back to the authenticated content endpoint on demand.
+    }
+  }))
+}
+
+async function getImageBlob(job: ImageWorkbenchJob): Promise<Blob> {
+  const version = jobImageVersion(job)
+  const memoryEntry = previewBlobs.get(job.id)
+  if (memoryEntry?.version === version) return memoryEntry.blob
+  if (memoryEntry) releasePreview(job.id)
+
+  const userId = imageCacheUserId.value
+  const loadKey = `${userId}:${job.id}:${version}`
+  const pending = pendingBlobLoads.get(loadKey)
+  if (pending) return pending
+
+  const load = (async () => {
+    let blob: Blob | null = null
+    if (userId > 0) {
+      try {
+        blob = await getCachedImageWorkbenchBlob(userId, job)
+      } catch {
+        blob = null
+      }
+    }
+    if (!blob) {
+      blob = await imageWorkbenchAPI.getContent(job.id)
+      if (userId > 0) {
+        try {
+          await putCachedImageWorkbenchBlob(userId, job, blob)
+        } catch {
+          // Quota, privacy mode, and storage errors must not prevent normal previews/downloads.
+        }
+      }
+    }
+    previewBlobs.set(job.id, { version, blob })
+    return blob
+  })()
+
+  pendingBlobLoads.set(loadKey, load)
+  try {
+    return await load
+  } finally {
+    pendingBlobLoads.delete(loadKey)
+  }
+}
+
 async function loadJobs() {
   loadingJobs.value = true
   try {
     const response = await imageWorkbenchAPI.listJobs(30, 0)
+    const previousSelectedJobId = selectedJobId.value
     jobs.value = response.data || []
-    const preferred = jobs.value.find(job => job.status === 'completed') || jobs.value[0]
+    const currentJobIds = new Set(jobs.value.map(job => job.id))
+    Object.keys(previewURLs).forEach(jobId => {
+      if (!currentJobIds.has(jobId)) releasePreview(jobId)
+    })
+    await hydrateCachedPreviews(jobs.value.filter(job => job.status === 'completed'))
+    const preferred = jobs.value.find(job => job.id === previousSelectedJobId)
+      || jobs.value.find(job => job.status === 'completed')
+      || jobs.value[0]
     if (preferred) await selectJob(preferred)
+    else {
+      selectedJobId.value = ''
+      blankCanvasOpen.value = true
+    }
   } catch (error: any) {
     appStore.showError(error?.message || t('imageWorkbench.errors.loadJobs'))
   } finally {
@@ -547,6 +686,7 @@ async function loadJobs() {
 }
 
 async function submitJob() {
+  normalizeDimensionValues(false)
   if (dimensionValidation.value.code) {
     appStore.showError(dimensionErrorMessage.value)
     return
@@ -678,15 +818,6 @@ function selectAspectRatio(value: string) {
   updateFormSize()
 }
 
-function confirmDimensions() {
-  normalizeDimensionValues(false)
-  if (dimensionValidation.value.code) {
-    appStore.showError(dimensionErrorMessage.value)
-    return
-  }
-  appStore.showSuccess(t('imageWorkbench.form.sizeConfirmed'))
-}
-
 async function onReferenceFiles(event: Event) {
   const input = event.target as HTMLInputElement
   await processReferenceFiles(Array.from(input.files || []))
@@ -774,11 +905,10 @@ async function selectJob(job: ImageWorkbenchJob) {
 }
 
 async function loadPreview(job: ImageWorkbenchJob) {
-  if (previewURLs[job.id]) URL.revokeObjectURL(previewURLs[job.id])
+  if (hasCurrentPreview(job)) return
   try {
-    const blob = await imageWorkbenchAPI.getContent(job.id)
-    previewURLs[job.id] = URL.createObjectURL(blob)
-    previewDataURLs[job.id] = await createEditableReferenceDataURL(blob)
+    const blob = await getImageBlob(job)
+    setPreviewBlob(job, blob)
   } catch (error: any) {
     appStore.showError(error?.message || t('imageWorkbench.errors.preview'))
   }
@@ -802,11 +932,11 @@ async function downloadAll() {
 
 async function downloadResult(job: ImageWorkbenchJob) {
   try {
-    const blob = await imageWorkbenchAPI.getContent(job.id)
+    const blob = await getImageBlob(job)
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = job.id + '.png'
+    anchor.download = downloadFileName(job)
     anchor.click()
     URL.revokeObjectURL(url)
   } catch (error: any) {
@@ -816,7 +946,14 @@ async function downloadResult(job: ImageWorkbenchJob) {
 
 async function openEditor(job: ImageWorkbenchJob) {
   if (job.status !== 'completed') return
-  if (!previewDataURLs[job.id]) await loadPreview(job)
+  if (!previewDataURLs[job.id]) {
+    try {
+      previewDataURLs[job.id] = await createEditableReferenceDataURL(await getImageBlob(job))
+    } catch (error: any) {
+      appStore.showError(error?.message || t('imageWorkbench.errors.preview'))
+      return
+    }
+  }
   const dataURL = previewDataURLs[job.id]
   if (!dataURL) return
   editor.open = true
@@ -826,6 +963,41 @@ async function openEditor(job: ImageWorkbenchJob) {
   editor.hasMarks = false
   await nextTick()
   if (editorImageRef.value?.complete) setupEditorCanvas()
+}
+
+function startRename(job: ImageWorkbenchJob) {
+  renamingJobId.value = job.id
+  renameDraft.value = job.name?.trim() || modelLabel(job.model)
+}
+
+function cancelRename() {
+  renamingJobId.value = ''
+  renameDraft.value = ''
+}
+
+async function saveJobName(job: ImageWorkbenchJob) {
+  const name = renameDraft.value.trim()
+  if (!name || savingJobNameId.value) return
+  savingJobNameId.value = job.id
+  try {
+    const updated = await imageWorkbenchAPI.renameJob(job.id, name)
+    const index = jobs.value.findIndex(item => item.id === job.id)
+    if (index >= 0) jobs.value[index] = updated
+    const preview = previewBlobs.get(job.id)
+    if (preview && imageCacheUserId.value > 0) {
+      try {
+        await putCachedImageWorkbenchBlob(imageCacheUserId.value, updated, preview.blob)
+      } catch {
+        // A cache metadata refresh is optional; the server name is authoritative.
+      }
+    }
+    cancelRename()
+    appStore.showSuccess(t('imageWorkbench.messages.renamed'))
+  } catch (error: any) {
+    appStore.showError(error?.message || t('imageWorkbench.errors.rename'))
+  } finally {
+    savingJobNameId.value = ''
+  }
 }
 
 function closeEditor() {
@@ -898,10 +1070,16 @@ function redrawBrushStrokes() {
   if (!visual || !mask) return
   visual.clearRect(0, 0, canvas.width, canvas.height)
   mask.clearRect(0, 0, maskCanvas.width, maskCanvas.height)
+  mask.save()
+  mask.globalCompositeOperation = 'source-over'
+  mask.fillStyle = '#ffffff'
+  mask.fillRect(0, 0, maskCanvas.width, maskCanvas.height)
+  mask.globalCompositeOperation = 'destination-out'
   for (const stroke of brushStrokes) {
     drawSmoothStroke(visual, stroke, 'rgba(239, 68, 68, 0.72)')
-    drawSmoothStroke(mask, stroke, '#ffffff')
+    drawSmoothStroke(mask, stroke, '#000000')
   }
+  mask.restore()
 }
 
 function startDrawing(event: PointerEvent) {
@@ -957,6 +1135,11 @@ async function submitEditFromEditor() {
   if (!maskCanvas) return
   editingSubmitting.value = true
   try {
+    const mask = maskCanvas.toDataURL('image/png')
+    if (dataURLByteLength(mask) > EDITOR_REFERENCE_MAX_BYTES) {
+      appStore.showError(t('imageWorkbench.errors.fileTooLarge'))
+      return
+    }
     const job = await imageWorkbenchAPI.createJob({
       api_key_id: form.apiKeyId,
       operation: 'edit',
@@ -965,7 +1148,7 @@ async function submitEditFromEditor() {
       size: editor.job.actual_size || editor.job.requested_size || undefined,
       quality: form.quality,
       images: [editor.originalDataURL],
-      mask: maskCanvas.toDataURL('image/png')
+      mask
     })
     jobs.value = [job, ...jobs.value.filter(item => item.id !== job.id)]
     blankCanvasOpen.value = false
@@ -981,18 +1164,44 @@ async function submitEditFromEditor() {
 
 async function createEditableReferenceDataURL(blob: Blob) {
   const bitmap = await createImageBitmap(blob)
-  const canvas = document.createElement('canvas')
+  let canvas = document.createElement('canvas')
   canvas.width = bitmap.width
   canvas.height = bitmap.height
-  canvas.getContext('2d')?.drawImage(bitmap, 0, 0)
-  bitmap.close()
-  let quality = 0.92
-  let dataURL = canvas.toDataURL('image/jpeg', quality)
-  while (dataURL.length * 0.75 > 10 * 1024 * 1024 && quality > 0.55) {
-    quality -= 0.08
-    dataURL = canvas.toDataURL('image/jpeg', quality)
+  const context = canvas.getContext('2d')
+  if (!context) {
+    bitmap.close()
+    throw new Error('Canvas 2D context is unavailable')
   }
+  context.drawImage(bitmap, 0, 0)
+  bitmap.close()
+
+  let dataURL = canvas.toDataURL('image/png')
+  let byteLength = dataURLByteLength(dataURL)
+  while (byteLength > EDITOR_REFERENCE_MAX_BYTES) {
+    const scale = Math.min(0.9, Math.sqrt(EDITOR_REFERENCE_MAX_BYTES / byteLength) * 0.95)
+    const width = Math.max(IMAGE_DIMENSION_MIN_EDGE, Math.floor(canvas.width * scale))
+    const height = Math.max(IMAGE_DIMENSION_MIN_EDGE, Math.floor(canvas.height * scale))
+    if (width === canvas.width && height === canvas.height) break
+
+    const resized = document.createElement('canvas')
+    resized.width = width
+    resized.height = height
+    const resizedContext = resized.getContext('2d')
+    if (!resizedContext) throw new Error('Canvas 2D context is unavailable')
+    resizedContext.drawImage(canvas, 0, 0, width, height)
+    canvas = resized
+    dataURL = canvas.toDataURL('image/png')
+    byteLength = dataURLByteLength(dataURL)
+  }
+  if (byteLength > EDITOR_REFERENCE_MAX_BYTES) throw new Error(t('imageWorkbench.errors.fileTooLarge'))
   return dataURL
+}
+
+function dataURLByteLength(dataURL: string) {
+  const separator = dataURL.indexOf(',')
+  const payload = separator >= 0 ? dataURL.slice(separator + 1) : dataURL
+  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0
+  return Math.max(0, Math.floor(payload.length * 3 / 4) - padding)
 }
 
 function statusText(status: ImageWorkbenchStatus) { return t('imageWorkbench.status.' + status) }
@@ -1002,6 +1211,14 @@ function statusClass(status: ImageWorkbenchStatus) {
   return 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
 }
 function modelLabel(model: ImageWorkbenchModel) { return models.find(item => item.value === model)?.label || model }
+function jobDisplayName(job: ImageWorkbenchJob) { return job.name?.trim() || modelLabel(job.model) }
+function downloadFileName(job: ImageWorkbenchJob) {
+  const safeName = [...jobDisplayName(job)]
+    .map(character => character.charCodeAt(0) < 32 || /[\\/:*?"<>|]/.test(character) ? '_' : character)
+    .join('')
+    .trim()
+  return `${safeName || job.id}.png`
+}
 function formatCost(value: number) { return Number(value || 0).toFixed(4) }
 function formatInteger(value: number) { return new Intl.NumberFormat(locale.value).format(value) }
 function formatDate(value: string) { return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
@@ -1032,7 +1249,9 @@ function restartAnnouncementRotation() {
 watch([workbenchAnnouncements, announcementIntervalSeconds], restartAnnouncementRotation, { deep: true })
 
 onMounted(async () => {
-  await Promise.all([loadKeys(), loadJobs()])
+  const keysPromise = loadKeys()
+  await restoreCachedLibrary()
+  await Promise.all([keysPromise, loadJobs()])
   pollTimer = setInterval(refreshPendingJobs, 2000)
   elapsedTimer = setInterval(() => { elapsedClock.value = Date.now() }, 1000)
   restartAnnouncementRotation()
@@ -1042,7 +1261,9 @@ onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
   if (elapsedTimer) clearInterval(elapsedTimer)
   if (announcementTimer) clearInterval(announcementTimer)
-  Object.values(previewURLs).forEach(url => URL.revokeObjectURL(url))
+  Object.keys(previewURLs).forEach(releasePreview)
+  previewBlobs.clear()
+  pendingBlobLoads.clear()
 })
 </script>
 

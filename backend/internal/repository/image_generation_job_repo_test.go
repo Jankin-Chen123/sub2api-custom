@@ -14,7 +14,7 @@ import (
 
 var imageGenerationJobTestColumns = []string{
 	"id", "job_id", "user_id", "api_key_id", "group_id", "subscription_id", "account_id", "billing_type",
-	"source", "operation", "status", "public_model", "upstream_model",
+	"source", "operation", "status", "public_model", "display_name", "upstream_model",
 	"requested_size", "actual_size", "quality", "response_format",
 	"upstream_task_id", "idempotency_key", "request_hash", "prompt_hash",
 	"payload_object_ref", "result_object_refs",
@@ -227,6 +227,29 @@ func TestImageGenerationJobRepositoryQueuesHeldCreatedJobAndStoresSyncResult(t *
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestImageGenerationJobRepositoryRenamesOnlyOwnedWorkbenchJob(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+	repository := &imageGenerationJobRepository{db: db, sql: db}
+	now := time.Now().UTC()
+	userID := int64(11)
+	displayName := "蓝色知更鸟"
+
+	mock.ExpectQuery(`(?s)UPDATE image_generation_jobs.*SET display_name = \$3.*user_id = \$2.*source = 'workbench'.*RETURNING`).
+		WithArgs("imgjob_rename", userID, displayName).
+		WillReturnRows(newImageGenerationJobRow(now,
+			"imgjob_rename", service.ImageGenerationJobStatusCompleted,
+			&userID, nil, nil, nil, nil, nil, 0, 0, &displayName,
+		))
+
+	job, err := repository.RenameImageGenerationJobForUser(context.Background(), userID, "imgjob_rename", displayName)
+	require.NoError(t, err)
+	require.NotNil(t, job.DisplayName)
+	require.Equal(t, displayName, *job.DisplayName)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestImageGenerationJobRepositoryRecoversSubmissionAsUnknownWithoutResubmit(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -253,10 +276,15 @@ func newImageGenerationJobRow(
 	idempotencyKey, requestHash *string,
 	attemptCount int,
 	claimVersion int64,
+	displayNames ...*string,
 ) *sqlmock.Rows {
+	var displayName *string
+	if len(displayNames) > 0 {
+		displayName = displayNames[0]
+	}
 	return sqlmock.NewRows(imageGenerationJobTestColumns).AddRow(
 		int64(1), jobID, nullableInt64(userID), nullableInt64(apiKeyID), nullableInt64(groupID), nil, nullableInt64(accountID), int8(0),
-		service.ImageGenerationJobSourceWorkbench, service.ImageGenerationJobOperationGeneration, status, service.CangyuanImageModel1K, nil,
+		service.ImageGenerationJobSourceWorkbench, service.ImageGenerationJobOperationGeneration, status, service.CangyuanImageModel1K, nullableString(displayName), nil,
 		"1024x1024", nil, nil, "url",
 		nil, nullableString(idempotencyKey), nullableString(requestHash), "prompt-hash",
 		nil, []byte(`[]`),

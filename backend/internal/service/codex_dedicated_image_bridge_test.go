@@ -18,28 +18,25 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestBuildCodexDedicatedImagePlannerBody_ReplacesNativeImageTool(t *testing.T) {
+func TestBuildCodexDedicatedImagePlannerBody_PreservesClientImageTool(t *testing.T) {
 	body := []byte(`{"model":"gpt-5","stream":false,"tools":[{"type":"image_generation"},{"type":"namespace","name":"image_gen"},{"type":"function","name":"image_gen__imagegen"},{"type":"function","name":"exec_command","parameters":{"type":"object"}}],"tool_choice":{"type":"image_generation"}}`)
 
 	got, err := buildCodexDedicatedImagePlannerBody(body)
 	require.NoError(t, err)
 	require.NotContains(t, string(got), `"type":"image_generation"`)
-	require.NotContains(t, string(got), `"name":"image_gen"`)
-	require.NotContains(t, string(got), `"name":"image_gen__imagegen"`)
-	require.Contains(t, string(got), codexDedicatedImagePlannerToolName)
-	require.Equal(t, int64(2), gjson.GetBytes(got, "tools.#").Int())
+	require.Contains(t, string(got), `"name":"image_gen"`)
+	require.Contains(t, string(got), `"name":"image_gen__imagegen"`)
+	require.NotContains(t, string(got), codexDedicatedImagePlannerToolName)
+	require.Equal(t, int64(3), gjson.GetBytes(got, "tools.#").Int())
 	require.Contains(t, string(got), `"tool_choice":"auto"`)
-	require.Contains(t, string(got), "self-contained prompt")
+	require.NotContains(t, string(got), "self-contained prompt")
 }
 
 func TestBuildCodexDedicatedImagePlannerBody_ReplacesRemovedImageToolChoice(t *testing.T) {
 	choices := map[string]any{
 		"native image generation": map[string]any{"type": "image_generation"},
-		"image namespace string":  "image_gen",
-		"image namespace object":  map[string]any{"type": "namespace", "name": "image_gen"},
-		"flattened function":      map[string]any{"type": "function", "name": "image_gen__imagegen"},
-		"nested function":         map[string]any{"type": "function", "function": map[string]any{"namespace": "image_gen", "name": "imagegen"}},
-		"nested tool":             map[string]any{"tool": map[string]any{"type": "function", "name": "image_gen.imagegen"}},
+		"native image string":     "image_generation",
+		"nested native tool":      map[string]any{"tool": map[string]any{"type": "image_generation"}},
 	}
 
 	for name, choice := range choices {
@@ -47,7 +44,7 @@ func TestBuildCodexDedicatedImagePlannerBody_ReplacesRemovedImageToolChoice(t *t
 			body, err := json.Marshal(map[string]any{
 				"model":       "gpt-5",
 				"input":       "draw a diagram",
-				"tools":       []any{map[string]any{"type": "namespace", "name": "image_gen"}},
+				"tools":       []any{map[string]any{"type": "image_generation"}},
 				"tool_choice": choice,
 			})
 			require.NoError(t, err)
@@ -57,6 +54,16 @@ func TestBuildCodexDedicatedImagePlannerBody_ReplacesRemovedImageToolChoice(t *t
 			require.Equal(t, "auto", gjson.GetBytes(got, "tool_choice").String())
 		})
 	}
+}
+
+func TestBuildCodexDedicatedImagePlannerBody_PreservesClientImageToolChoice(t *testing.T) {
+	body := []byte(`{"model":"gpt-5","tools":[{"type":"namespace","name":"image_gen"}],"tool_choice":{"type":"namespace","name":"image_gen"}}`)
+
+	got, err := buildCodexDedicatedImagePlannerBody(body)
+	require.NoError(t, err)
+	require.Equal(t, "namespace", gjson.GetBytes(got, "tool_choice.type").String())
+	require.Equal(t, "image_gen", gjson.GetBytes(got, "tool_choice.name").String())
+	require.NotContains(t, string(got), codexDedicatedImagePlannerToolName)
 }
 
 func TestCodexDedicatedImagePlannerToolUsesCompatibleNonStrictSchema(t *testing.T) {
@@ -607,6 +614,7 @@ func TestCodexDedicatedImageReplayLoadsFromCrossInstanceStore(t *testing.T) {
 	first := &CodexDedicatedImageBridge{replayStore: store}
 	plan := &codexDedicatedImagePlan{Model: CangyuanImageModel2K, CallID: "call_cross_instance"}
 	require.NoError(t, first.rememberDedicatedImageReplay(context.Background(), "resp_sub2api_cross", "resp_planner_cross", plan, nil, 0))
+	require.Equal(t, 7*24*time.Hour, store.ttl)
 
 	second := &CodexDedicatedImageBridge{replayStore: store}
 	resolved, err := second.resolveDedicatedImageReplay(context.Background(), []byte(`{
@@ -852,6 +860,7 @@ type codexDedicatedImageReplayStoreStub struct {
 	values map[string][]byte
 	getErr error
 	setErr error
+	ttl    time.Duration
 }
 
 func (s *codexDedicatedImageReplayStoreStub) GetCodexDedicatedImageReplay(_ context.Context, responseID string) ([]byte, error) {
@@ -865,10 +874,11 @@ func (s *codexDedicatedImageReplayStoreStub) GetCodexDedicatedImageReplay(_ cont
 	return append([]byte(nil), value...), nil
 }
 
-func (s *codexDedicatedImageReplayStoreStub) SetCodexDedicatedImageReplay(_ context.Context, responseID string, value []byte, _ time.Duration) error {
+func (s *codexDedicatedImageReplayStoreStub) SetCodexDedicatedImageReplay(_ context.Context, responseID string, value []byte, ttl time.Duration) error {
 	if s.setErr != nil {
 		return s.setErr
 	}
+	s.ttl = ttl
 	s.values[responseID] = append([]byte(nil), value...)
 	return nil
 }

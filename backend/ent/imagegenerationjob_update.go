@@ -241,6 +241,26 @@ func (_u *ImageGenerationJobUpdate) SetNillablePublicModel(v *string) *ImageGene
 	return _u
 }
 
+// SetDisplayName sets the "display_name" field.
+func (_u *ImageGenerationJobUpdate) SetDisplayName(v string) *ImageGenerationJobUpdate {
+	_u.mutation.SetDisplayName(v)
+	return _u
+}
+
+// SetNillableDisplayName sets the "display_name" field if the given value is not nil.
+func (_u *ImageGenerationJobUpdate) SetNillableDisplayName(v *string) *ImageGenerationJobUpdate {
+	if v != nil {
+		_u.SetDisplayName(*v)
+	}
+	return _u
+}
+
+// ClearDisplayName clears the value of the "display_name" field.
+func (_u *ImageGenerationJobUpdate) ClearDisplayName() *ImageGenerationJobUpdate {
+	_u.mutation.ClearDisplayName()
+	return _u
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_u *ImageGenerationJobUpdate) SetUpstreamModel(v string) *ImageGenerationJobUpdate {
 	_u.mutation.SetUpstreamModel(v)
@@ -803,6 +823,11 @@ func (_u *ImageGenerationJobUpdate) check() error {
 			return &ValidationError{Name: "public_model", err: fmt.Errorf(`ent: validator failed for field "ImageGenerationJob.public_model": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.DisplayName(); ok {
+		if err := imagegenerationjob.DisplayNameValidator(v); err != nil {
+			return &ValidationError{Name: "display_name", err: fmt.Errorf(`ent: validator failed for field "ImageGenerationJob.display_name": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UpstreamModel(); ok {
 		if err := imagegenerationjob.UpstreamModelValidator(v); err != nil {
 			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`ent: validator failed for field "ImageGenerationJob.upstream_model": %w`, err)}
@@ -935,6 +960,12 @@ func (_u *ImageGenerationJobUpdate) sqlSave(ctx context.Context) (_node int, err
 	}
 	if value, ok := _u.mutation.PublicModel(); ok {
 		_spec.SetField(imagegenerationjob.FieldPublicModel, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DisplayName(); ok {
+		_spec.SetField(imagegenerationjob.FieldDisplayName, field.TypeString, value)
+	}
+	if _u.mutation.DisplayNameCleared() {
+		_spec.ClearField(imagegenerationjob.FieldDisplayName, field.TypeString)
 	}
 	if value, ok := _u.mutation.UpstreamModel(); ok {
 		_spec.SetField(imagegenerationjob.FieldUpstreamModel, field.TypeString, value)
@@ -1317,6 +1348,26 @@ func (_u *ImageGenerationJobUpdateOne) SetNillablePublicModel(v *string) *ImageG
 	if v != nil {
 		_u.SetPublicModel(*v)
 	}
+	return _u
+}
+
+// SetDisplayName sets the "display_name" field.
+func (_u *ImageGenerationJobUpdateOne) SetDisplayName(v string) *ImageGenerationJobUpdateOne {
+	_u.mutation.SetDisplayName(v)
+	return _u
+}
+
+// SetNillableDisplayName sets the "display_name" field if the given value is not nil.
+func (_u *ImageGenerationJobUpdateOne) SetNillableDisplayName(v *string) *ImageGenerationJobUpdateOne {
+	if v != nil {
+		_u.SetDisplayName(*v)
+	}
+	return _u
+}
+
+// ClearDisplayName clears the value of the "display_name" field.
+func (_u *ImageGenerationJobUpdateOne) ClearDisplayName() *ImageGenerationJobUpdateOne {
+	_u.mutation.ClearDisplayName()
 	return _u
 }
 
@@ -1895,6 +1946,11 @@ func (_u *ImageGenerationJobUpdateOne) check() error {
 			return &ValidationError{Name: "public_model", err: fmt.Errorf(`ent: validator failed for field "ImageGenerationJob.public_model": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.DisplayName(); ok {
+		if err := imagegenerationjob.DisplayNameValidator(v); err != nil {
+			return &ValidationError{Name: "display_name", err: fmt.Errorf(`ent: validator failed for field "ImageGenerationJob.display_name": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UpstreamModel(); ok {
 		if err := imagegenerationjob.UpstreamModelValidator(v); err != nil {
 			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`ent: validator failed for field "ImageGenerationJob.upstream_model": %w`, err)}
@@ -2044,6 +2100,12 @@ func (_u *ImageGenerationJobUpdateOne) sqlSave(ctx context.Context) (_node *Imag
 	}
 	if value, ok := _u.mutation.PublicModel(); ok {
 		_spec.SetField(imagegenerationjob.FieldPublicModel, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DisplayName(); ok {
+		_spec.SetField(imagegenerationjob.FieldDisplayName, field.TypeString, value)
+	}
+	if _u.mutation.DisplayNameCleared() {
+		_spec.ClearField(imagegenerationjob.FieldDisplayName, field.TypeString)
 	}
 	if value, ok := _u.mutation.UpstreamModel(); ok {
 		_spec.SetField(imagegenerationjob.FieldUpstreamModel, field.TypeString, value)

@@ -109,6 +109,11 @@ func PublicModel(v string) predicate.ImageGenerationJob {
 	return predicate.ImageGenerationJob(sql.FieldEQ(FieldPublicModel, v))
 }
 
+// DisplayName applies equality check predicate on the "display_name" field. It's identical to DisplayNameEQ.
+func DisplayName(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldEQ(FieldDisplayName, v))
+}
+
 // UpstreamModel applies equality check predicate on the "upstream_model" field. It's identical to UpstreamModelEQ.
 func UpstreamModel(v string) predicate.ImageGenerationJob {
 	return predicate.ImageGenerationJob(sql.FieldEQ(FieldUpstreamModel, v))
@@ -852,6 +857,81 @@ func PublicModelEqualFold(v string) predicate.ImageGenerationJob {
 // PublicModelContainsFold applies the ContainsFold predicate on the "public_model" field.
 func PublicModelContainsFold(v string) predicate.ImageGenerationJob {
 	return predicate.ImageGenerationJob(sql.FieldContainsFold(FieldPublicModel, v))
+}
+
+// DisplayNameEQ applies the EQ predicate on the "display_name" field.
+func DisplayNameEQ(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldEQ(FieldDisplayName, v))
+}
+
+// DisplayNameNEQ applies the NEQ predicate on the "display_name" field.
+func DisplayNameNEQ(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldNEQ(FieldDisplayName, v))
+}
+
+// DisplayNameIn applies the In predicate on the "display_name" field.
+func DisplayNameIn(vs ...string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldIn(FieldDisplayName, vs...))
+}
+
+// DisplayNameNotIn applies the NotIn predicate on the "display_name" field.
+func DisplayNameNotIn(vs ...string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldNotIn(FieldDisplayName, vs...))
+}
+
+// DisplayNameGT applies the GT predicate on the "display_name" field.
+func DisplayNameGT(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldGT(FieldDisplayName, v))
+}
+
+// DisplayNameGTE applies the GTE predicate on the "display_name" field.
+func DisplayNameGTE(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldGTE(FieldDisplayName, v))
+}
+
+// DisplayNameLT applies the LT predicate on the "display_name" field.
+func DisplayNameLT(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldLT(FieldDisplayName, v))
+}
+
+// DisplayNameLTE applies the LTE predicate on the "display_name" field.
+func DisplayNameLTE(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldLTE(FieldDisplayName, v))
+}
+
+// DisplayNameContains applies the Contains predicate on the "display_name" field.
+func DisplayNameContains(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldContains(FieldDisplayName, v))
+}
+
+// DisplayNameHasPrefix applies the HasPrefix predicate on the "display_name" field.
+func DisplayNameHasPrefix(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldHasPrefix(FieldDisplayName, v))
+}
+
+// DisplayNameHasSuffix applies the HasSuffix predicate on the "display_name" field.
+func DisplayNameHasSuffix(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldHasSuffix(FieldDisplayName, v))
+}
+
+// DisplayNameIsNil applies the IsNil predicate on the "display_name" field.
+func DisplayNameIsNil() predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldIsNull(FieldDisplayName))
+}
+
+// DisplayNameNotNil applies the NotNil predicate on the "display_name" field.
+func DisplayNameNotNil() predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldNotNull(FieldDisplayName))
+}
+
+// DisplayNameEqualFold applies the EqualFold predicate on the "display_name" field.
+func DisplayNameEqualFold(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldEqualFold(FieldDisplayName, v))
+}
+
+// DisplayNameContainsFold applies the ContainsFold predicate on the "display_name" field.
+func DisplayNameContainsFold(v string) predicate.ImageGenerationJob {
+	return predicate.ImageGenerationJob(sql.FieldContainsFold(FieldDisplayName, v))
 }
 
 // UpstreamModelEQ applies the EQ predicate on the "upstream_model" field.
