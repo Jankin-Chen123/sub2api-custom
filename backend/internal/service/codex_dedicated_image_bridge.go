@@ -707,7 +707,7 @@ func extractCodexPlannerEventPayloads(raw, requestBody []byte) ([]json.RawMessag
 				continue
 			}
 			if !json.Valid([]byte(payload)) {
-		return nil, errors.New("codex planner returned invalid SSE JSON")
+				return nil, errors.New("codex planner returned invalid SSE JSON")
 			}
 			result = append(result, json.RawMessage(payload))
 		}
