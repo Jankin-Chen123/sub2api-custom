@@ -67,7 +67,7 @@ func TestImageGenerationJobRepositoryAtomicQueueAdmissionRejectsFullQueue(t *tes
 
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta("SELECT pg_advisory_xact_lock(hashtextextended('image_generation_queue_admission', 0))"))
-		WillReturnResult(sqlmock.NewResult(0, 1))
+		.WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(`(?s)SELECT COUNT\(\*\).*FROM image_generation_jobs`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	mock.ExpectRollback()
