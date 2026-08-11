@@ -12,7 +12,7 @@ filename and SHA256 checksum**, not by the numeric prefix alone. Consequently,
 an existing production migration must never be renamed to resolve a prefix
 collision.
 
-Custom migrations created after the upstream sequence must use the isolated
+From this release onward, newly created custom migrations must use the isolated
 namespace `custom_YYYYMMDD_description.sql` (or
 `custom_YYYYMMDD_description_notx.sql` for a concurrent-index migration).
 
@@ -22,9 +22,11 @@ Examples:
 - `custom_20260811_image_quality.sql` (custom)
 - `custom_20260811_usage_log_index_notx.sql` (custom, non-transactional)
 
-The legacy custom image migrations `194_image_generation_jobs.sql` through
-`197_image_generation_job_display_name.sql` are production history and are
-explicitly grandfathered. Do not rename, edit, or delete them.
+Existing custom migrations with numeric names remain production history and
+are not renamed retroactively. In particular, the legacy custom image
+migrations `194_image_generation_jobs.sql` through
+`197_image_generation_job_display_name.sql` are explicitly grandfathered. Do
+not rename, edit, or delete them.
 
 ### `_notx.sql` 命名与执行语义（并发索引专用）
 
