@@ -18,13 +18,6 @@ type SettingHandler struct {
 	settingService           *service.SettingService
 	notificationEmailService *service.NotificationEmailService
 	version                  string
-	dedicatedImageEnabled    bool
-}
-
-func (h *SettingHandler) SetDedicatedImageEnabled(enabled bool) {
-	if h != nil {
-		h.dedicatedImageEnabled = enabled
-	}
 }
 
 // NewSettingHandler 创建公开设置处理器
@@ -124,7 +117,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		RiskControlEnabled: settings.RiskControlEnabled,
 
 		AllowUserViewErrorRequests: settings.AllowUserViewErrorRequests,
-		DedicatedImageEnabled:      h.dedicatedImageEnabled,
+		DedicatedImageEnabled:      settings.DedicatedImageEnabled,
 	})
 }
 

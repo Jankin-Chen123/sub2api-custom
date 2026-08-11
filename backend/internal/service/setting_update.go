@@ -380,6 +380,10 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyImageGenerationQueueEnabled] = strconv.FormatBool(settings.ImageGenerationQueueEnabled)
 	updates[SettingKeyImageGenerationMaxActiveJobs] = strconv.Itoa(settings.ImageGenerationMaxActiveJobs)
 	updates[SettingKeyImageGenerationMaxQueuedJobs] = strconv.Itoa(settings.ImageGenerationMaxQueuedJobs)
+	updates[SettingKeyDedicatedImageEnabled] = strconv.FormatBool(settings.DedicatedImageEnabled)
+	updates[SettingKeyDedicatedImageWorkerEnabled] = strconv.FormatBool(settings.DedicatedImageWorkerEnabled)
+	updates[SettingKeyDedicatedImageCodexBridge] = strconv.FormatBool(settings.DedicatedImageCodexBridgeEnabled)
+	updates[SettingKeyDedicatedImageFallback] = strconv.FormatBool(settings.DedicatedImageFallbackToGeneral)
 	settings.AffiliateRebateRate = clampAffiliateRebateRate(settings.AffiliateRebateRate)
 	updates[SettingKeyAffiliateRebateRate] = strconv.FormatFloat(settings.AffiliateRebateRate, 'f', 8, 64)
 	if settings.AffiliateRebateFreezeHours < 0 {
@@ -692,6 +696,16 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	}
 	if s.cfg != nil {
 		s.cfg.SetForwardedClientIPSettings(settings.APIKeyACLTrustForwardedIP, settings.ForwardedClientIPHeaders)
+		runtimeSettings := config.DedicatedImageRuntimeSettings{
+			Enabled:            settings.DedicatedImageEnabled,
+			WorkerEnabled:      settings.DedicatedImageWorkerEnabled,
+			CodexBridgeEnabled: settings.DedicatedImageCodexBridgeEnabled,
+			FallbackToGeneral:  settings.DedicatedImageFallbackToGeneral,
+		}
+		s.cfg.SetDedicatedImageRuntime(runtimeSettings)
+		if s.dedicatedImageRuntimeApply != nil {
+			s.dedicatedImageRuntimeApply(runtimeSettings)
+		}
 	}
 	// codex_cli_only 加固策略缓存：设置更新后强制下次重载（涉及 4 个键 + JSON 解析，直接置过期）。
 	s.codexRestrictionPolicySF.Forget("codex_restriction_policy")

@@ -21,6 +21,8 @@ type imageWorkbenchRepo struct {
 	jobs       []*service.ImageGenerationJob
 	lastUserID int64
 	lastName   string
+	deletedID  string
+	lastSource string
 	lastFilter service.ImageGenerationJobFilter
 }
 
@@ -124,6 +126,30 @@ func (r *imageWorkbenchRepo) RenameImageGenerationJobForUser(_ context.Context, 
 		}
 	}
 	return nil, service.ErrImageGenerationJobNotFound
+}
+
+func (r *imageWorkbenchRepo) DeleteImageGenerationJobForUser(_ context.Context, userID int64, jobID, source string) error {
+	r.lastUserID = userID
+	r.deletedID = jobID
+	r.lastSource = source
+	for index, job := range r.jobs {
+		if job != nil && job.JobID == jobID && job.UserID != nil && *job.UserID == userID && job.Source == source &&
+			(job.Status == service.ImageGenerationJobStatusCompleted || job.Status == service.ImageGenerationJobStatusFailed) {
+			r.jobs = append(r.jobs[:index], r.jobs[index+1:]...)
+			return nil
+		}
+	}
+	return service.ErrImageGenerationJobNotFound
+}
+
+type imageWorkbenchResultStore struct {
+	dedicatedImageReader
+	deletedRefs []string
+}
+
+func (s *imageWorkbenchResultStore) Delete(_ context.Context, ref string) error {
+	s.deletedRefs = append(s.deletedRefs, ref)
+	return nil
 }
 
 func setWorkbenchSubject(c *gin.Context, userID int64) {
@@ -281,6 +307,58 @@ func TestWorkbenchRenameHidesAnotherUsersJob(t *testing.T) {
 
 	require.Equal(t, http.StatusNotFound, rec.Code)
 	require.Nil(t, job.DisplayName)
+}
+
+func TestWorkbenchDeleteRemovesOwnedCompletedArtworkAndStoredResult(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ownerID := int64(11)
+	job := &service.ImageGenerationJob{
+		JobID: "imgjob_delete", UserID: &ownerID, Source: service.ImageGenerationJobSourceWorkbench,
+		Status: service.ImageGenerationJobStatusCompleted, ResultObjectRefs: []string{"private/result.png"},
+	}
+	repo := &imageWorkbenchRepo{jobs: []*service.ImageGenerationJob{job}}
+	results := &imageWorkbenchResultStore{}
+	h := &DedicatedImageHandler{repo: repo, results: results}
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/user/image-workbench/jobs/imgjob_delete", nil)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	c.Params = gin.Params{{Key: "id", Value: job.JobID}}
+	setWorkbenchSubject(c, ownerID)
+
+	h.DeleteWorkbenchJob(c)
+
+	require.Equal(t, http.StatusNoContent, c.Writer.Status())
+	c.Writer.WriteHeaderNow()
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	require.Equal(t, ownerID, repo.lastUserID)
+	require.Equal(t, job.JobID, repo.deletedID)
+	require.Equal(t, service.ImageGenerationJobSourceWorkbench, repo.lastSource)
+	require.Equal(t, []string{"private/result.png"}, results.deletedRefs)
+	require.Empty(t, repo.jobs)
+}
+
+func TestWorkbenchDeleteRejectsRunningTask(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ownerID := int64(11)
+	job := &service.ImageGenerationJob{
+		JobID: "imgjob_running", UserID: &ownerID, Source: service.ImageGenerationJobSourceWorkbench,
+		Status: service.ImageGenerationJobStatusPolling,
+	}
+	repo := &imageWorkbenchRepo{jobs: []*service.ImageGenerationJob{job}}
+	h := &DedicatedImageHandler{repo: repo}
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/user/image-workbench/jobs/imgjob_running", nil)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	c.Params = gin.Params{{Key: "id", Value: job.JobID}}
+	setWorkbenchSubject(c, ownerID)
+
+	h.DeleteWorkbenchJob(c)
+
+	require.Equal(t, http.StatusConflict, rec.Code)
+	require.Empty(t, repo.deletedID)
+	require.Len(t, repo.jobs, 1)
 }
 
 func TestWorkbenchAPIKeyMustBelongToJWTUser(t *testing.T) {

@@ -25,6 +25,18 @@ export default {
         maxQueuedJobsHint: 'Counts created / queued jobs that have not started upstream execution. Set to 0 to avoid accumulating additional waiting jobs.',
         safetyHint: 'Higher concurrency increases CPU, memory, disk, and network pressure. Increase it gradually after observing real peak usage.',
       },
+      dedicatedImage: {
+        title: 'Dedicated Image Routing',
+        description: 'Control whether Codex and image endpoints use durable image jobs and dedicated image-only accounts. Changes apply immediately to this service instance.',
+        enabled: 'Enable dedicated image generation',
+        enabledHint: 'When disabled, dedicated image models are no longer intercepted and the image workbench becomes unavailable.',
+        workerEnabled: 'Enable image worker',
+        workerEnabledHint: 'Consumes durable jobs, calls the provider, stores results, and settles billing.',
+        codexBridgeEnabled: 'Enable Codex image bridge',
+        codexBridgeEnabledHint: 'A general account plans from the chat context while an image-only account executes the image request.',
+        fallbackToGeneral: 'Allow compatible general-account fallback',
+        fallbackToGeneralHint: 'Only general accounts with an explicit Cangyuan HTTPS API key and GPT Image 2 model mapping qualify; arbitrary general accounts are never used.',
+      },
       imageWorkbenchAnnouncements: {
         title: 'Image Workbench Announcements',
         description: 'Manage the announcements shown at the top of the image workbench. They scroll upward in order.',

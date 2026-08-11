@@ -389,6 +389,10 @@ export interface SystemSettings {
   image_generation_queue_enabled: boolean;
   image_generation_max_active_jobs: number;
   image_generation_max_queued_jobs: number;
+  dedicated_image_enabled: boolean;
+  dedicated_image_worker_enabled: boolean;
+  dedicated_image_codex_bridge_enabled: boolean;
+  dedicated_image_fallback_to_general: boolean;
   image_workbench_announcements: ImageWorkbenchAnnouncement[];
   image_workbench_announcement_interval_seconds: number;
   default_user_rpm_limit: number;
@@ -728,6 +732,10 @@ export interface UpdateSettingsRequest {
   image_generation_queue_enabled?: boolean;
   image_generation_max_active_jobs?: number;
   image_generation_max_queued_jobs?: number;
+  dedicated_image_enabled?: boolean;
+  dedicated_image_worker_enabled?: boolean;
+  dedicated_image_codex_bridge_enabled?: boolean;
+  dedicated_image_fallback_to_general?: boolean;
   image_workbench_announcements?: ImageWorkbenchAnnouncement[];
   image_workbench_announcement_interval_seconds?: number;
   default_user_rpm_limit?: number;

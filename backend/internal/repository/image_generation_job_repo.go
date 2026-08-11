@@ -253,6 +253,31 @@ RETURNING `+imageGenerationJobReturningColumns, jobID, userID, displayName))
 	return job, nil
 }
 
+func (r *imageGenerationJobRepository) DeleteImageGenerationJobForUser(ctx context.Context, userID int64, jobID, source string) error {
+	jobID = strings.TrimSpace(jobID)
+	source = strings.TrimSpace(source)
+	if userID <= 0 || jobID == "" || source == "" {
+		return service.ErrImageGenerationJobNotFound
+	}
+	result, err := r.sql.ExecContext(ctx, `
+DELETE FROM image_generation_jobs
+ WHERE job_id = $1
+   AND user_id = $2
+   AND source = $3
+   AND status IN ('completed', 'failed')`, jobID, userID, source)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrImageGenerationJobNotFound
+	}
+	return nil
+}
+
 func (r *imageGenerationJobRepository) ClaimNextImageGenerationJob(ctx context.Context, now time.Time, leaseDuration time.Duration) (*service.ImageGenerationJob, error) {
 	if leaseDuration <= 0 {
 		leaseDuration = time.Minute

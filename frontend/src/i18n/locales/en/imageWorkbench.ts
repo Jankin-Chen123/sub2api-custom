@@ -65,6 +65,12 @@ export default {
       downloading: 'Downloading...',
       newCanvas: 'New canvas',
       rename: 'Rename',
+      delete: 'Delete',
+      deleting: 'Deleting...',
+      deleteUnavailable: 'Generating tasks cannot be deleted',
+      deleteConfirm: 'Delete “{name}”? This cannot be undone.',
+      previewArtwork: 'Preview {name}',
+      closePreview: 'Close preview',
       saveName: 'Save',
       cancel: 'Cancel'
     },
@@ -122,6 +128,7 @@ export default {
     messages: {
       submitted: 'Job submitted. It will continue if you leave this page.',
       renamed: 'Artwork name updated.',
+      deleted: 'Artwork deleted.',
       downloadAllSuccess: 'Started downloading {count} images.'
     },
     errors: {
@@ -136,6 +143,7 @@ export default {
       invalidMask: 'Mask must be a PNG no larger than 10 MB',
       preview: 'Failed to load preview',
       rename: 'Failed to rename artwork',
+      delete: 'Failed to delete artwork',
       download: 'Failed to download image'
     }
   }

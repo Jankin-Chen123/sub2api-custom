@@ -96,6 +96,47 @@ type forwardedIPMigrationRepoStub struct {
 	setMultipleErr error
 }
 
+func TestSettingServiceLoadDedicatedImageRuntimeSettingsMigratesDeploymentDefaults(t *testing.T) {
+	repo := &forwardedIPMigrationRepoStub{values: map[string]string{}}
+	cfg := &config.Config{DedicatedImage: config.DedicatedImageConfig{
+		Enabled: true, WorkerEnabled: true, CodexBridgeEnabled: true, FallbackToGeneral: false,
+	}}
+	svc := NewSettingService(repo, cfg)
+
+	require.NoError(t, svc.LoadDedicatedImageRuntimeSettings(context.Background()))
+	require.Equal(t, map[string]string{
+		SettingKeyDedicatedImageEnabled:       "true",
+		SettingKeyDedicatedImageWorkerEnabled: "true",
+		SettingKeyDedicatedImageCodexBridge:   "true",
+		SettingKeyDedicatedImageFallback:      "false",
+	}, repo.updates)
+	require.Equal(t, config.DedicatedImageRuntimeSettings{
+		Enabled: true, WorkerEnabled: true, CodexBridgeEnabled: true, FallbackToGeneral: false,
+	}, cfg.DedicatedImageRuntime())
+}
+
+func TestSettingServiceRefreshAppliesDedicatedImageRuntimeSettings(t *testing.T) {
+	cfg := &config.Config{}
+	svc := NewSettingService(&settingUpdateRepoStub{}, cfg)
+	var applied config.DedicatedImageRuntimeSettings
+	svc.SetDedicatedImageRuntimeApplier(func(settings config.DedicatedImageRuntimeSettings) {
+		applied = settings
+	})
+
+	svc.refreshCachedSettings(&SystemSettings{
+		DedicatedImageEnabled:            true,
+		DedicatedImageWorkerEnabled:      true,
+		DedicatedImageCodexBridgeEnabled: true,
+		DedicatedImageFallbackToGeneral:  true,
+	})
+
+	expected := config.DedicatedImageRuntimeSettings{
+		Enabled: true, WorkerEnabled: true, CodexBridgeEnabled: true, FallbackToGeneral: true,
+	}
+	require.Equal(t, expected, applied)
+	require.Equal(t, expected, cfg.DedicatedImageRuntime())
+}
+
 func (s *forwardedIPMigrationRepoStub) Get(context.Context, string) (*Setting, error) {
 	panic("unexpected Get call")
 }

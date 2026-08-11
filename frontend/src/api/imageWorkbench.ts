@@ -84,4 +84,8 @@ export async function renameJob(id: string, name: string): Promise<ImageWorkbenc
   return data
 }
 
-export const imageWorkbenchAPI = { createJob, estimateCost, listJobs, getJob, getContent, renameJob }
+export async function deleteJob(id: string): Promise<void> {
+  await apiClient.delete(`/user/image-workbench/jobs/${encodeURIComponent(id)}`)
+}
+
+export const imageWorkbenchAPI = { createJob, estimateCost, listJobs, getJob, getContent, renameJob, deleteJob }

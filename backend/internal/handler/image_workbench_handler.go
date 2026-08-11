@@ -46,7 +46,7 @@ func (h *DedicatedImageHandler) EstimateWorkbenchCost(c *gin.Context) {
 		h.writeError(c, http.StatusUnauthorized, "authentication_error", "User not authenticated")
 		return
 	}
-	if h == nil || !h.enabled || h.worker == nil || !h.worker.Running() || h.openAI == nil || h.openAI.apiKeyService == nil || h.billing == nil {
+	if h == nil || !h.runtimeEnabled() || h.worker == nil || !h.worker.Running() || h.openAI == nil || h.openAI.apiKeyService == nil || h.billing == nil {
 		h.writeError(c, http.StatusServiceUnavailable, "image_orchestration_unavailable", "image workbench is not enabled")
 		return
 	}
@@ -87,7 +87,7 @@ func (h *DedicatedImageHandler) CreateWorkbenchJob(c *gin.Context) {
 		h.writeError(c, http.StatusUnauthorized, "authentication_error", "User not authenticated")
 		return
 	}
-	if h == nil || !h.enabled || h.worker == nil || !h.worker.Running() || h.openAI == nil || h.openAI.apiKeyService == nil {
+	if h == nil || !h.runtimeEnabled() || h.worker == nil || !h.worker.Running() || h.openAI == nil || h.openAI.apiKeyService == nil {
 		h.writeError(c, http.StatusServiceUnavailable, "image_orchestration_unavailable", "image workbench is not enabled")
 		return
 	}
@@ -320,6 +320,44 @@ func (h *DedicatedImageHandler) RenameWorkbenchJob(c *gin.Context) {
 	}
 	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, workbenchImageJobResponse(job))
+}
+
+func (h *DedicatedImageHandler) DeleteWorkbenchJob(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		h.writeError(c, http.StatusUnauthorized, "authentication_error", "User not authenticated")
+		return
+	}
+	job, ok := h.workbenchOwnedJob(c)
+	if !ok {
+		return
+	}
+	if job.Status != service.ImageGenerationJobStatusCompleted && job.Status != service.ImageGenerationJobStatusFailed {
+		h.writeError(c, http.StatusConflict, "image_task_not_deletable", "only completed or failed image tasks can be deleted")
+		return
+	}
+	if len(job.ResultObjectRefs) > 0 {
+		deleter, supported := h.results.(service.ImageStorageDeleter)
+		if !supported || deleter == nil {
+			h.writeError(c, http.StatusServiceUnavailable, "image_storage_failed", "image result storage does not support deletion")
+			return
+		}
+		for _, ref := range job.ResultObjectRefs {
+			if strings.TrimSpace(ref) == "" {
+				continue
+			}
+			if err := deleter.Delete(c.Request.Context(), ref); err != nil {
+				h.writeError(c, http.StatusServiceUnavailable, "image_storage_failed", "image result could not be deleted")
+				return
+			}
+		}
+	}
+	if err := h.repo.DeleteImageGenerationJobForUser(c.Request.Context(), subject.UserID, job.JobID, service.ImageGenerationJobSourceWorkbench); err != nil {
+		h.writeError(c, http.StatusNotFound, "image_task_not_found", "image task not found")
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.Status(http.StatusNoContent)
 }
 
 func (h *DedicatedImageHandler) WorkbenchContent(c *gin.Context) {

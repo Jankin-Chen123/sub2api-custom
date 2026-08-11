@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
 var ErrImageGenerationWorkerIdle = errors.New("no image generation job is ready")
@@ -64,11 +66,16 @@ type DedicatedImageAccountSelector struct {
 	Accounts             AccountRepository
 	ImageAdmission       *ImageGenerationAdmission
 	AllowGeneralFallback bool
+	Config               *config.Config
 }
 
 func (s *DedicatedImageAccountSelector) Select(ctx context.Context, job *ImageGenerationJob) (*ImageGenerationAccountLease, error) {
 	if s == nil || s.Gateway == nil || job == nil {
 		return nil, errors.New("dedicated image account selector is not configured")
+	}
+	allowGeneralFallback := s.AllowGeneralFallback
+	if s.Config != nil {
+		allowGeneralFallback = s.Config.DedicatedImageRuntime().FallbackToGeneral
 	}
 	selection, _, err := s.Gateway.SelectAccountWithSchedulerForDedicatedImages(
 		ctx,
@@ -77,12 +84,12 @@ func (s *DedicatedImageAccountSelector) Select(ctx context.Context, job *ImageGe
 		job.PublicModel,
 		nil,
 		OpenAIImagesCapabilityNative,
-		s.AllowGeneralFallback,
+		allowGeneralFallback,
 	)
 	if err != nil {
 		return nil, err
 	}
-	if selection == nil || selection.Account == nil || (!selection.Account.IsImageOnly() && !s.AllowGeneralFallback) {
+	if selection == nil || selection.Account == nil || (!selection.Account.IsImageOnly() && !allowGeneralFallback) {
 		if selection != nil && selection.ReleaseFunc != nil {
 			selection.ReleaseFunc()
 		}

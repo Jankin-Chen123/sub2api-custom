@@ -196,6 +196,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyCustomEndpoints,
 		SettingKeyImageWorkbenchAnnouncements,
 		SettingKeyImageWorkbenchAnnouncementIntervalSecs,
+		SettingKeyDedicatedImageEnabled,
+		SettingKeyDedicatedImageWorkerEnabled,
 		SettingKeyLinuxDoConnectEnabled,
 		SettingKeyDingTalkConnectEnabled,
 		SettingKeyWeChatConnectEnabled,
@@ -368,7 +370,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
 
 		AllowUserViewErrorRequests: settings[SettingKeyAllowUserViewErrorRequests] == "true",
-		DedicatedImageEnabled:      s.cfg != nil && s.cfg.DedicatedImage.Enabled && s.cfg.DedicatedImage.WorkerEnabled,
+		DedicatedImageEnabled: settings[SettingKeyDedicatedImageEnabled] == "true" &&
+			settings[SettingKeyDedicatedImageWorkerEnabled] == "true",
 	}, nil
 }
 

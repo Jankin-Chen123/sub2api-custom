@@ -9,17 +9,19 @@ const estimateCost = vi.hoisted(() => vi.fn())
 const getJob = vi.hoisted(() => vi.fn())
 const getContent = vi.hoisted(() => vi.fn())
 const renameJob = vi.hoisted(() => vi.fn())
+const deleteJob = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
 const showSuccess = vi.hoisted(() => vi.fn())
 const getCachedImageWorkbenchBlob = vi.hoisted(() => vi.fn())
 const listCachedImageWorkbenchEntries = vi.hoisted(() => vi.fn())
 const putCachedImageWorkbenchBlob = vi.hoisted(() => vi.fn())
+const deleteCachedImageWorkbenchEntry = vi.hoisted(() => vi.fn())
 const loadImageWorkbenchDraft = vi.hoisted(() => vi.fn())
 const saveImageWorkbenchDraft = vi.hoisted(() => vi.fn())
 const clearImageWorkbenchDraft = vi.hoisted(() => vi.fn())
 
 vi.mock('@/api', () => ({
-  imageWorkbenchAPI: { createJob, estimateCost, listJobs, getJob, getContent, renameJob },
+  imageWorkbenchAPI: { createJob, estimateCost, listJobs, getJob, getContent, renameJob, deleteJob },
   keysAPI: { list: listKeys }
 }))
 
@@ -34,7 +36,8 @@ vi.mock('@/stores/auth', () => ({
 vi.mock('@/utils/imageWorkbenchCache', () => ({
   getCachedImageWorkbenchBlob,
   listCachedImageWorkbenchEntries,
-  putCachedImageWorkbenchBlob
+  putCachedImageWorkbenchBlob,
+  deleteCachedImageWorkbenchEntry
 }))
 
 vi.mock('@/utils/imageWorkbenchDraft', () => ({
@@ -107,17 +110,21 @@ describe('ImageWorkbenchView', () => {
     getJob.mockReset()
     getContent.mockReset()
     renameJob.mockReset()
+    deleteJob.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
     getCachedImageWorkbenchBlob.mockReset()
     listCachedImageWorkbenchEntries.mockReset()
     putCachedImageWorkbenchBlob.mockReset()
+    deleteCachedImageWorkbenchEntry.mockReset()
     loadImageWorkbenchDraft.mockReset()
     saveImageWorkbenchDraft.mockReset()
     clearImageWorkbenchDraft.mockReset()
     getCachedImageWorkbenchBlob.mockResolvedValue(null)
     listCachedImageWorkbenchEntries.mockResolvedValue([])
     putCachedImageWorkbenchBlob.mockResolvedValue(undefined)
+    deleteCachedImageWorkbenchEntry.mockResolvedValue(undefined)
+    deleteJob.mockResolvedValue(undefined)
     loadImageWorkbenchDraft.mockResolvedValue(null)
     saveImageWorkbenchDraft.mockResolvedValue(undefined)
     clearImageWorkbenchDraft.mockResolvedValue(undefined)
@@ -160,6 +167,29 @@ describe('ImageWorkbenchView', () => {
     expect(vm.referenceUrlInput).toBe('https://example.com/next.png')
     expect(vm.referenceDataURLs).toEqual([referenceDataURL])
     expect(vm.referenceFiles[0].name).toBe('reference.png')
+    wrapper.unmount()
+  })
+
+  it('estimates cost after a restored eligible key finishes loading without a model change', async () => {
+    loadImageWorkbenchDraft.mockResolvedValue({
+      form: {
+        apiKeyId: 7,
+        model: 'gpt-image-2-1k',
+        quality: 'auto',
+        size: '1024x1024',
+        aspectRatio: '',
+        width: 1024,
+        height: 1024,
+        prompt: '',
+        referenceUrls: ''
+      },
+      referenceUrlInput: '',
+      references: []
+    })
+
+    const wrapper = await mountWorkbench()
+
+    expect(estimateCost).toHaveBeenCalledWith({ api_key_id: 7, model: 'gpt-image-2-1k' })
     wrapper.unmount()
   })
 
@@ -425,5 +455,62 @@ describe('ImageWorkbenchView', () => {
     wrapper.unmount()
     delete (URL as typeof URL & { createObjectURL?: () => string }).createObjectURL
     delete (URL as typeof URL & { revokeObjectURL?: () => void }).revokeObjectURL
+  })
+
+  it('opens a full artwork preview when the library image is clicked', async () => {
+    getContent.mockResolvedValue(new Blob(['image-bytes'], { type: 'image/png' }))
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:preview') })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
+    const wrapper = await mountWorkbench([completedJob])
+
+    await wrapper.find(`button[aria-label="imageWorkbench.actions.previewArtwork:"]`).trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="artwork-preview"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="artwork-preview"] img').attributes('src')).toBe('blob:preview')
+    expect((wrapper.vm as any).selectedJobId).toBe(completedJob.id)
+    wrapper.unmount()
+    delete (URL as typeof URL & { createObjectURL?: () => string }).createObjectURL
+    delete (URL as typeof URL & { revokeObjectURL?: () => void }).revokeObjectURL
+  })
+
+  it('deletes a completed artwork from both the library and generation batch and clears its cache', async () => {
+    getContent.mockResolvedValue(new Blob(['image-bytes'], { type: 'image/png' }))
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:preview') })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const wrapper = await mountWorkbench([completedJob])
+
+    expect(wrapper.find('[data-testid="delete-batch-imgjob_completed"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="delete-library-imgjob_completed"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="delete-library-imgjob_completed"]').trigger('click')
+    await flushPromises()
+
+    expect(deleteJob).toHaveBeenCalledWith('imgjob_completed')
+    expect(deleteCachedImageWorkbenchEntry).toHaveBeenCalledWith(42, 'imgjob_completed')
+    expect(wrapper.find('[data-testid="delete-batch-imgjob_completed"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="delete-library-imgjob_completed"]').exists()).toBe(false)
+    expect(showSuccess).toHaveBeenCalledWith('imageWorkbench.messages.deleted')
+    wrapper.unmount()
+    confirm.mockRestore()
+    delete (URL as typeof URL & { createObjectURL?: () => string }).createObjectURL
+    delete (URL as typeof URL & { revokeObjectURL?: () => void }).revokeObjectURL
+  })
+
+  it('deletes failed batch jobs but keeps deletion disabled while a job is running', async () => {
+    const failedJob = { ...completedJob, id: 'imgjob_failed', status: 'failed' as const }
+    const runningJob = { ...completedJob, id: 'imgjob_running', status: 'in_progress' as const }
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const wrapper = await mountWorkbench([failedJob, runningJob])
+
+    expect(wrapper.find('[data-testid="delete-batch-imgjob_running"]').attributes('disabled')).toBeDefined()
+    await wrapper.find('[data-testid="delete-batch-imgjob_failed"]').trigger('click')
+    await flushPromises()
+
+    expect(deleteJob).toHaveBeenCalledWith('imgjob_failed')
+    expect(wrapper.find('[data-testid="delete-batch-imgjob_failed"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="delete-batch-imgjob_running"]').exists()).toBe(true)
+    wrapper.unmount()
+    confirm.mockRestore()
   })
 })

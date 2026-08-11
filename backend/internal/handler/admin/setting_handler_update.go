@@ -179,6 +179,10 @@ type UpdateSettingsRequest struct {
 	ImageGenerationQueueEnabled               bool                              `json:"image_generation_queue_enabled"`
 	ImageGenerationMaxActiveJobs              int                               `json:"image_generation_max_active_jobs"`
 	ImageGenerationMaxQueuedJobs              int                               `json:"image_generation_max_queued_jobs"`
+	DedicatedImageEnabled                     bool                              `json:"dedicated_image_enabled"`
+	DedicatedImageWorkerEnabled               bool                              `json:"dedicated_image_worker_enabled"`
+	DedicatedImageCodexBridgeEnabled          bool                              `json:"dedicated_image_codex_bridge_enabled"`
+	DedicatedImageFallbackToGeneral           bool                              `json:"dedicated_image_fallback_to_general"`
 	ImageWorkbenchAnnouncements               []dto.ImageWorkbenchAnnouncement  `json:"image_workbench_announcements"`
 	ImageWorkbenchAnnouncementIntervalSeconds int                               `json:"image_workbench_announcement_interval_seconds"`
 	AffiliateRebateRate                       *float64                          `json:"affiliate_rebate_rate"`
@@ -1638,6 +1642,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ImageGenerationMaxQueuedJobs:              req.ImageGenerationMaxQueuedJobs,
 		ImageWorkbenchAnnouncements:               dto.ImageWorkbenchAnnouncementsToService(req.ImageWorkbenchAnnouncements),
 		ImageWorkbenchAnnouncementIntervalSeconds: req.ImageWorkbenchAnnouncementIntervalSeconds,
+		DedicatedImageEnabled:                     req.DedicatedImageEnabled,
+		DedicatedImageWorkerEnabled:               req.DedicatedImageWorkerEnabled,
+		DedicatedImageCodexBridgeEnabled:          req.DedicatedImageCodexBridgeEnabled,
+		DedicatedImageFallbackToGeneral:           req.DedicatedImageFallbackToGeneral,
 		AffiliateRebateRate:                       affiliateRebateRate,
 		AffiliateRebateFreezeHours:                affiliateRebateFreezeHours,
 		AffiliateRebateDurationDays:               affiliateRebateDurationDays,
@@ -2225,6 +2233,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ImageGenerationQueueEnabled:                            updatedSettings.ImageGenerationQueueEnabled,
 		ImageGenerationMaxActiveJobs:                           updatedSettings.ImageGenerationMaxActiveJobs,
 		ImageGenerationMaxQueuedJobs:                           updatedSettings.ImageGenerationMaxQueuedJobs,
+		DedicatedImageEnabled:                                  updatedSettings.DedicatedImageEnabled,
+		DedicatedImageWorkerEnabled:                            updatedSettings.DedicatedImageWorkerEnabled,
+		DedicatedImageCodexBridgeEnabled:                       updatedSettings.DedicatedImageCodexBridgeEnabled,
+		DedicatedImageFallbackToGeneral:                        updatedSettings.DedicatedImageFallbackToGeneral,
 		ImageWorkbenchAnnouncements:                            dto.ImageWorkbenchAnnouncementsFromService(updatedSettings.ImageWorkbenchAnnouncements),
 		ImageWorkbenchAnnouncementIntervalSeconds:              updatedSettings.ImageWorkbenchAnnouncementIntervalSeconds,
 		AffiliateRebateRate:                                    updatedSettings.AffiliateRebateRate,

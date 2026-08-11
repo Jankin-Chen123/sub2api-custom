@@ -638,7 +638,7 @@ func ProvideImageGenerationAccountSelector(gateway *OpenAIGatewayService, accoun
 	}
 	return &DedicatedImageAccountSelector{
 		Gateway: gateway, Accounts: accounts, ImageAdmission: admission,
-		AllowGeneralFallback: allowGeneralFallback,
+		AllowGeneralFallback: allowGeneralFallback, Config: cfg,
 	}
 }
 
@@ -693,8 +693,11 @@ func ProvideImageGenerationWorker(
 
 func ProvideImageGenerationWorkerRuntime(worker *ImageGenerationWorker, wakeup ImageGenerationWakeup, cfg *config.Config) *ImageGenerationWorkerRuntime {
 	runtime := NewImageGenerationWorkerRuntime(worker, wakeup)
-	if cfg != nil && cfg.DedicatedImage.Enabled && cfg.DedicatedImage.WorkerEnabled {
-		runtime.Start()
+	if cfg != nil {
+		runtimeSettings := cfg.DedicatedImageRuntime()
+		if runtimeSettings.Enabled && runtimeSettings.WorkerEnabled {
+			runtime.Start()
+		}
 	}
 	return runtime
 }
@@ -715,7 +718,8 @@ func ProvideImageGenerationCleanupService(
 		time.Duration(cfg.DedicatedImage.CleanupIntervalMinutes)*time.Minute,
 		cfg.DedicatedImage.CleanupBatchSize,
 	)
-	if cfg.DedicatedImage.Enabled && cfg.DedicatedImage.WorkerEnabled {
+	runtimeSettings := cfg.DedicatedImageRuntime()
+	if runtimeSettings.Enabled && runtimeSettings.WorkerEnabled {
 		svc.Start()
 	}
 	return svc
@@ -812,6 +816,9 @@ func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupReposit
 	if err := svc.LoadForwardedClientIPSettings(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: load forwarded client IP settings failed: %v", err)
 	}
+	if err := svc.LoadDedicatedImageRuntimeSettings(context.Background()); err != nil {
+		logger.LegacyPrintf("service.setting", "Warning: load dedicated image runtime settings failed: %v", err)
+	}
 	if err := svc.MigrateOpenAIAllowClaudeCodeCodexPluginSetting(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: migrate openai allow Claude Code Codex plugin setting failed: %v", err)
 	}
@@ -898,6 +905,7 @@ var ProviderSet = wire.NewSet(
 	ProvideImageGenerationWorkerRuntime,
 	ProvideImageGenerationCleanupService,
 	ProvideCodexDedicatedImageBridge,
+	ProvideDedicatedImageRuntimeController,
 	ProvideBatchImageModelPricingResolver,
 	NewBatchImagePublicService,
 	NewBatchImageDownloadService,

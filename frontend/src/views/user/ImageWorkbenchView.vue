@@ -239,29 +239,45 @@
                   {{ t('imageWorkbench.jobs.empty') }}
                 </div>
                 <div v-else class="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-                  <button
+                  <article
                     v-for="job in jobs"
                     :key="job.id"
-                    class="w-full rounded-lg border p-3 text-left transition"
+                    class="overflow-hidden rounded-lg border transition"
                     :class="job.id === selectedJobId ? 'border-blue-400 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30' : 'border-gray-200 bg-white hover:border-blue-300 dark:border-dark-700 dark:bg-dark-800'"
-                    @click="selectJob(job)"
                   >
-                    <div class="flex items-start justify-between gap-2">
-                      <span class="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{{ jobDisplayName(job) }}</span>
-                      <span :class="statusClass(job.status)" class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium">{{ statusText(job.status) }}</span>
-                    </div>
-                    <p class="mt-2 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{{ job.actual_size || job.requested_size || job.id }}</p>
-                    <p class="mt-2 text-[10px] text-gray-400">{{ formatDate(job.created_at) }}</p>
-                    <div class="mt-2 flex items-end justify-between gap-2">
-                      <p class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
-                        {{ t('imageWorkbench.preview.syncWait', { time: formatJobWaitTime(job) }) }}
-                      </p>
-                      <div class="flex shrink-0 items-center gap-1 text-[10px] font-semibold" :data-testid="`batch-metadata-${job.id}`">
-                        <span class="rounded-full bg-violet-50 px-2 py-0.5 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300">{{ t('imageWorkbench.metadata.resolution', { value: jobResolution(job) }) }}</span>
-                        <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{{ t('imageWorkbench.metadata.quality', { value: jobQuality(job) }) }}</span>
+                    <button class="block w-full p-3 text-left" type="button" @click="selectJob(job)">
+                      <div class="flex items-start justify-between gap-2">
+                        <span class="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{{ jobDisplayName(job) }}</span>
+                        <span :class="statusClass(job.status)" class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium">{{ statusText(job.status) }}</span>
                       </div>
+                      <p class="mt-2 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{{ job.actual_size || job.requested_size || job.id }}</p>
+                      <p class="mt-2 text-[10px] text-gray-400">{{ formatDate(job.created_at) }}</p>
+                      <div class="mt-2 flex items-end justify-between gap-2">
+                        <p class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
+                          {{ t('imageWorkbench.preview.syncWait', { time: formatJobWaitTime(job) }) }}
+                        </p>
+                        <div class="flex shrink-0 items-center gap-1 text-[10px] font-semibold" :data-testid="`batch-metadata-${job.id}`">
+                          <span class="rounded-full bg-violet-50 px-2 py-0.5 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300">{{ t('imageWorkbench.metadata.resolution', { value: jobResolution(job) }) }}</span>
+                          <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{{ t('imageWorkbench.metadata.quality', { value: jobQuality(job) }) }}</span>
+                        </div>
+                      </div>
+                    </button>
+                    <div class="flex justify-end border-t border-gray-100 px-3 py-2 dark:border-dark-700">
+                      <button
+                        class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50 dark:disabled:border-dark-700 dark:disabled:bg-dark-900 dark:disabled:text-gray-600"
+                        type="button"
+                        :disabled="!canDeleteJob(job) || deletingJobId === job.id"
+                        :title="canDeleteJob(job) ? t('imageWorkbench.actions.delete') : t('imageWorkbench.actions.deleteUnavailable')"
+                        :data-testid="`delete-batch-${job.id}`"
+                        @click="deleteJob(job)"
+                      >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9 14.4 18m-4.8 0L9.26 9m9.97-3.21c.34.05.68.1 1.02.16m-1.02-.16L18.1 19.67A2.25 2.25 0 0 1 15.86 21H8.14a2.25 2.25 0 0 1-2.24-2.08L4.77 5.79m14.46 0A48.1 48.1 0 0 0 15.75 5m-10.98.79c.34-.06.68-.11 1.02-.16m0 0A48.11 48.11 0 0 1 8.25 5m7.5 0V3.92c0-1.18-.91-2.16-2.09-2.2a52.86 52.86 0 0 0-3.32 0c-1.18.04-2.09 1.02-2.09 2.2V5m7.5 0a48.67 48.67 0 0 0-7.5 0" />
+                        </svg>
+                        {{ deletingJobId === job.id ? t('imageWorkbench.actions.deleting') : t('imageWorkbench.actions.delete') }}
+                      </button>
                     </div>
-                  </button>
+                  </article>
                 </div>
               </aside>
             </div>
@@ -280,7 +296,7 @@
             </div>
             <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <article v-for="job in completedJobs" :key="job.id" class="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-900">
-                <button class="block w-full text-left" type="button" @click="selectJob(job)">
+                <button class="block w-full text-left" type="button" :aria-label="t('imageWorkbench.actions.previewArtwork', { name: jobDisplayName(job) })" @click="previewArtwork(job)">
                   <div class="aspect-square overflow-hidden bg-gray-100 dark:bg-dark-800">
                     <img v-if="previewURLs[job.id]" :src="previewURLs[job.id]" :alt="jobDisplayName(job)" class="h-full w-full object-cover transition group-hover:scale-105" />
                     <span v-else class="flex h-full items-center justify-center text-xs text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</span>
@@ -295,16 +311,27 @@
                     </div>
                   </form>
                   <template v-else>
-                    <div class="flex items-center gap-2">
-                      <button class="min-w-0 flex-1 truncate text-left text-xs font-medium text-gray-800 dark:text-gray-200" type="button" @click="selectJob(job)">{{ jobDisplayName(job) }}</button>
-                      <button class="shrink-0 text-[11px] font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400" type="button" :data-testid="`rename-work-${job.id}`" @click="startRename(job)">{{ t('imageWorkbench.actions.rename') }}</button>
-                    </div>
+                    <button class="block w-full truncate text-left text-xs font-semibold text-gray-800 hover:text-blue-600 dark:text-gray-200 dark:hover:text-blue-300" type="button" @click="previewArtwork(job)">{{ jobDisplayName(job) }}</button>
                     <div class="mt-2 flex items-end justify-between gap-2">
                       <p class="min-w-0 truncate text-[10px] text-gray-400">{{ job.actual_size || job.requested_size }}</p>
                       <div class="flex shrink-0 items-center gap-1 text-[10px] font-semibold" :data-testid="`library-metadata-${job.id}`">
                         <span class="rounded-full bg-violet-50 px-2 py-0.5 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300">{{ t('imageWorkbench.metadata.resolution', { value: jobResolution(job) }) }}</span>
                         <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{{ t('imageWorkbench.metadata.quality', { value: jobQuality(job) }) }}</span>
                       </div>
+                    </div>
+                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-200 pt-3 dark:border-dark-700">
+                      <button class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70" type="button" :data-testid="`rename-work-${job.id}`" @click="startRename(job)">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.86 4.49 1.69-1.69a1.88 1.88 0 1 1 2.65 2.65L10.58 16.07a4.5 4.5 0 0 1-1.9 1.13l-2.68.8.8-2.68a4.5 4.5 0 0 1 1.13-1.9L16.86 4.5Zm0 0L19.5 7.13M18 14v4.75A2.25 2.25 0 0 1 15.75 21h-10.5A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                        </svg>
+                        {{ t('imageWorkbench.actions.rename') }}
+                      </button>
+                      <button class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-xs font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-wait disabled:opacity-60 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50" type="button" :disabled="deletingJobId === job.id" :data-testid="`delete-library-${job.id}`" @click="deleteJob(job)">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9 14.4 18m-4.8 0L9.26 9m9.97-3.21c.34.05.68.1 1.02.16m-1.02-.16L18.1 19.67A2.25 2.25 0 0 1 15.86 21H8.14a2.25 2.25 0 0 1-2.24-2.08L4.77 5.79m14.46 0A48.1 48.1 0 0 0 15.75 5m-10.98.79c.34-.06.68-.11 1.02-.16m0 0A48.11 48.11 0 0 1 8.25 5m7.5 0V3.92c0-1.18-.91-2.16-2.09-2.2a52.86 52.86 0 0 0-3.32 0c-1.18.04-2.09 1.02-2.09 2.2V5m7.5 0a48.67 48.67 0 0 0-7.5 0" />
+                        </svg>
+                        {{ deletingJobId === job.id ? t('imageWorkbench.actions.deleting') : t('imageWorkbench.actions.delete') }}
+                      </button>
                     </div>
                   </template>
                 </div>
@@ -313,6 +340,25 @@
           </div>
         </section>
       </div>
+    </div>
+
+    <div v-if="previewingJob" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" data-testid="artwork-preview" @click.self="closeArtworkPreview">
+      <section class="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-dark-800" role="dialog" aria-modal="true" :aria-label="jobDisplayName(previewingJob)">
+        <header class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-dark-700 sm:px-5">
+          <div class="min-w-0">
+            <h2 class="truncate text-lg font-semibold text-gray-900 dark:text-white">{{ jobDisplayName(previewingJob) }}</h2>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ previewingJob.actual_size || previewingJob.requested_size }}</p>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <button class="btn btn-secondary btn-sm" type="button" @click="downloadResult(previewingJob)">{{ t('imageWorkbench.actions.downloadCurrent') }}</button>
+            <button class="btn btn-secondary btn-sm" type="button" :aria-label="t('imageWorkbench.actions.closePreview')" @click="closeArtworkPreview">×</button>
+          </div>
+        </header>
+        <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[linear-gradient(135deg,#f8fafc_25%,#eef2f7_25%,#eef2f7_50%,#f8fafc_50%,#f8fafc_75%,#eef2f7_75%)] bg-[length:28px_28px] p-4 dark:bg-dark-900 sm:p-6">
+          <img v-if="previewURLs[previewingJob.id]" :src="previewURLs[previewingJob.id]" :alt="jobDisplayName(previewingJob)" class="max-h-[78vh] max-w-full rounded-xl object-contain shadow-lg" />
+          <p v-else class="text-sm text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</p>
+        </div>
+      </section>
     </div>
 
     <div v-if="editor.open" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" @keydown.esc="closeEditor">
@@ -385,6 +431,7 @@ import {
   validateImageDimensions
 } from '@/utils/imageWorkbenchDimensions'
 import {
+  deleteCachedImageWorkbenchEntry,
   getCachedImageWorkbenchBlob,
   listCachedImageWorkbenchEntries,
   putCachedImageWorkbenchBlob
@@ -455,6 +502,8 @@ const blankCanvasOpen = ref(true)
 const renamingJobId = ref('')
 const renameDraft = ref('')
 const savingJobNameId = ref('')
+const deletingJobId = ref('')
+const previewingJobId = ref('')
 const loadingKeys = ref(false)
 const loadingJobs = ref(false)
 const submitting = ref(false)
@@ -488,6 +537,7 @@ const selectedModel = computed(() => models.find(item => item.value === form.mod
 const imageCacheUserId = computed(() => Number(authStore.user?.id || 0))
 const eligibleKeys = computed(() => apiKeys.value.filter(key => key.status === 'active' && key.group?.platform === 'openai' && key.group.allow_image_generation))
 const currentJob = computed(() => jobs.value.find(job => job.id === selectedJobId.value) || null)
+const previewingJob = computed(() => jobs.value.find(job => job.id === previewingJobId.value) || null)
 const currentPreviewURL = computed(() => selectedJobId.value ? previewURLs[selectedJobId.value] : '')
 const headerModel = computed(() => selectedModel.value.value.replace(/-\d+k$/i, ''))
 const headerCanvasSize = computed(() => `${form.width} × ${form.height}`)
@@ -644,7 +694,7 @@ watch([form, referenceFiles, referenceDataURLs, referenceUrlInput], scheduleDraf
 watch([() => form.width, () => form.height], () => {
   form.size = clampDimension(Number(form.width)) + 'x' + clampDimension(Number(form.height))
 })
-watch([() => form.apiKeyId, () => form.model], () => { void loadCostEstimate() }, { immediate: true })
+watch([() => form.apiKeyId, () => form.model, () => interfaceConnected.value], () => { void loadCostEstimate() }, { immediate: true })
 
 async function loadKeys() {
   loadingKeys.value = true
@@ -1025,6 +1075,16 @@ async function selectJob(job: ImageWorkbenchJob) {
   if (job.status === 'completed' && !previewURLs[job.id]) await loadPreview(job)
 }
 
+async function previewArtwork(job: ImageWorkbenchJob) {
+  if (job.status !== 'completed') return
+  await selectJob(job)
+  previewingJobId.value = job.id
+}
+
+function closeArtworkPreview() {
+  previewingJobId.value = ''
+}
+
 async function loadPreview(job: ImageWorkbenchJob) {
   if (hasCurrentPreview(job)) return
   try {
@@ -1118,6 +1178,43 @@ async function saveJobName(job: ImageWorkbenchJob) {
     appStore.showError(error?.message || t('imageWorkbench.errors.rename'))
   } finally {
     savingJobNameId.value = ''
+  }
+}
+
+function canDeleteJob(job: ImageWorkbenchJob) {
+  return job.status === 'completed' || job.status === 'failed'
+}
+
+async function deleteJob(job: ImageWorkbenchJob) {
+  if (!canDeleteJob(job) || deletingJobId.value) return
+  if (!window.confirm(t('imageWorkbench.actions.deleteConfirm', { name: jobDisplayName(job) }))) return
+  deletingJobId.value = job.id
+  try {
+    await imageWorkbenchAPI.deleteJob(job.id)
+    jobs.value = jobs.value.filter(item => item.id !== job.id)
+    if (renamingJobId.value === job.id) cancelRename()
+    if (previewingJobId.value === job.id) closeArtworkPreview()
+    releasePreview(job.id)
+    if (imageCacheUserId.value > 0) {
+      try {
+        await deleteCachedImageWorkbenchEntry(imageCacheUserId.value, job.id)
+      } catch {
+        // The server deletion is authoritative; a stale optional cache entry must not block the UI.
+      }
+    }
+    if (selectedJobId.value === job.id) {
+      const preferred = jobs.value.find(item => item.status === 'completed') || jobs.value[0]
+      if (preferred) await selectJob(preferred)
+      else {
+        selectedJobId.value = ''
+        blankCanvasOpen.value = true
+      }
+    }
+    appStore.showSuccess(t('imageWorkbench.messages.deleted'))
+  } catch (error: any) {
+    appStore.showError(error?.message || t('imageWorkbench.errors.delete'))
+  } finally {
+    deletingJobId.value = ''
   }
 }
 

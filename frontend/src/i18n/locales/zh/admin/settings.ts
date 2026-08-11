@@ -25,6 +25,18 @@ export default {
         maxQueuedJobsHint: '只统计尚未开始上游执行的 created / queued 任务；设置为 0 表示不允许已有等待任务继续堆积。',
         safetyHint: '调大并发会增加 CPU、内存、磁盘和公网带宽压力。建议先观察峰值，再按服务器实际余量逐步增加。',
       },
+      dedicatedImage: {
+        title: '专用生图路由',
+        description: '控制 Codex 与图片接口是否使用持久化生图任务和生图专用账号。保存后立即作用于当前服务实例。',
+        enabled: '启用专用生图',
+        enabledHint: '关闭后停止拦截专用图片模型，生图工作台也将不可用。',
+        workerEnabled: '启用生图 Worker',
+        workerEnabledHint: '负责从持久化队列取出任务、调用上游并完成存储与结算。',
+        codexBridgeEnabled: '启用 Codex 生图桥接',
+        codexBridgeEnabledHint: '普通账号负责理解聊天上下文，实际图片执行交给生图专用账号。',
+        fallbackToGeneral: '专用账号不可用时允许普通账号兜底',
+        fallbackToGeneralHint: '仅会选择显式配置了苍原 HTTPS API Key 和 GPT Image 2 模型映射的普通账号，不会使用任意普通账号。',
+      },
       imageWorkbenchAnnouncements: {
         title: '生图工作台公告栏',
         description: '管理显示在生图工作台顶部的公告，公告会按顺序上下滚动。',

@@ -100,6 +100,45 @@ type Config struct {
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	DedicatedImage          DedicatedImageConfig          `mapstructure:"dedicated_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
+	dedicatedImageRuntime   atomic.Value                  // DedicatedImageRuntimeSettings
+}
+
+// DedicatedImageRuntimeSettings is the mutable subset of dedicated-image
+// configuration exposed through the admin settings page. The remaining worker
+// timings and storage limits stay deployment-owned.
+type DedicatedImageRuntimeSettings struct {
+	Enabled            bool
+	WorkerEnabled      bool
+	CodexBridgeEnabled bool
+	FallbackToGeneral  bool
+}
+
+// DedicatedImageRuntime returns the current runtime switches. Before the
+// database-backed settings are loaded, deployment config remains authoritative
+// so existing installations preserve their behavior during upgrades.
+func (c *Config) DedicatedImageRuntime() DedicatedImageRuntimeSettings {
+	if c == nil {
+		return DedicatedImageRuntimeSettings{}
+	}
+	if value := c.dedicatedImageRuntime.Load(); value != nil {
+		if settings, ok := value.(DedicatedImageRuntimeSettings); ok {
+			return settings
+		}
+	}
+	return DedicatedImageRuntimeSettings{
+		Enabled:            c.DedicatedImage.Enabled,
+		WorkerEnabled:      c.DedicatedImage.WorkerEnabled,
+		CodexBridgeEnabled: c.DedicatedImage.CodexBridgeEnabled,
+		FallbackToGeneral:  c.DedicatedImage.FallbackToGeneral,
+	}
+}
+
+// SetDedicatedImageRuntime atomically publishes settings to request handlers,
+// schedulers, and the worker runtime.
+func (c *Config) SetDedicatedImageRuntime(settings DedicatedImageRuntimeSettings) {
+	if c != nil {
+		c.dedicatedImageRuntime.Store(settings)
+	}
 }
 
 type LogConfig struct {

@@ -34,6 +34,7 @@ type DedicatedImageHandler struct {
 	syncTimeout    time.Duration
 	codexHeartbeat time.Duration
 	maxReadBytes   int64
+	cfg            *config.Config
 }
 
 func NewDedicatedImageHandler(
@@ -53,6 +54,7 @@ func NewDedicatedImageHandler(
 	}
 	if cfg != nil {
 		h.enabled = cfg.DedicatedImage.Enabled
+		h.cfg = cfg
 		h.forceCodexCLI = cfg.Gateway.ForceCodexCLI
 		if cfg.Gateway.ImageNonstreamKeepaliveInterval > 0 {
 			h.codexHeartbeat = time.Duration(cfg.Gateway.ImageNonstreamKeepaliveInterval) * time.Second
@@ -67,11 +69,21 @@ func NewDedicatedImageHandler(
 	return h
 }
 
+func (h *DedicatedImageHandler) runtimeEnabled() bool {
+	if h == nil {
+		return false
+	}
+	if h.cfg != nil {
+		return h.cfg.DedicatedImageRuntime().Enabled
+	}
+	return h.enabled
+}
+
 // Dispatch sends only the three explicit Cangyuan tier models through the
 // durable dedicated path. Every other request is restored byte-for-byte and
 // delegated to the existing Images implementation.
 func (h *DedicatedImageHandler) Dispatch(c *gin.Context, fallback gin.HandlerFunc) {
-	if h == nil || !h.enabled || h.openAI == nil || h.openAI.gatewayService == nil {
+	if h == nil || !h.runtimeEnabled() || h.openAI == nil || h.openAI.gatewayService == nil {
 		fallback(c)
 		return
 	}

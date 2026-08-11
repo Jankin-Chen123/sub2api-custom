@@ -65,6 +65,12 @@ export default {
       downloading: '下载中……',
       newCanvas: '新建画布',
       rename: '重命名',
+      delete: '删除',
+      deleting: '删除中…',
+      deleteUnavailable: '生成中的任务暂不可删除',
+      deleteConfirm: '确定删除“{name}”吗？此操作无法撤销。',
+      previewArtwork: '预览 {name}',
+      closePreview: '关闭预览',
       saveName: '保存',
       cancel: '取消'
     },
@@ -122,6 +128,7 @@ export default {
     messages: {
       submitted: '任务已提交；即使离开页面也会继续执行。',
       renamed: '作品名称已更新。',
+      deleted: '作品已删除。',
       downloadAllSuccess: '已开始下载 {count} 张图片。'
     },
     errors: {
@@ -136,6 +143,7 @@ export default {
       invalidMask: '蒙版必须是 10 MB 以内的 PNG',
       preview: '加载预览失败',
       rename: '重命名作品失败',
+      delete: '删除作品失败',
       download: '下载图片失败'
     }
   }

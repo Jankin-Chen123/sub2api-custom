@@ -76,6 +76,7 @@ type CodexDedicatedImageBridge struct {
 	syncTimeout   time.Duration
 	sseKeepalive  time.Duration
 	maxReadBytes  int64
+	cfg           *config.Config
 	replayStore   CodexDedicatedImageReplayStore
 	replayMu      sync.RWMutex
 	replays       map[string]codexDedicatedImageReplay
@@ -113,6 +114,7 @@ func NewCodexDedicatedImageBridge(
 		}
 	}
 	if cfg != nil {
+		b.cfg = cfg
 		b.enabled = cfg.DedicatedImage.Enabled && cfg.DedicatedImage.WorkerEnabled && cfg.DedicatedImage.CodexBridgeEnabled
 		b.forceCodexCLI = cfg.Gateway.ForceCodexCLI
 		if cfg.DedicatedImage.SyncWaitTimeoutSeconds > 0 {
@@ -128,8 +130,19 @@ func NewCodexDedicatedImageBridge(
 	return b
 }
 
+func (b *CodexDedicatedImageBridge) runtimeEnabled() bool {
+	if b == nil {
+		return false
+	}
+	if b.cfg != nil {
+		settings := b.cfg.DedicatedImageRuntime()
+		return settings.Enabled && settings.WorkerEnabled && settings.CodexBridgeEnabled
+	}
+	return b.enabled
+}
+
 func (b *CodexDedicatedImageBridge) shouldHandleCommon(c *gin.Context, body []byte, apiKey *APIKey, requireImageDeclaration bool) bool {
-	if b == nil || !b.enabled || b.gateway == nil || b.worker == nil || !b.worker.Running() || apiKey == nil {
+	if b == nil || !b.runtimeEnabled() || b.gateway == nil || b.worker == nil || !b.worker.Running() || apiKey == nil {
 		return false
 	}
 	if apiKey.Group != nil {

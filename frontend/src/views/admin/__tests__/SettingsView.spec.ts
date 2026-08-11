@@ -527,6 +527,10 @@ const baseSettingsResponse = {
   subscription_expiry_notify_enabled: true,
   account_quota_notify_enabled: false,
   account_quota_notify_emails: [],
+  dedicated_image_enabled: true,
+  dedicated_image_worker_enabled: true,
+  dedicated_image_codex_bridge_enabled: true,
+  dedicated_image_fallback_to_general: false,
   // 平台限额嵌套字段（新后端契约）
   default_platform_quotas: {
     anthropic:   { daily: null, weekly: null, monthly: null },
@@ -595,6 +599,16 @@ async function openUsersTab(wrapper: ReturnType<typeof mountView>) {
 
   expect(usersTabButton).toBeDefined();
   await usersTabButton?.trigger("click");
+  await flushPromises();
+}
+
+async function openImageGenerationTab(wrapper: ReturnType<typeof mountView>) {
+  const tabButton = wrapper
+    .findAll("button")
+    .find((node) => node.text().includes("admin.settings.tabs.imageGeneration"));
+
+  expect(tabButton).toBeDefined();
+  await tabButton?.trigger("click");
   await flushPromises();
 }
 
@@ -705,6 +719,29 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({ compact_home_enabled: true }),
+    );
+  });
+
+  it("loads and saves dedicated image runtime switches", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openImageGenerationTab(wrapper);
+
+    expect((wrapper.get('[data-testid="dedicated-image-enabled"]').element as HTMLInputElement).checked).toBe(true);
+    expect((wrapper.get('[data-testid="dedicated-image-worker-enabled"]').element as HTMLInputElement).checked).toBe(true);
+    expect((wrapper.get('[data-testid="dedicated-image-codex-bridge-enabled"]').element as HTMLInputElement).checked).toBe(true);
+
+    await wrapper.get('[data-testid="dedicated-image-fallback-to-general"]').setValue(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedicated_image_enabled: true,
+        dedicated_image_worker_enabled: true,
+        dedicated_image_codex_bridge_enabled: true,
+        dedicated_image_fallback_to_general: true,
+      }),
     );
   });
 

@@ -142,6 +142,7 @@ type ImageGenerationJobRepository interface {
 	GetImageGenerationJobForOwner(ctx context.Context, userID, apiKeyID int64, jobID string) (*ImageGenerationJob, error)
 	ListImageGenerationJobsForOwner(ctx context.Context, userID int64, filter ImageGenerationJobFilter) ([]*ImageGenerationJob, error)
 	RenameImageGenerationJobForUser(ctx context.Context, userID int64, jobID, displayName string) (*ImageGenerationJob, error)
+	DeleteImageGenerationJobForUser(ctx context.Context, userID int64, jobID, source string) error
 	ClaimNextImageGenerationJob(ctx context.Context, now time.Time, leaseDuration time.Duration) (*ImageGenerationJob, error)
 	RenewImageGenerationJobLease(ctx context.Context, jobID string, claimVersion int64, leaseUntil time.Time) error
 	QueueImageGenerationJob(ctx context.Context, jobID string, claimVersion int64, heldCost float64, queuedAt time.Time) error

@@ -173,6 +173,10 @@ type SystemSettings struct {
 	ImageGenerationQueueEnabled               bool                         `json:"image_generation_queue_enabled"`
 	ImageGenerationMaxActiveJobs              int                          `json:"image_generation_max_active_jobs"`
 	ImageGenerationMaxQueuedJobs              int                          `json:"image_generation_max_queued_jobs"`
+	DedicatedImageEnabled                     bool                         `json:"dedicated_image_enabled"`
+	DedicatedImageWorkerEnabled               bool                         `json:"dedicated_image_worker_enabled"`
+	DedicatedImageCodexBridgeEnabled          bool                         `json:"dedicated_image_codex_bridge_enabled"`
+	DedicatedImageFallbackToGeneral           bool                         `json:"dedicated_image_fallback_to_general"`
 	ImageWorkbenchAnnouncements               []ImageWorkbenchAnnouncement `json:"image_workbench_announcements"`
 	ImageWorkbenchAnnouncementIntervalSeconds int                          `json:"image_workbench_announcement_interval_seconds"`
 	AffiliateRebateRate                       float64                      `json:"affiliate_rebate_rate"`

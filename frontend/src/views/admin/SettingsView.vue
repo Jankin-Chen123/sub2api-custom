@@ -6020,6 +6020,55 @@
 
         <!-- Tab: Image generation -->
         <div v-show="activeTab === 'imageGeneration'" class="space-y-6">
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t("admin.settings.dedicatedImage.title") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.dedicatedImage.description") }}
+              </p>
+            </div>
+            <div class="divide-y divide-gray-100 px-6 dark:divide-dark-700">
+              <div class="flex items-center justify-between gap-6 py-4">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">{{ t("admin.settings.dedicatedImage.enabled") }}</label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">{{ t("admin.settings.dedicatedImage.enabledHint") }}</p>
+                </div>
+                <Toggle v-model="form.dedicated_image_enabled" data-testid="dedicated-image-enabled" />
+              </div>
+              <div class="flex items-center justify-between gap-6 py-4">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">{{ t("admin.settings.dedicatedImage.workerEnabled") }}</label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">{{ t("admin.settings.dedicatedImage.workerEnabledHint") }}</p>
+                </div>
+                <Toggle v-model="form.dedicated_image_worker_enabled" :disabled="!form.dedicated_image_enabled" data-testid="dedicated-image-worker-enabled" />
+              </div>
+              <div class="flex items-center justify-between gap-6 py-4">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">{{ t("admin.settings.dedicatedImage.codexBridgeEnabled") }}</label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">{{ t("admin.settings.dedicatedImage.codexBridgeEnabledHint") }}</p>
+                </div>
+                <Toggle
+                  v-model="form.dedicated_image_codex_bridge_enabled"
+                  :disabled="!form.dedicated_image_enabled || !form.dedicated_image_worker_enabled"
+                  data-testid="dedicated-image-codex-bridge-enabled"
+                />
+              </div>
+              <div class="flex items-center justify-between gap-6 py-4">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">{{ t("admin.settings.dedicatedImage.fallbackToGeneral") }}</label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">{{ t("admin.settings.dedicatedImage.fallbackToGeneralHint") }}</p>
+                </div>
+                <Toggle
+                  v-model="form.dedicated_image_fallback_to_general"
+                  :disabled="!form.dedicated_image_enabled || !form.dedicated_image_worker_enabled"
+                  data-testid="dedicated-image-fallback-to-general"
+                />
+              </div>
+            </div>
+          </div>
+
           <!-- Image generation queue protection -->
           <div class="card">
             <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
@@ -9404,6 +9453,10 @@ const form = reactive<SettingsForm>({
   image_generation_queue_enabled: true,
   image_generation_max_active_jobs: 1,
   image_generation_max_queued_jobs: 100,
+  dedicated_image_enabled: false,
+  dedicated_image_worker_enabled: false,
+  dedicated_image_codex_bridge_enabled: false,
+  dedicated_image_fallback_to_general: false,
   image_workbench_announcements: [],
   image_workbench_announcement_interval_seconds: 5,
   default_subscriptions: [],
@@ -11024,6 +11077,10 @@ async function saveSettings() {
       image_generation_queue_enabled: form.image_generation_queue_enabled,
       image_generation_max_active_jobs: Math.max(1, Math.floor(Number(form.image_generation_max_active_jobs) || 1)),
       image_generation_max_queued_jobs: Math.max(0, Math.floor(Number(form.image_generation_max_queued_jobs) || 0)),
+      dedicated_image_enabled: form.dedicated_image_enabled,
+      dedicated_image_worker_enabled: form.dedicated_image_worker_enabled,
+      dedicated_image_codex_bridge_enabled: form.dedicated_image_codex_bridge_enabled,
+      dedicated_image_fallback_to_general: form.dedicated_image_fallback_to_general,
       image_workbench_announcements: form.image_workbench_announcements,
       image_workbench_announcement_interval_seconds: Math.min(3600, Math.max(1, Math.floor(Number(form.image_workbench_announcement_interval_seconds) || 5))),
       default_subscriptions: normalizedDefaultSubscriptions,

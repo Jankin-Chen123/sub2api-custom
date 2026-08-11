@@ -310,6 +310,10 @@ const (
 	SettingKeyImageGenerationQueueEnabled  = "image_generation_queue_enabled"
 	SettingKeyImageGenerationMaxActiveJobs = "image_generation_max_active_jobs"
 	SettingKeyImageGenerationMaxQueuedJobs = "image_generation_max_queued_jobs"
+	SettingKeyDedicatedImageEnabled        = "dedicated_image_enabled"
+	SettingKeyDedicatedImageWorkerEnabled  = "dedicated_image_worker_enabled"
+	SettingKeyDedicatedImageCodexBridge    = "dedicated_image_codex_bridge_enabled"
+	SettingKeyDedicatedImageFallback       = "dedicated_image_fallback_to_general"
 	// 生图工作台公告栏
 	SettingKeyImageWorkbenchAnnouncements            = "image_workbench_announcements"
 	SettingKeyImageWorkbenchAnnouncementIntervalSecs = "image_workbench_announcement_interval_seconds"

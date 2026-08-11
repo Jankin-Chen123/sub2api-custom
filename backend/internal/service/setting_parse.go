@@ -90,6 +90,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("marshal default forwarded client IP headers: %w", err)
 	}
+	dedicatedImageDefaults := s.dedicatedImageDefaults()
 
 	// 初始化默认设置
 	defaults := map[string]string{
@@ -170,6 +171,10 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyImageGenerationQueueEnabled:               "true",
 		SettingKeyImageGenerationMaxActiveJobs:              "1",
 		SettingKeyImageGenerationMaxQueuedJobs:              "100",
+		SettingKeyDedicatedImageEnabled:                     strconv.FormatBool(dedicatedImageDefaults.Enabled),
+		SettingKeyDedicatedImageWorkerEnabled:               strconv.FormatBool(dedicatedImageDefaults.WorkerEnabled),
+		SettingKeyDedicatedImageCodexBridge:                 strconv.FormatBool(dedicatedImageDefaults.CodexBridgeEnabled),
+		SettingKeyDedicatedImageFallback:                    strconv.FormatBool(dedicatedImageDefaults.FallbackToGeneral),
 		SettingKeyImageWorkbenchAnnouncements:               "[]",
 		SettingKeyImageWorkbenchAnnouncementIntervalSecs:    strconv.Itoa(imageWorkbenchAnnouncementIntervalDefault),
 		SettingKeyAffiliateRebateRate:                       strconv.FormatFloat(AffiliateRebateRateDefault, 'f', 8, 64),
@@ -347,6 +352,19 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 			forwardedClientIPHeaders = parsed
 		}
 	}
+	dedicatedImage := s.dedicatedImageDefaults()
+	if value, ok := settings[SettingKeyDedicatedImageEnabled]; ok {
+		dedicatedImage.Enabled = value == "true"
+	}
+	if value, ok := settings[SettingKeyDedicatedImageWorkerEnabled]; ok {
+		dedicatedImage.WorkerEnabled = value == "true"
+	}
+	if value, ok := settings[SettingKeyDedicatedImageCodexBridge]; ok {
+		dedicatedImage.CodexBridgeEnabled = value == "true"
+	}
+	if value, ok := settings[SettingKeyDedicatedImageFallback]; ok {
+		dedicatedImage.FallbackToGeneral = value == "true"
+	}
 	result := &SystemSettings{
 		RegistrationEnabled:                    settings[SettingKeyRegistrationEnabled] == "true",
 		EmailVerifyEnabled:                     emailVerifyEnabled,
@@ -428,6 +446,10 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	}
 	result.ImageGenerationMaxActiveJobs = normalizeImageGenerationMaxActiveJobs(parsePositiveSetting(settings[SettingKeyImageGenerationMaxActiveJobs], imageGenerationQueueDefaultMaxActive))
 	result.ImageGenerationMaxQueuedJobs = normalizeImageGenerationMaxQueuedJobs(parseNonNegativeSetting(settings[SettingKeyImageGenerationMaxQueuedJobs], imageGenerationQueueDefaultMaxQueued))
+	result.DedicatedImageEnabled = dedicatedImage.Enabled
+	result.DedicatedImageWorkerEnabled = dedicatedImage.WorkerEnabled
+	result.DedicatedImageCodexBridgeEnabled = dedicatedImage.CodexBridgeEnabled
+	result.DedicatedImageFallbackToGeneral = dedicatedImage.FallbackToGeneral
 	result.ImageWorkbenchAnnouncementIntervalSeconds = normalizeImageWorkbenchAnnouncementInterval(parsePositiveSetting(settings[SettingKeyImageWorkbenchAnnouncementIntervalSecs], imageWorkbenchAnnouncementIntervalDefault))
 
 	if rpm, err := strconv.Atoi(settings[SettingKeyDefaultUserRPMLimit]); err == nil && rpm >= 0 {

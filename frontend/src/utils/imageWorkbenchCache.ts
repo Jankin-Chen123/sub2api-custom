@@ -215,3 +215,10 @@ export async function putCachedImageWorkbenchBlob(userId: number, job: ImageWork
   transaction.objectStore(IMAGE_CACHE_STORE_NAME).put(record)
   await completion
 }
+
+export async function deleteCachedImageWorkbenchEntry(userId: number, jobId: string): Promise<void> {
+  if (userId <= 0 || !jobId) return
+  const db = await openImageCacheDB()
+  if (!db) return
+  await deleteRecords(db, [imageCacheKey(userId, jobId)])
+}

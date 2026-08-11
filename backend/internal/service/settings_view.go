@@ -174,6 +174,10 @@ type SystemSettings struct {
 	ImageGenerationQueueEnabled               bool
 	ImageGenerationMaxActiveJobs              int
 	ImageGenerationMaxQueuedJobs              int
+	DedicatedImageEnabled                     bool
+	DedicatedImageWorkerEnabled               bool
+	DedicatedImageCodexBridgeEnabled          bool
+	DedicatedImageFallbackToGeneral           bool
 	ImageWorkbenchAnnouncements               []ImageWorkbenchAnnouncement
 	ImageWorkbenchAnnouncementIntervalSeconds int
 	RiskControlEnabled                        bool

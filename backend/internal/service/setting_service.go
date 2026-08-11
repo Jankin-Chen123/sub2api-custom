@@ -53,6 +53,7 @@ type SettingService struct {
 	onUpdate                    func() // Callback when settings are updated (for cache invalidation)
 	version                     string // Application version
 	webSearchManagerBuilder     WebSearchManagerBuilder
+	dedicatedImageRuntimeApply  func(config.DedicatedImageRuntimeSettings)
 	antigravityUAVersionCache   atomic.Value // *cachedAntigravityUserAgentVersion
 	antigravityUAVersionSF      singleflight.Group
 	openAICodexUACache          atomic.Value // *cachedOpenAICodexUserAgent
@@ -78,6 +79,67 @@ type SettingService struct {
 	// instance owns its own cache, no shared package-level state.
 	openAIQuotaAutoPauseSettingsCache atomic.Value // *cachedOpenAIQuotaAutoPauseSettings
 	openAIQuotaAutoPauseSettingsSF    singleflight.Group
+}
+
+// SetDedicatedImageRuntimeApplier wires the runtime lifecycle controller. It
+// is installed after all worker dependencies have been constructed.
+func (s *SettingService) SetDedicatedImageRuntimeApplier(apply func(config.DedicatedImageRuntimeSettings)) {
+	if s != nil {
+		s.dedicatedImageRuntimeApply = apply
+	}
+}
+
+func (s *SettingService) dedicatedImageDefaults() config.DedicatedImageRuntimeSettings {
+	if s == nil || s.cfg == nil {
+		return config.DedicatedImageRuntimeSettings{}
+	}
+	return config.DedicatedImageRuntimeSettings{
+		Enabled:            s.cfg.DedicatedImage.Enabled,
+		WorkerEnabled:      s.cfg.DedicatedImage.WorkerEnabled,
+		CodexBridgeEnabled: s.cfg.DedicatedImage.CodexBridgeEnabled,
+		FallbackToGeneral:  s.cfg.DedicatedImage.FallbackToGeneral,
+	}
+}
+
+// LoadDedicatedImageRuntimeSettings migrates deployment defaults into the
+// settings table once, then publishes the effective runtime switches.
+func (s *SettingService) LoadDedicatedImageRuntimeSettings(ctx context.Context) error {
+	if s == nil || s.settingRepo == nil {
+		return nil
+	}
+	keys := []string{
+		SettingKeyDedicatedImageEnabled,
+		SettingKeyDedicatedImageWorkerEnabled,
+		SettingKeyDedicatedImageCodexBridge,
+		SettingKeyDedicatedImageFallback,
+	}
+	values, err := s.settingRepo.GetMultiple(ctx, keys)
+	if err != nil {
+		return fmt.Errorf("get dedicated image runtime settings: %w", err)
+	}
+	defaults := s.dedicatedImageDefaults()
+	settings := defaults
+	updates := make(map[string]string)
+	read := func(key string, fallback bool) bool {
+		if value, ok := values[key]; ok {
+			return value == "true"
+		}
+		updates[key] = fmt.Sprintf("%t", fallback)
+		return fallback
+	}
+	settings.Enabled = read(SettingKeyDedicatedImageEnabled, defaults.Enabled)
+	settings.WorkerEnabled = read(SettingKeyDedicatedImageWorkerEnabled, defaults.WorkerEnabled)
+	settings.CodexBridgeEnabled = read(SettingKeyDedicatedImageCodexBridge, defaults.CodexBridgeEnabled)
+	settings.FallbackToGeneral = read(SettingKeyDedicatedImageFallback, defaults.FallbackToGeneral)
+	if len(updates) > 0 {
+		if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
+			return fmt.Errorf("migrate dedicated image runtime settings: %w", err)
+		}
+	}
+	if s.cfg != nil {
+		s.cfg.SetDedicatedImageRuntime(settings)
+	}
+	return nil
 }
 
 // DefaultPlatformQuotaSetting 单 platform 三档限额（nil = 沿用上层；0 = 显式禁用；>0 = 上限）
