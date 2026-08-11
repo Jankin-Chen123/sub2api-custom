@@ -18,18 +18,18 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestBuildCodexDedicatedImagePlannerBody_PreservesClientImageTool(t *testing.T) {
+func TestBuildCodexDedicatedImagePlannerBody_ReplacesClientImageToolWithPrivatePlanner(t *testing.T) {
 	body := []byte(`{"model":"gpt-5","stream":false,"tools":[{"type":"image_generation"},{"type":"namespace","name":"image_gen"},{"type":"function","name":"image_gen__imagegen"},{"type":"function","name":"exec_command","parameters":{"type":"object"}}],"tool_choice":{"type":"image_generation"}}`)
 
 	got, err := buildCodexDedicatedImagePlannerBody(body)
 	require.NoError(t, err)
 	require.NotContains(t, string(got), `"type":"image_generation"`)
-	require.Contains(t, string(got), `"name":"image_gen"`)
-	require.Contains(t, string(got), `"name":"image_gen__imagegen"`)
-	require.NotContains(t, string(got), codexDedicatedImagePlannerToolName)
-	require.Equal(t, int64(3), gjson.GetBytes(got, "tools.#").Int())
+	require.NotContains(t, string(got), `"name":"image_gen"`)
+	require.NotContains(t, string(got), `"name":"image_gen__imagegen"`)
+	require.Contains(t, string(got), codexDedicatedImagePlannerToolName)
+	require.Equal(t, int64(2), gjson.GetBytes(got, "tools.#").Int())
 	require.Contains(t, string(got), `"tool_choice":"auto"`)
-	require.NotContains(t, string(got), "self-contained prompt")
+	require.Contains(t, string(got), "self-contained prompt")
 }
 
 func TestBuildCodexDedicatedImagePlannerBody_ReplacesRemovedImageToolChoice(t *testing.T) {
@@ -56,14 +56,14 @@ func TestBuildCodexDedicatedImagePlannerBody_ReplacesRemovedImageToolChoice(t *t
 	}
 }
 
-func TestBuildCodexDedicatedImagePlannerBody_PreservesClientImageToolChoice(t *testing.T) {
+func TestBuildCodexDedicatedImagePlannerBody_ReplacesClientImageToolChoice(t *testing.T) {
 	body := []byte(`{"model":"gpt-5","tools":[{"type":"namespace","name":"image_gen"}],"tool_choice":{"type":"namespace","name":"image_gen"}}`)
 
 	got, err := buildCodexDedicatedImagePlannerBody(body)
 	require.NoError(t, err)
-	require.Equal(t, "namespace", gjson.GetBytes(got, "tool_choice.type").String())
-	require.Equal(t, "image_gen", gjson.GetBytes(got, "tool_choice.name").String())
-	require.NotContains(t, string(got), codexDedicatedImagePlannerToolName)
+	require.Equal(t, "auto", gjson.GetBytes(got, "tool_choice").String())
+	require.NotContains(t, string(got), `"name":"image_gen"`)
+	require.Contains(t, string(got), codexDedicatedImagePlannerToolName)
 }
 
 func TestCodexDedicatedImagePlannerToolUsesCompatibleNonStrictSchema(t *testing.T) {

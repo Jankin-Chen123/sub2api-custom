@@ -827,35 +827,11 @@ func buildCodexDedicatedImagePlannerBody(body []byte) ([]byte, error) {
 		return nil, errors.New("codex image planner received invalid JSON")
 	}
 	tools, _ := root["tools"].([]any)
-	clientImageToolAvailable := false
-	for _, rawTool := range tools {
-		tool, _ := rawTool.(map[string]any)
-		if isCodexClientLocalImageGenerationTool(tool) {
-			clientImageToolAvailable = true
-			break
-		}
-	}
-	// Modern Codex clients expose image_gen as a client-executed namespace.
-	// Keep that tool on the planner request so Codex can execute it locally and
-	// publish its native image-generation UI item. The resulting Images API call
-	// is routed to the dedicated image-only account by DedicatedImageHandler.
-	// A hosted image_generation declaration is still removed here because it
-	// would execute on the general planner account instead of the image account.
-	if clientImageToolAvailable {
-		filtered := make([]any, 0, len(tools))
-		for _, rawTool := range tools {
-			tool, _ := rawTool.(map[string]any)
-			if strings.TrimSpace(codexStringValue(tool["type"])) == "image_generation" {
-				continue
-			}
-			filtered = append(filtered, rawTool)
-		}
-		root["tools"] = filtered
-		if isCodexHostedImageGenerationToolChoice(root["tool_choice"]) {
-			root["tool_choice"] = "auto"
-		}
-		return json.Marshal(root)
-	}
+	// Codex's image_gen namespace is executed by the desktop client and does
+	// not use the configured model-provider base URL. Leaving it in the planner
+	// request bypasses the dedicated account pool entirely. Replace every client
+	// or hosted image tool with the private server-side planner tool so the
+	// resulting durable job is always scheduled through the image-only pool.
 	filtered := make([]any, 0, len(tools)+1)
 	for _, rawTool := range tools {
 		tool, _ := rawTool.(map[string]any)
@@ -876,28 +852,6 @@ func buildCodexDedicatedImagePlannerBody(body []byte) ([]byte, error) {
 		root["instructions"] = instruction
 	}
 	return json.Marshal(root)
-}
-
-func isCodexClientLocalImageGenerationTool(tool map[string]any) bool {
-	if tool == nil {
-		return false
-	}
-	toolType := strings.TrimSpace(codexStringValue(tool["type"]))
-	name := strings.TrimSpace(codexStringValue(tool["name"]))
-	namespace := strings.TrimSpace(codexStringValue(tool["namespace"]))
-	if toolType == "namespace" && (isOpenAIImageGenNamespaceName(name) || isOpenAIImageGenNamespaceName(namespace)) {
-		return true
-	}
-	if isOpenAIImageGenFunctionReference(namespace, name) {
-		return true
-	}
-	if function, ok := tool["function"].(map[string]any); ok {
-		return isOpenAIImageGenFunctionReference(
-			strings.TrimSpace(codexStringValue(function["namespace"])),
-			strings.TrimSpace(codexStringValue(function["name"])),
-		)
-	}
-	return false
 }
 
 // prepareCodexDedicatedImagePlannerHTTPBody converts a Responses WebSocket
@@ -975,20 +929,6 @@ func isCodexClientImageGenerationTool(tool map[string]any) bool {
 			strings.TrimSpace(codexStringValue(function["namespace"])),
 			strings.TrimSpace(codexStringValue(function["name"])),
 		)
-	}
-	return false
-}
-
-func isCodexHostedImageGenerationToolChoice(choice any) bool {
-	value, ok := choice.(map[string]any)
-	if !ok {
-		return strings.EqualFold(strings.TrimSpace(codexStringValue(choice)), "image_generation")
-	}
-	if strings.EqualFold(strings.TrimSpace(codexStringValue(value["type"])), "image_generation") {
-		return true
-	}
-	if tool, ok := value["tool"].(map[string]any); ok {
-		return isCodexHostedImageGenerationToolChoice(tool)
 	}
 	return false
 }
