@@ -50,6 +50,21 @@ func Test194And195MigrationPrefixesAreExplicitlyAllowlisted(t *testing.T) {
 }
 
 func TestFutureCustomMigrationsUseIsolatedNamespace(t *testing.T) {
+	for _, name := range []string{
+		"custom_20260811_image_quality.sql",
+		"custom_20260811_usage_log_index_notx.sql",
+	} {
+		require.Regexp(t, customMigrationNamePattern, name)
+	}
+	for _, name := range []string{
+		"custom_image_quality.sql",
+		"custom_2026-08-11_image_quality.sql",
+		"custom_20260811_ImageQuality.sql",
+		"custom_20260811_usage_log_index.sql.bak",
+	} {
+		require.NotRegexp(t, customMigrationNamePattern, name)
+	}
+
 	entries, err := FS.ReadDir(".")
 	require.NoError(t, err)
 	for _, entry := range entries {
