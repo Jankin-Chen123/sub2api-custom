@@ -79,6 +79,16 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "usage_logs", "upstream_response_model", "character varying", 200, true)
 	requireColumn(t, tx, "usage_logs", "upstream_model_mismatch", "boolean", 0, true)
 	requireIndex(t, tx, "usage_logs", usageLogsUpstreamModelMismatchIndex)
+	requireIndexValid(t, tx, usageLogsUpstreamModelMismatchIndex)
+
+	// Custom durable image migrations 194-197 must coexist with the official
+	// usage-log migrations that reuse the same numeric prefixes.
+	requireColumn(t, tx, "image_generation_jobs", "job_id", "character varying", 64, false)
+	requireColumn(t, tx, "image_generation_jobs", "quality", "character varying", 32, true)
+	requireColumn(t, tx, "image_generation_jobs", "display_name", "character varying", 80, true)
+	requireColumn(t, tx, "image_generation_payloads", "payload_ref", "text", 0, false)
+	requireIndex(t, tx, "image_generation_jobs", "image_generation_jobs_claim_idx")
+	requireIndex(t, tx, "image_generation_payloads", "image_generation_payloads_expiry_idx")
 
 	var mismatchIndexDef string
 	require.NoError(t, tx.QueryRowContext(context.Background(), `
@@ -224,6 +234,22 @@ SELECT EXISTS (
 `, table, index).Scan(&exists)
 	require.NoError(t, err, "query pg_indexes for %s.%s", table, index)
 	require.True(t, exists, "expected index %s on %s", index, table)
+}
+
+func requireIndexValid(t *testing.T, tx *sql.Tx, index string) {
+	t.Helper()
+
+	var valid bool
+	err := tx.QueryRowContext(context.Background(), `
+SELECT i.indisvalid
+FROM pg_class idx
+JOIN pg_index i ON i.indexrelid = idx.oid
+JOIN pg_namespace ns ON ns.oid = idx.relnamespace
+WHERE ns.nspname = 'public'
+  AND idx.relname = $1
+`, index).Scan(&valid)
+	require.NoError(t, err, "query validity for index %s", index)
+	require.True(t, valid, "expected index %s to be valid", index)
 }
 
 func requireIndexAbsent(t *testing.T, tx *sql.Tx, table, index string) {

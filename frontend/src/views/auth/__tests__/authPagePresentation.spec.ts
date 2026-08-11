@@ -40,9 +40,10 @@ describe('auth page presentation contract', () => {
     )
   })
 
-  it('keeps Turnstile on credential entry pages only', () => {
+  it('keeps the configured captcha challenge on credential entry pages only', () => {
     for (const source of [viewSources.login, viewSources.register, viewSources.forgot]) {
-      expect(source).toContain('v-if="turnstileEnabled && turnstileSiteKey"')
+      expect(source).toContain('v-if="captchaEnabled"')
+      expect(source).toContain('auth-turnstile-slot')
       expect(source).toContain('<TurnstileWidget')
     }
 
