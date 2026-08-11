@@ -266,14 +266,12 @@ func TestGrokSSOImportCredentialsDefaultsToOfficialBaseURL(t *testing.T) {
 	require.Equal(t, "at-2", credentials["access_token"])
 }
 
-func TestGrokSSOImportWorkerRecoversPanic(t *testing.T) {
+func TestGrokSSOImportWorkerHandlesMissingOAuthService(t *testing.T) {
 	h := &GrokOAuthHandler{}
 	result := h.safeCreateAccountFromSSOToken(context.Background(), GrokSSOToOAuthRequest{}, "token", 2, 3)
-	// Without a service, createAccountFromSSOToken would panic on nil service access.
-	// Recovery must convert that into a failed item and keep the worker alive.
 	require.False(t, result.created)
 	require.Equal(t, 2, result.item.Index)
-	require.Contains(t, result.item.Error, "internal worker panic")
+	require.Contains(t, result.item.Error, "GROK_OAUTH_CLIENT_NOT_CONFIGURED")
 }
 
 func TestGrokOAuthHandlerReconcileDefaultsToDryRun(t *testing.T) {
