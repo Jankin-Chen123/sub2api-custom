@@ -6,11 +6,25 @@ This directory contains SQL migration files for database schema changes. The mig
 
 ## Migration File Naming
 
-Format: `NNN_description.sql`
-- `NNN`: Sequential number (e.g., 001, 002, 003)
-- `description`: Brief description in snake_case
+Upstream migrations generally use `NNN_description.sql`, where `NNN` is the
+release sequence. The runner identifies an applied migration by its **full
+filename and SHA256 checksum**, not by the numeric prefix alone. Consequently,
+an existing production migration must never be renamed to resolve a prefix
+collision.
 
-Example: `017_add_gemini_tier_id.sql`
+Custom migrations created after the upstream sequence must use the isolated
+namespace `custom_YYYYMMDD_description.sql` (or
+`custom_YYYYMMDD_description_notx.sql` for a concurrent-index migration).
+
+Examples:
+
+- `017_add_gemini_tier_id.sql` (upstream)
+- `custom_20260811_image_quality.sql` (custom)
+- `custom_20260811_usage_log_index_notx.sql` (custom, non-transactional)
+
+The legacy custom image migrations `194_image_generation_jobs.sql` through
+`197_image_generation_job_display_name.sql` are production history and are
+explicitly grandfathered. Do not rename, edit, or delete them.
 
 ### `_notx.sql` 命名与执行语义（并发索引专用）
 
