@@ -81,10 +81,15 @@ export default {
       blankCanvasStatus: 'Not generated',
       taskCanvasHint: 'The target canvas remains visible while this task is generating.'
     },
+    metadata: {
+      resolution: 'Resolution: {value}',
+      quality: 'Quality: {value}'
+    },
     library: {
       title: 'Library',
       subtitle: 'Completed images from this account.',
       empty: 'No completed images yet.',
+      untitled: 'Untitled artwork',
       nameLabel: 'Artwork name',
       namePlaceholder: 'Enter an artwork name'
     },

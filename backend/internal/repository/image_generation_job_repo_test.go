@@ -38,7 +38,7 @@ func TestImageGenerationJobRepositoryCreate(t *testing.T) {
 		WithArgs(
 			"imgjob_test", &userID, &apiKeyID, &groupID, nil, int8(0),
 			service.ImageGenerationJobSourceAPI, service.ImageGenerationJobOperationGeneration, service.ImageGenerationJobStatusQueued,
-			service.CangyuanImageModel1K, &size, nil, nil,
+			service.CangyuanImageModel1K, nil, &size, nil, nil,
 			nil, nil, "prompt-hash", nil, float64(0), float64(0), float64(1), float64(1),
 		).
 		WillReturnRows(newImageGenerationJobRow(now,

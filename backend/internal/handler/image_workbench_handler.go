@@ -192,7 +192,7 @@ func (h *DedicatedImageHandler) CreateWorkbenchJob(c *gin.Context) {
 		UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: dedicatedImageGroupID(apiKey),
 		SubscriptionID: imageWorkbenchSubscriptionID(subscription), BillingType: imageWorkbenchBillingType(subscription),
 		Source: service.ImageGenerationJobSourceWorkbench, Operation: operation,
-		PublicModel: input.Model, Request: request,
+		PublicModel: input.Model, DisplayName: input.Prompt, Request: request,
 		IdempotencyKey: dedicatedImageIdempotencyKey(c, operation),
 		BaseCost:       costEstimate.BaseCost, RateMultiplier: costEstimate.RateMultiplier, EstimatedCost: costEstimate.ActualCost,
 	})
@@ -367,6 +367,7 @@ func workbenchImageJobResponse(job *service.ImageGenerationJob) gin.H {
 		"id": job.JobID, "status": publicDedicatedImageStatus(job.Status),
 		"operation": job.Operation, "model": job.PublicModel, "name": imageJobString(job.DisplayName, ""),
 		"requested_size": imageJobString(job.RequestedSize, ""), "actual_size": imageJobString(job.ActualSize, ""),
+		"quality":        imageJobString(job.Quality, "auto"),
 		"estimated_cost": job.EstimatedCost, "settled_cost": job.SettledCost,
 		"created_at": job.CreatedAt, "updated_at": job.UpdatedAt,
 	}

@@ -21,6 +21,7 @@ type CreateDedicatedImageJobParams struct {
 	Source         string
 	Operation      string
 	PublicModel    string
+	DisplayName    string
 	Request        CangyuanImageRequest
 	IdempotencyKey string
 	BaseCost       float64
@@ -174,6 +175,11 @@ func (s *ImageGenerationOrchestrator) Create(ctx context.Context, params CreateD
 	if quality != "" {
 		qualityPtr = &quality
 	}
+	displayName := truncateRunes(strings.TrimSpace(params.DisplayName), 80)
+	var displayNamePtr *string
+	if displayName != "" {
+		displayNamePtr = &displayName
+	}
 	responseFormat := strings.TrimSpace(params.Request.ResponseFormat)
 	var responseFormatPtr *string
 	if responseFormat != "" {
@@ -190,6 +196,7 @@ func (s *ImageGenerationOrchestrator) Create(ctx context.Context, params CreateD
 		Operation:        params.Operation,
 		Status:           ImageGenerationJobStatusCreated,
 		PublicModel:      params.PublicModel,
+		DisplayName:      displayNamePtr,
 		RequestedSize:    requestedSizePtr,
 		Quality:          qualityPtr,
 		ResponseFormat:   responseFormatPtr,
@@ -225,6 +232,17 @@ func (s *ImageGenerationOrchestrator) Create(ctx context.Context, params CreateD
 		_ = s.wakeup.PublishImageGenerationWakeup(ctx, job.JobID)
 	}
 	return job, replayed, nil
+}
+
+func truncateRunes(value string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value
+	}
+	return string(runes[:limit])
 }
 
 func imageAssetDataURL(contentType string, data []byte) string {

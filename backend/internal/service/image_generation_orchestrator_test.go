@@ -32,7 +32,7 @@ func (r *imageOrchestratorRepo) CreateImageGenerationJob(_ context.Context, para
 	return &ImageGenerationJob{
 		JobID: params.JobID, UserID: params.UserID, APIKeyID: params.APIKeyID, GroupID: params.GroupID,
 		Source: params.Source, Operation: params.Operation, Status: params.Status,
-		PublicModel: params.PublicModel, RequestedSize: params.RequestedSize,
+		PublicModel: params.PublicModel, DisplayName: params.DisplayName, RequestedSize: params.RequestedSize,
 		IdempotencyKey: params.IdempotencyKey, RequestHash: params.RequestHash,
 		PromptHash: params.PromptHash, PayloadObjectRef: params.PayloadObjectRef,
 		EstimatedCost: params.EstimatedCost, HeldCost: params.HeldCost,
@@ -135,6 +135,22 @@ func TestImageGenerationOrchestratorStoresSensitivePayloadOutsidePostgres(t *tes
 	require.Equal(t, "sensitive prompt text", payloads.saved[*stored.PayloadObjectRef].Request.Prompt)
 	require.Equal(t, CangyuanImageModel2K, payloads.saved[*stored.PayloadObjectRef].Request.Model)
 	require.Equal(t, 2*time.Hour, payloads.ttl)
+}
+
+func TestImageGenerationOrchestratorNormalizesDisplayName(t *testing.T) {
+	repo := &imageOrchestratorRepo{}
+	orchestrator := NewImageGenerationOrchestrator(repo, &imageOrchestratorPayloadStore{}, time.Hour)
+	displayName := "  " + strings.Repeat("图", 81) + "  "
+
+	job, _, err := orchestrator.Create(context.Background(), CreateDedicatedImageJobParams{
+		UserID: 1, APIKeyID: 2, Source: ImageGenerationJobSourceWorkbench,
+		PublicModel: CangyuanImageModel1K, DisplayName: displayName,
+		Request: CangyuanImageRequest{Prompt: "a prompt", Size: "1024x1024", N: 1},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, job.DisplayName)
+	require.Equal(t, strings.Repeat("图", 80), *job.DisplayName)
 }
 
 func TestImageGenerationOrchestratorNormalizesEmptyOperationToGeneration(t *testing.T) {

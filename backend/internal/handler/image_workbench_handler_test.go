@@ -34,7 +34,7 @@ func (r *imageWorkbenchCreateRepo) CreateImageGenerationJob(_ context.Context, p
 		JobID: params.JobID, UserID: params.UserID, APIKeyID: params.APIKeyID,
 		GroupID: params.GroupID, SubscriptionID: params.SubscriptionID,
 		BillingType: params.BillingType, Source: params.Source, Operation: params.Operation,
-		Status: params.Status, PublicModel: params.PublicModel, RequestedSize: params.RequestedSize,
+		Status: params.Status, PublicModel: params.PublicModel, DisplayName: params.DisplayName, RequestedSize: params.RequestedSize,
 		Quality: params.Quality, ResponseFormat: params.ResponseFormat,
 		IdempotencyKey: params.IdempotencyKey, RequestHash: params.RequestHash,
 		PromptHash: params.PromptHash, PayloadObjectRef: params.PayloadObjectRef,
@@ -396,6 +396,8 @@ func TestWorkbenchCreateHTTPHandlerPersistsDedicatedJobAndPayload(t *testing.T) 
 	require.Equal(t, service.ImageGenerationJobSourceWorkbench, job.Source)
 	require.Equal(t, service.ImageGenerationJobOperationGeneration, job.Operation)
 	require.Equal(t, service.CangyuanImageModel1K, job.PublicModel)
+	require.NotNil(t, job.DisplayName)
+	require.Equal(t, "draw a small orange puppy", *job.DisplayName)
 	require.NotNil(t, job.PayloadObjectRef)
 	stored := payloads.saved[*job.PayloadObjectRef]
 	require.NotNil(t, stored)
@@ -404,5 +406,7 @@ func TestWorkbenchCreateHTTPHandlerPersistsDedicatedJobAndPayload(t *testing.T) 
 	var response map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 	require.Equal(t, job.JobID, response["id"])
+	require.Equal(t, "draw a small orange puppy", response["name"])
+	require.Equal(t, "auto", response["quality"])
 	require.Equal(t, "queued", response["status"])
 }

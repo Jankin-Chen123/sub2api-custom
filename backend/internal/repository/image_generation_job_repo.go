@@ -644,19 +644,19 @@ func insertImageGenerationJob(ctx context.Context, executor imageGenerationJobSQ
 	return scanImageGenerationJob(executor.QueryRowContext(ctx, `
 INSERT INTO image_generation_jobs (
     job_id, user_id, api_key_id, group_id, subscription_id, billing_type, source, operation, status,
-    public_model, requested_size, quality, response_format,
+    public_model, display_name, requested_size, quality, response_format,
     idempotency_key, request_hash, prompt_hash, payload_object_ref,
     base_cost, rate_multiplier, estimated_cost, held_cost
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9,
-    $10, $11, $12, $13,
-    $14, $15, $16, $17,
-    $18, $19, $20, $21
+    $10, $11, $12, $13, $14,
+    $15, $16, $17, $18,
+    $19, $20, $21, $22
 )
 RETURNING `+imageGenerationJobReturningColumns,
 		params.JobID, params.UserID, params.APIKeyID, params.GroupID, params.SubscriptionID, params.BillingType,
 		params.Source, params.Operation, params.Status, params.PublicModel,
-		params.RequestedSize, params.Quality, params.ResponseFormat,
+		params.DisplayName, params.RequestedSize, params.Quality, params.ResponseFormat,
 		params.IdempotencyKey, params.RequestHash, params.PromptHash,
 		params.PayloadObjectRef, params.BaseCost, params.RateMultiplier, params.EstimatedCost, params.HeldCost,
 	))

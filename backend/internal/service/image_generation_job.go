@@ -105,6 +105,7 @@ type CreateImageGenerationJobParams struct {
 	Operation        string
 	Status           string
 	PublicModel      string
+	DisplayName      *string
 	RequestedSize    *string
 	Quality          *string
 	ResponseFormat   *string

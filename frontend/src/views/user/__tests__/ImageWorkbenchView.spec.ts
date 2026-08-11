@@ -14,6 +14,9 @@ const showSuccess = vi.hoisted(() => vi.fn())
 const getCachedImageWorkbenchBlob = vi.hoisted(() => vi.fn())
 const listCachedImageWorkbenchEntries = vi.hoisted(() => vi.fn())
 const putCachedImageWorkbenchBlob = vi.hoisted(() => vi.fn())
+const loadImageWorkbenchDraft = vi.hoisted(() => vi.fn())
+const saveImageWorkbenchDraft = vi.hoisted(() => vi.fn())
+const clearImageWorkbenchDraft = vi.hoisted(() => vi.fn())
 
 vi.mock('@/api', () => ({
   imageWorkbenchAPI: { createJob, estimateCost, listJobs, getJob, getContent, renameJob },
@@ -34,12 +37,18 @@ vi.mock('@/utils/imageWorkbenchCache', () => ({
   putCachedImageWorkbenchBlob
 }))
 
+vi.mock('@/utils/imageWorkbenchDraft', () => ({
+  loadImageWorkbenchDraft,
+  saveImageWorkbenchDraft,
+  clearImageWorkbenchDraft
+}))
+
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string, values?: Record<string, unknown>) => values ? `${key}:${String(values.time || '')}` : key,
+      t: (key: string, values?: Record<string, unknown>) => values ? `${key}:${String(values.time || values.value || '')}` : key,
       locale: { value: 'zh-CN' }
     })
   }
@@ -55,11 +64,13 @@ const eligibleKey = {
 
 const completedJob = {
   id: 'imgjob_completed',
+  name: 'a mountain lake at sunset',
   status: 'completed',
   operation: 'generation',
   model: 'gpt-image-2-1k',
   requested_size: '1024x1024',
   actual_size: '1024x1024',
+  quality: 'high',
   estimated_cost: 0.01,
   settled_cost: 0.01,
   created_at: '2026-08-04T00:00:00.000Z',
@@ -101,9 +112,76 @@ describe('ImageWorkbenchView', () => {
     getCachedImageWorkbenchBlob.mockReset()
     listCachedImageWorkbenchEntries.mockReset()
     putCachedImageWorkbenchBlob.mockReset()
+    loadImageWorkbenchDraft.mockReset()
+    saveImageWorkbenchDraft.mockReset()
+    clearImageWorkbenchDraft.mockReset()
     getCachedImageWorkbenchBlob.mockResolvedValue(null)
     listCachedImageWorkbenchEntries.mockResolvedValue([])
     putCachedImageWorkbenchBlob.mockResolvedValue(undefined)
+    loadImageWorkbenchDraft.mockResolvedValue(null)
+    saveImageWorkbenchDraft.mockResolvedValue(undefined)
+    clearImageWorkbenchDraft.mockResolvedValue(undefined)
+  })
+
+  it('restores the workbench draft, including uploaded reference images, for the current tab session', async () => {
+    const referenceDataURL = 'data:image/png;base64,aW1hZ2U='
+    loadImageWorkbenchDraft.mockResolvedValue({
+      form: {
+        apiKeyId: 7,
+        model: 'gpt-image-2-2k',
+        quality: 'high',
+        size: '1536x1024',
+        aspectRatio: '3:2',
+        width: 1536,
+        height: 1024,
+        prompt: 'a red fox in snow',
+        referenceUrls: 'https://example.com/reference.png'
+      },
+      referenceUrlInput: 'https://example.com/next.png',
+      references: [{
+        name: 'reference.png',
+        type: 'image/png',
+        lastModified: 123,
+        dataURL: referenceDataURL,
+        isFile: true
+      }]
+    })
+
+    const wrapper = await mountWorkbench()
+    const vm = wrapper.vm as any
+
+    expect(loadImageWorkbenchDraft).toHaveBeenCalledWith(42)
+    expect(vm.form.model).toBe('gpt-image-2-2k')
+    expect(vm.form.quality).toBe('high')
+    expect(vm.form.width).toBe(1536)
+    expect(vm.form.height).toBe(1024)
+    expect(vm.form.prompt).toBe('a red fox in snow')
+    expect(vm.form.referenceUrls).toBe('https://example.com/reference.png')
+    expect(vm.referenceUrlInput).toBe('https://example.com/next.png')
+    expect(vm.referenceDataURLs).toEqual([referenceDataURL])
+    expect(vm.referenceFiles[0].name).toBe('reference.png')
+    wrapper.unmount()
+  })
+
+  it('debounces draft persistence while the user edits form fields and references', async () => {
+    vi.useFakeTimers()
+    const wrapper = await mountWorkbench()
+    const vm = wrapper.vm as any
+    const referenceDataURL = 'data:image/png;base64,aW1hZ2U='
+
+    vm.form.prompt = 'a quiet lake'
+    vm.form.width = 1536
+    vm.referenceUrlInput = 'https://example.com/reference.png'
+    vm.referenceDataURLs.push(referenceDataURL)
+    vm.referenceFiles.push(new File(['image'], 'reference.png', { type: 'image/png' }))
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(saveImageWorkbenchDraft).toHaveBeenCalledWith(42, expect.objectContaining({
+      form: expect.objectContaining({ prompt: 'a quiet lake', width: 1536 }),
+      referenceUrlInput: 'https://example.com/reference.png',
+      references: [expect.objectContaining({ name: 'reference.png', dataURL: referenceDataURL, isFile: true })]
+    }))
+    wrapper.unmount()
   })
 
   it('shows only the image-key empty state until an eligible key exists', async () => {
@@ -142,6 +220,26 @@ describe('ImageWorkbenchView', () => {
     expect(createJob).toHaveBeenCalledWith(expect.objectContaining({ size: '1024x768' }))
     expect(wrapper.find('[data-testid="preview-canvas"]').text()).toContain('1024x768')
     expect(wrapper.find('[data-testid="preview-canvas"]').text()).toContain('imageWorkbench.status.queued')
+    wrapper.unmount()
+  })
+
+  it('uses the prompt-backed artwork name and shows resolution and quality in both card types', async () => {
+    const wrapper = await mountWorkbench([completedJob])
+
+    expect(wrapper.text()).toContain('a mountain lake at sunset')
+    expect(wrapper.find('[data-testid="batch-metadata-imgjob_completed"]').text()).toContain('1K')
+    expect(wrapper.find('[data-testid="batch-metadata-imgjob_completed"]').text()).toContain('imageWorkbench.form.qualityOptions.high')
+    expect(wrapper.find('[data-testid="library-metadata-imgjob_completed"]').text()).toContain('1K')
+    expect(wrapper.find('[data-testid="library-metadata-imgjob_completed"]').text()).toContain('imageWorkbench.form.qualityOptions.high')
+    wrapper.unmount()
+  })
+
+  it('does not use the resolution or model as the title of a legacy unnamed artwork', async () => {
+    const unnamedJob = { ...completedJob, name: undefined, model: 'gpt-image-2-4k' as const }
+    const wrapper = await mountWorkbench([unnamedJob])
+
+    expect((wrapper.vm as any).jobDisplayName(unnamedJob)).toBe('imageWorkbench.library.untitled')
+    expect((wrapper.vm as any).jobDisplayName(unnamedJob)).not.toContain('4K')
     wrapper.unmount()
   })
 

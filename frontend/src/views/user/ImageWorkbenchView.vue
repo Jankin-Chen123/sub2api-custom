@@ -252,9 +252,15 @@
                     </div>
                     <p class="mt-2 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{{ job.actual_size || job.requested_size || job.id }}</p>
                     <p class="mt-2 text-[10px] text-gray-400">{{ formatDate(job.created_at) }}</p>
-                    <p class="mt-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
-                      {{ t('imageWorkbench.preview.syncWait', { time: formatJobWaitTime(job) }) }}
-                    </p>
+                    <div class="mt-2 flex items-end justify-between gap-2">
+                      <p class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
+                        {{ t('imageWorkbench.preview.syncWait', { time: formatJobWaitTime(job) }) }}
+                      </p>
+                      <div class="flex shrink-0 items-center gap-1 text-[10px] font-semibold" :data-testid="`batch-metadata-${job.id}`">
+                        <span class="rounded-full bg-violet-50 px-2 py-0.5 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300">{{ t('imageWorkbench.metadata.resolution', { value: jobResolution(job) }) }}</span>
+                        <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{{ t('imageWorkbench.metadata.quality', { value: jobQuality(job) }) }}</span>
+                      </div>
+                    </div>
                   </button>
                 </div>
               </aside>
@@ -293,7 +299,13 @@
                       <button class="min-w-0 flex-1 truncate text-left text-xs font-medium text-gray-800 dark:text-gray-200" type="button" @click="selectJob(job)">{{ jobDisplayName(job) }}</button>
                       <button class="shrink-0 text-[11px] font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400" type="button" :data-testid="`rename-work-${job.id}`" @click="startRename(job)">{{ t('imageWorkbench.actions.rename') }}</button>
                     </div>
-                    <p class="mt-1 text-[10px] text-gray-400">{{ job.actual_size || job.requested_size }}</p>
+                    <div class="mt-2 flex items-end justify-between gap-2">
+                      <p class="min-w-0 truncate text-[10px] text-gray-400">{{ job.actual_size || job.requested_size }}</p>
+                      <div class="flex shrink-0 items-center gap-1 text-[10px] font-semibold" :data-testid="`library-metadata-${job.id}`">
+                        <span class="rounded-full bg-violet-50 px-2 py-0.5 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300">{{ t('imageWorkbench.metadata.resolution', { value: jobResolution(job) }) }}</span>
+                        <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{{ t('imageWorkbench.metadata.quality', { value: jobQuality(job) }) }}</span>
+                      </div>
+                    </div>
                   </template>
                 </div>
               </article>
@@ -377,6 +389,12 @@ import {
   listCachedImageWorkbenchEntries,
   putCachedImageWorkbenchBlob
 } from '@/utils/imageWorkbenchCache'
+import type { ImageWorkbenchDraft, ImageWorkbenchDraftReference } from '@/utils/imageWorkbenchDraft'
+import {
+  clearImageWorkbenchDraft,
+  loadImageWorkbenchDraft,
+  saveImageWorkbenchDraft
+} from '@/utils/imageWorkbenchDraft'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
@@ -459,6 +477,8 @@ const editorImageRef = ref<HTMLImageElement | null>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
 let announcementTimer: ReturnType<typeof setInterval> | null = null
+let draftSaveTimer: ReturnType<typeof setTimeout> | null = null
+let draftReady = false
 const elapsedClock = ref(Date.now())
 type BrushPoint = { x: number; y: number }
 type BrushStroke = { points: BrushPoint[]; size: number }
@@ -518,6 +538,101 @@ const experimentalDimensions = computed(() => dimensionValidation.value.code ===
 const canSubmit = computed(() => form.apiKeyId > 0 && form.prompt.trim().length > 0 && eligibleKeys.value.some(key => key.id === form.apiKeyId) && dimensionValidation.value.code === null)
 const editorStageStyle = computed(() => ({ aspectRatio: editor.width + ' / ' + editor.height }))
 
+function currentDraft(): ImageWorkbenchDraft {
+  return {
+    form: {
+      apiKeyId: Number(form.apiKeyId) || 0,
+      model: form.model,
+      quality: form.quality,
+      size: form.size,
+      aspectRatio: form.aspectRatio,
+      width: Number(form.width) || 1024,
+      height: Number(form.height) || 1024,
+      prompt: form.prompt,
+      referenceUrls: form.referenceUrls
+    },
+    referenceUrlInput: referenceUrlInput.value,
+    references: referenceDataURLs.value.map((dataURL, index) => {
+      const file = referenceFiles.value[index]
+      return {
+        name: file?.name || `reference-${index + 1}.png`,
+        type: file?.type || dataURL.match(/^data:([^;,]+)/i)?.[1] || 'image/png',
+        lastModified: file?.lastModified || Date.now(),
+        dataURL,
+        isFile: Boolean(file)
+      }
+    })
+  }
+}
+
+function draftReferenceToFile(reference: ImageWorkbenchDraftReference): File | null {
+  if (!reference.dataURL || !reference.isFile) return null
+  const separator = reference.dataURL.indexOf(',')
+  if (separator < 0) return null
+  try {
+    const payload = reference.dataURL.slice(separator + 1)
+    const binary = atob(payload)
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+    return new File([bytes], reference.name, {
+      type: reference.type || 'image/png',
+      lastModified: reference.lastModified || Date.now()
+    })
+  } catch {
+    return null
+  }
+}
+
+async function restoreDraft() {
+  const userId = imageCacheUserId.value
+  if (userId <= 0) {
+    draftReady = true
+    return
+  }
+  try {
+    const draft = await loadImageWorkbenchDraft(userId)
+    if (draft) {
+      const savedForm = draft.form || {} as ImageWorkbenchDraft['form']
+      form.apiKeyId = Number(savedForm.apiKeyId) || 0
+      form.model = models.some(model => model.value === savedForm.model) ? savedForm.model as ImageWorkbenchModel : 'gpt-image-2-1k'
+      form.quality = qualities.includes(savedForm.quality as ImageWorkbenchQuality) ? savedForm.quality as ImageWorkbenchQuality : 'auto'
+      form.aspectRatio = aspectRatios.includes(savedForm.aspectRatio) ? savedForm.aspectRatio : ''
+      await nextTick()
+      form.width = clampDimension(Number(savedForm.width) || 1024)
+      form.height = clampDimension(Number(savedForm.height) || 1024)
+      form.size = `${form.width}x${form.height}`
+      form.prompt = String(savedForm.prompt || '').slice(0, 12000)
+      form.referenceUrls = String(savedForm.referenceUrls || '')
+      referenceUrlInput.value = String(draft.referenceUrlInput || '')
+
+      const references = (draft.references || []).slice(0, 9).filter(reference => Boolean(reference.dataURL))
+      referenceDataURLs.value = references.map(reference => reference.dataURL)
+      referenceFiles.value = references
+        .map(draftReferenceToFile)
+        .filter((file): file is File => file !== null)
+    }
+  } catch {
+    // Draft persistence is optional; a malformed or unavailable draft must not block the workbench.
+  } finally {
+    draftReady = true
+  }
+}
+
+function persistDraftNow() {
+  if (!draftReady) return
+  const userId = imageCacheUserId.value
+  if (userId > 0) void saveImageWorkbenchDraft(userId, currentDraft()).catch(() => undefined)
+}
+
+function scheduleDraftSave() {
+  if (!draftReady) return
+  if (draftSaveTimer) clearTimeout(draftSaveTimer)
+  draftSaveTimer = setTimeout(() => {
+    draftSaveTimer = null
+    persistDraftNow()
+  }, 250)
+}
+
 watch(() => form.model, () => {
   const [width, height] = parseSize(selectedModel.value.defaultSize)
   form.width = width
@@ -525,6 +640,7 @@ watch(() => form.model, () => {
   form.size = selectedModel.value.defaultSize
   form.aspectRatio = ''
 })
+watch([form, referenceFiles, referenceDataURLs, referenceUrlInput], scheduleDraftSave, { deep: true })
 watch([() => form.width, () => form.height], () => {
   form.size = clampDimension(Number(form.width)) + 'x' + clampDimension(Number(form.height))
 })
@@ -716,6 +832,7 @@ async function submitJob() {
     referenceFiles.value = []
     referenceDataURLs.value = []
     if (referenceInputRef.value) referenceInputRef.value.value = ''
+    void clearImageWorkbenchDraft(imageCacheUserId.value)
     appStore.showSuccess(t('imageWorkbench.messages.submitted'))
   } catch (error: any) {
     appStore.showError(error?.message || t('imageWorkbench.errors.submit'))
@@ -774,6 +891,7 @@ function resetForm() {
   clearReferences()
   blankCanvasOpen.value = false
   selectedJobId.value = ''
+  void clearImageWorkbenchDraft(imageCacheUserId.value)
 }
 
 function selectAspectRatio(value: string) {
@@ -849,6 +967,7 @@ async function processReferenceFiles(files: File[]) {
   }
   referenceFiles.value = [...referenceFiles.value, ...files]
   referenceDataURLs.value = [...referenceDataURLs.value, ...await Promise.all(files.map(readFileAsDataURL))]
+  persistDraftNow()
 }
 
 function importReferenceUrl() {
@@ -864,6 +983,7 @@ function importReferenceUrl() {
   }
   form.referenceUrls = [...referenceUrlList.value, url].join('\n')
   referenceUrlInput.value = ''
+  persistDraftNow()
 }
 
 function clearReferences() {
@@ -872,6 +992,7 @@ function clearReferences() {
   referenceFiles.value = []
   referenceDataURLs.value = []
   if (referenceInputRef.value) referenceInputRef.value.value = ''
+  persistDraftNow()
 }
 
 function readFileAsDataURL(file: File): Promise<string> {
@@ -967,7 +1088,7 @@ async function openEditor(job: ImageWorkbenchJob) {
 
 function startRename(job: ImageWorkbenchJob) {
   renamingJobId.value = job.id
-  renameDraft.value = job.name?.trim() || modelLabel(job.model)
+  renameDraft.value = jobDisplayName(job)
 }
 
 function cancelRename() {
@@ -1125,6 +1246,7 @@ function setCurrentAsReference() {
   referenceFiles.value = []
   referenceDataURLs.value = [editor.originalDataURL]
   form.referenceUrls = ''
+  persistDraftNow()
   closeEditor()
   appStore.showSuccess(t('imageWorkbench.editor.referenceAdded'))
 }
@@ -1210,8 +1332,12 @@ function statusClass(status: ImageWorkbenchStatus) {
   if (status === 'failed' || status === 'submission_unknown') return 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300'
   return 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
 }
-function modelLabel(model: ImageWorkbenchModel) { return models.find(item => item.value === model)?.label || model }
-function jobDisplayName(job: ImageWorkbenchJob) { return job.name?.trim() || modelLabel(job.model) }
+function jobDisplayName(job: ImageWorkbenchJob) { return job.name?.trim() || t('imageWorkbench.library.untitled') }
+function jobResolution(job: ImageWorkbenchJob) { return job.model.match(/-(\d+k)$/i)?.[1]?.toUpperCase() || '—' }
+function jobQuality(job: ImageWorkbenchJob) {
+  const quality = qualities.includes(job.quality as ImageWorkbenchQuality) ? job.quality as ImageWorkbenchQuality : 'auto'
+  return t('imageWorkbench.form.qualityOptions.' + quality)
+}
 function downloadFileName(job: ImageWorkbenchJob) {
   const safeName = [...jobDisplayName(job)]
     .map(character => character.charCodeAt(0) < 32 || /[\\/:*?"<>|]/.test(character) ? '_' : character)
@@ -1249,6 +1375,7 @@ function restartAnnouncementRotation() {
 watch([workbenchAnnouncements, announcementIntervalSeconds], restartAnnouncementRotation, { deep: true })
 
 onMounted(async () => {
+  await restoreDraft()
   const keysPromise = loadKeys()
   await restoreCachedLibrary()
   await Promise.all([keysPromise, loadJobs()])
@@ -1258,6 +1385,9 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  if (draftSaveTimer) clearTimeout(draftSaveTimer)
+  draftSaveTimer = null
+  persistDraftNow()
   if (pollTimer) clearInterval(pollTimer)
   if (elapsedTimer) clearInterval(elapsedTimer)
   if (announcementTimer) clearInterval(announcementTimer)

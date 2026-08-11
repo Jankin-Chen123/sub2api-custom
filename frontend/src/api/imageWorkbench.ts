@@ -12,6 +12,7 @@ export interface ImageWorkbenchJob {
   model: ImageWorkbenchModel
   requested_size: string
   actual_size: string
+  quality?: ImageWorkbenchQuality
   estimated_cost: number
   settled_cost: number
   created_at: string

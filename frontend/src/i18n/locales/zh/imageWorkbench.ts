@@ -81,10 +81,15 @@ export default {
       blankCanvasStatus: '未生成',
       taskCanvasHint: '图片生成期间会保留该任务的目标画布。'
     },
+    metadata: {
+      resolution: '清晰度：{value}',
+      quality: '质量：{value}'
+    },
     library: {
       title: '作品库',
       subtitle: '当前账号下已完成的图片。',
       empty: '暂无已完成的图片。',
+      untitled: '未命名作品',
       nameLabel: '作品名称',
       namePlaceholder: '请输入作品名称'
     },
