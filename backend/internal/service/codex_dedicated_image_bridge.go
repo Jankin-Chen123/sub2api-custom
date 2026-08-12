@@ -842,6 +842,9 @@ func buildCodexDedicatedImagePlannerBody(body []byte) ([]byte, error) {
 	}
 	filtered = append(filtered, codexDedicatedImagePlannerTool())
 	root["tools"] = filtered
+	if input, ok := root["input"].([]any); ok {
+		root["input"] = sanitizeCodexDedicatedImageAdditionalTools(input)
+	}
 	if isCodexClientImageGenerationToolChoice(root["tool_choice"]) {
 		root["tool_choice"] = "auto"
 	}
@@ -852,6 +855,36 @@ func buildCodexDedicatedImagePlannerBody(body []byte) ([]byte, error) {
 		root["instructions"] = instruction
 	}
 	return json.Marshal(root)
+}
+
+func sanitizeCodexDedicatedImageAdditionalTools(input []any) []any {
+	filteredInput := make([]any, 0, len(input))
+	for _, rawItem := range input {
+		item, ok := rawItem.(map[string]any)
+		if !ok || strings.TrimSpace(codexStringValue(item["type"])) != "additional_tools" {
+			filteredInput = append(filteredInput, rawItem)
+			continue
+		}
+		rawTools, ok := item["tools"].([]any)
+		if !ok {
+			filteredInput = append(filteredInput, rawItem)
+			continue
+		}
+		tools := make([]any, 0, len(rawTools))
+		for _, rawTool := range rawTools {
+			tool, _ := rawTool.(map[string]any)
+			if isCodexClientImageGenerationTool(tool) {
+				continue
+			}
+			tools = append(tools, rawTool)
+		}
+		if len(tools) == 0 {
+			continue
+		}
+		item["tools"] = tools
+		filteredInput = append(filteredInput, item)
+	}
+	return filteredInput
 }
 
 // prepareCodexDedicatedImagePlannerHTTPBody converts a Responses WebSocket

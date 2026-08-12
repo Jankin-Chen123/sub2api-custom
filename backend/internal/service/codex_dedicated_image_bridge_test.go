@@ -66,6 +66,18 @@ func TestBuildCodexDedicatedImagePlannerBody_ReplacesClientImageToolChoice(t *te
 	require.Contains(t, string(got), codexDedicatedImagePlannerToolName)
 }
 
+func TestBuildCodexDedicatedImagePlannerBody_ReplacesNestedClientImageTool(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.5","input":[{"type":"additional_tools","tools":[{"type":"namespace","name":"image_gen","tools":[{"type":"function","name":"imagegen"}]},{"type":"function","name":"exec_command","parameters":{"type":"object"}}]},{"type":"message","role":"user","content":"draw a TCP map"}],"tools":[{"type":"function","name":"shell"}],"tool_choice":{"type":"namespace","name":"image_gen"}}`)
+
+	got, err := buildCodexDedicatedImagePlannerBody(body)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), gjson.GetBytes(got, `input.#(type=="additional_tools").tools.#`).Int())
+	require.Equal(t, "exec_command", gjson.GetBytes(got, `input.#(type=="additional_tools").tools.0.name`).String())
+	require.NotContains(t, string(got), `"name":"image_gen"`)
+	require.Contains(t, string(got), codexDedicatedImagePlannerToolName)
+	require.Equal(t, "auto", gjson.GetBytes(got, "tool_choice").String())
+}
+
 func TestCodexDedicatedImagePlannerToolUsesCompatibleNonStrictSchema(t *testing.T) {
 	raw, err := json.Marshal(codexDedicatedImagePlannerTool())
 	require.NoError(t, err)
