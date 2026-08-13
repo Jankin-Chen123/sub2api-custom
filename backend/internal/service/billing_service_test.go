@@ -13,7 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// captureStdLog 重定�?stdlib log 输出�?buffer,返回�?buffer;通过 t.Cleanup 还原�?// 用于断言 GetModelPricing �?fallback warn(log.Printf)打了几次�?func captureStdLog(t *testing.T) *bytes.Buffer {
+// captureStdLog 重定向 stdlib log 输出到 buffer,返回该 buffer;通过 t.Cleanup 还原。
+// 用于断言 GetModelPricing 的 fallback warn(log.Printf)打了几次。
+func captureStdLog(t *testing.T) *bytes.Buffer {
 	t.Helper()
 	var buf bytes.Buffer
 	prevOut := log.Writer()
@@ -83,7 +85,8 @@ func TestCalculateCost_RateMultiplier(t *testing.T) {
 	cost2x, err := svc.CalculateCost("claude-sonnet-4", tokens, 2.0)
 	require.NoError(t, err)
 
-	// TotalCost 不受倍率影响，ActualCost 翻�?	require.InDelta(t, cost1x.TotalCost, cost2x.TotalCost, 1e-10)
+	// TotalCost 不受倍率影响，ActualCost 翻倍
+	require.InDelta(t, cost1x.TotalCost, cost2x.TotalCost, 1e-10)
 	require.InDelta(t, cost1x.ActualCost*2, cost2x.ActualCost, 1e-10)
 }
 
@@ -121,45 +124,51 @@ func TestGetModelPricing_CaseInsensitive(t *testing.T) {
 	require.Equal(t, p1.InputPricePerToken, p2.InputPricePerToken)
 }
 
-// issue #3394: fallback warn 应按模型名去�?每个模型每进程最多打一�?
-// 避免热路径每请求刷屏 ops_system_logs�?func TestGetModelPricing_FallbackWarnLoggedOncePerModel(t *testing.T) {
+// issue #3394: fallback warn 应按模型名去重,每个模型每进程最多打一条,
+// 避免热路径每请求刷屏 ops_system_logs。
+func TestGetModelPricing_FallbackWarnLoggedOncePerModel(t *testing.T) {
 	svc := newTestBillingService()
 	buf := captureStdLog(t)
 
-	// glm-5.2 不在 LiteLLM,�?strings.Contains 命中 glm-5 兜底�?�?触发 fallback warn�?	for i := 0; i < 5; i++ {
+	// glm-5.2 不在 LiteLLM,经 strings.Contains 命中 glm-5 兜底价 → 触发 fallback warn。
+	for i := 0; i < 5; i++ {
 		pricing, err := svc.GetModelPricing("glm-5.2")
 		require.NoError(t, err)
 		require.NotNil(t, pricing)
 	}
 
 	got := strings.Count(buf.String(), "Using fallback pricing for model: glm-5.2")
-	require.Equal(t, 1, got, "同一模型�?fallback warn 应只打一�?实际日志:\n%s", buf.String())
+	require.Equal(t, 1, got, "同一模型的 fallback warn 应只打一条,实际日志:\n%s", buf.String())
 }
 
-// 去重�?每模�?而非全局:不同模型各打一�?大小写变体经入口 ToLower 归一,视为同一条目�?func TestGetModelPricing_FallbackWarnPerModelNotGlobal(t *testing.T) {
+// 去重按"每模型"而非全局:不同模型各打一条;大小写变体经入口 ToLower 归一,视为同一条目。
+func TestGetModelPricing_FallbackWarnPerModelNotGlobal(t *testing.T) {
 	svc := newTestBillingService()
 	buf := captureStdLog(t)
 
 	for i := 0; i < 3; i++ {
 		_, _ = svc.GetModelPricing("glm-5.2")
-		_, _ = svc.GetModelPricing("GLM-5.2") // 与上一行同模型(ToLower �?,去重后不再打
+		_, _ = svc.GetModelPricing("GLM-5.2") // 与上一行同模型(ToLower 后),去重后不再打
 		_, _ = svc.GetModelPricing("glm-4.6")
 	}
 
 	out := buf.String()
 	require.Equal(t, 1, strings.Count(out, "model: glm-5.2"), out)
 	require.Equal(t, 1, strings.Count(out, "model: glm-4.6"), out)
-	require.Equal(t, 0, strings.Count(out, "model: GLM-5.2"), out) // 大写�?ToLower 归一,不应单独成行
+	require.Equal(t, 0, strings.Count(out, "model: GLM-5.2"), out) // 大写经 ToLower 归一,不应单独成行
 }
 
-// 回归:glm-5.2 必须命中自己的兜底价,不能�?strings.Contains("glm-5") 抢成 glm-5 价�?// 历史 bug:兜底表缺 glm-5.2 条目,使用记录�?$1.00/$3.20 计费,比官�?$1.40/$4.40 少收�?27%�?func TestGetModelPricing_GLM52UsesOwnPrice(t *testing.T) {
+// 回归:glm-5.2 必须命中自己的兜底价,不能被 strings.Contains("glm-5") 抢成 glm-5 价。
+// 历史 bug:兜底表缺 glm-5.2 条目,使用记录按 $1.00/$3.20 计费,比官方 $1.40/$4.40 少收约 27%。
+func TestGetModelPricing_GLM52UsesOwnPrice(t *testing.T) {
 	svc := newTestBillingService()
 
 	got, err := svc.GetModelPricing("glm-5.2")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
-	// 官方 z.ai 口径:�?glm-5.1 同价(�?TestGetFallbackPricing_FamilyMatching)�?	require.InDelta(t, 1.4e-6, got.InputPricePerToken, 1e-12)
+	// 官方 z.ai 口径:与 glm-5.1 同价(见 TestGetFallbackPricing_FamilyMatching)。
+	require.InDelta(t, 1.4e-6, got.InputPricePerToken, 1e-12)
 	require.InDelta(t, 4.4e-6, got.OutputPricePerToken, 1e-12)
 	require.InDelta(t, 0.26e-6, got.CacheReadPricePerToken, 1e-12)
 }
@@ -167,7 +176,7 @@ func TestGetModelPricing_CaseInsensitive(t *testing.T) {
 func TestGetModelPricing_UnknownClaudeModelFallsBackToSonnet(t *testing.T) {
 	svc := newTestBillingService()
 
-	// 不包�?opus/sonnet/haiku 关键词的 Claude 模型会走默认 Sonnet 价格
+	// 不包含 opus/sonnet/haiku 关键词的 Claude 模型会走默认 Sonnet 价格
 	pricing, err := svc.GetModelPricing("claude-unknown-model")
 	require.NoError(t, err)
 	require.InDelta(t, 3e-6, pricing.InputPricePerToken, 1e-12)
@@ -292,10 +301,14 @@ func TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy(t *testing.T) {
 	require.InDelta(t, expectedInput+expectedOutput, cost.ActualCost, 1e-10)
 }
 
-// 回归测试 #2293：长上下文计费触发时，cache_read_tokens 也应应用 LongContextInputMultiplier�?// 修复前：CacheReadCost = tokens * 0.25e-6 （漏乘倍率，少计费用）�?// 修复后：CacheReadCost = tokens * 0.25e-6 * LongContextInputMultiplier(=2.0)�?func TestCalculateCost_OpenAIGPT54LongContextAppliesMultiplierToCacheRead(t *testing.T) {
+// 回归测试 #2293：长上下文计费触发时，cache_read_tokens 也应应用 LongContextInputMultiplier。
+// 修复前：CacheReadCost = tokens * 0.25e-6 （漏乘倍率，少计费用）。
+// 修复后：CacheReadCost = tokens * 0.25e-6 * LongContextInputMultiplier(=2.0)。
+func TestCalculateCost_OpenAIGPT54LongContextAppliesMultiplierToCacheRead(t *testing.T) {
 	svc := newTestBillingService()
 
-	// InputTokens + CacheReadTokens = 1000 + 300000 = 301000 > 272000 阈�?	tokens := UsageTokens{
+	// InputTokens + CacheReadTokens = 1000 + 300000 = 301000 > 272000 阈值
+	tokens := UsageTokens{
 		InputTokens:     1000,
 		CacheReadTokens: 300000,
 		OutputTokens:    1000,
@@ -318,10 +331,12 @@ func TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy(t *testing.T) {
 	require.InDelta(t, expectedTotal, cost.ActualCost, 1e-10)
 }
 
-// 阴性测试：未触发长上下文时，cache_read_price 不应被错误地乘以倍率�?func TestCalculateCost_OpenAIGPT54NoLongContextKeepsCacheReadAtBasePrice(t *testing.T) {
+// 阴性测试：未触发长上下文时，cache_read_price 不应被错误地乘以倍率。
+func TestCalculateCost_OpenAIGPT54NoLongContextKeepsCacheReadAtBasePrice(t *testing.T) {
 	svc := newTestBillingService()
 
-	// InputTokens + CacheReadTokens = 1000 + 100000 = 101000 < 272000 阈值，不触发长上下�?	tokens := UsageTokens{
+	// InputTokens + CacheReadTokens = 1000 + 100000 = 101000 < 272000 阈值，不触发长上下文
+	tokens := UsageTokens{
 		InputTokens:     1000,
 		CacheReadTokens: 100000,
 		OutputTokens:    1000,
@@ -336,10 +351,14 @@ func TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy(t *testing.T) {
 }
 
 // 回归测试 #2816 follow-up：长上下文计费触发时，cache_creation_tokens 也应应用
-// LongContextInputMultiplier。computeCacheCreationCost 直接读取 pricing.* 价格�?// 不经�?computeTokenBreakdown 内的 inputPrice / cacheReadPrice 倍率修改，因�?// 修复�?cache_creation 部分会按基础价计算，少计费用�?50%（默认倍率 2.0）�?func TestCalculateCost_OpenAIGPT54LongContextAppliesMultiplierToCacheCreation(t *testing.T) {
+// LongContextInputMultiplier。computeCacheCreationCost 直接读取 pricing.* 价格，
+// 不经过 computeTokenBreakdown 内的 inputPrice / cacheReadPrice 倍率修改，因此
+// 修复前 cache_creation 部分会按基础价计算，少计费用约 50%（默认倍率 2.0）。
+func TestCalculateCost_OpenAIGPT54LongContextAppliesMultiplierToCacheCreation(t *testing.T) {
 	svc := newTestBillingService()
 
-	// InputTokens + CacheReadTokens = 1000 + 300000 = 301000 > 272000 阈�?	tokens := UsageTokens{
+	// InputTokens + CacheReadTokens = 1000 + 300000 = 301000 > 272000 阈值
+	tokens := UsageTokens{
 		InputTokens:         1000,
 		CacheReadTokens:     300000,
 		CacheCreationTokens: 10000,
@@ -355,10 +374,12 @@ func TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy(t *testing.T) {
 		"cache_creation_cost should be scaled by LongContextInputMultiplier when long-context pricing applies")
 }
 
-// 阴性测试：未触发长上下文时，cache_creation_price 不应被错误地乘以倍率�?func TestCalculateCost_OpenAIGPT54NoLongContextKeepsCacheCreationAtBasePrice(t *testing.T) {
+// 阴性测试：未触发长上下文时，cache_creation_price 不应被错误地乘以倍率。
+func TestCalculateCost_OpenAIGPT54NoLongContextKeepsCacheCreationAtBasePrice(t *testing.T) {
 	svc := newTestBillingService()
 
-	// InputTokens + CacheReadTokens = 1000 + 100000 = 101000 < 272000 阈值，不触发长上下�?	tokens := UsageTokens{
+	// InputTokens + CacheReadTokens = 1000 + 100000 = 101000 < 272000 阈值，不触发长上下文
+	tokens := UsageTokens{
 		InputTokens:         1000,
 		CacheReadTokens:     100000,
 		CacheCreationTokens: 10000,
@@ -373,8 +394,10 @@ func TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy(t *testing.T) {
 		"cache_creation_cost should remain at base price when below long-context threshold")
 }
 
-// 覆盖 5m / 1h ephemeral 分类计费路径：长上下文触发时两档价格都应被倍率缩放�?// 使用手工构造的 pricing（参�?TestCalculateCost_SupportsCacheBreakdown 的写法）
-// 以便同时控制 SupportsCacheBreakdown + 长上下文阈值�?func TestCalculateCost_LongContextAppliesMultiplierToCacheCreation5mAnd1h(t *testing.T) {
+// 覆盖 5m / 1h ephemeral 分类计费路径：长上下文触发时两档价格都应被倍率缩放。
+// 使用手工构造的 pricing（参考 TestCalculateCost_SupportsCacheBreakdown 的写法）
+// 以便同时控制 SupportsCacheBreakdown + 长上下文阈值。
+func TestCalculateCost_LongContextAppliesMultiplierToCacheCreation5mAnd1h(t *testing.T) {
 	svc := &BillingService{
 		cfg: &config.Config{},
 		fallbackPrices: map[string]*ModelPricing{
@@ -392,7 +415,8 @@ func TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy(t *testing.T) {
 		},
 	}
 
-	// InputTokens + CacheReadTokens = 1000 + 300000 = 301000 > 272000 阈�?	tokens := UsageTokens{
+	// InputTokens + CacheReadTokens = 1000 + 300000 = 301000 > 272000 阈值
+	tokens := UsageTokens{
 		InputTokens:           1000,
 		CacheReadTokens:       300000,
 		CacheCreation5mTokens: 8000,
@@ -414,7 +438,8 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 
 	floatPtr := func(v float64) *float64 { return &v }
 
-	// expectedOutput / expectedCacheRead �?nil 时跳过该字段断言（保持与原有用例兼容）�?	tests := []struct {
+	// expectedOutput / expectedCacheRead 为 nil 时跳过该字段断言（保持与原有用例兼容）。
+	tests := []struct {
 		name              string
 		model             string
 		expectedInput     float64
@@ -451,21 +476,21 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 			expectedCacheRead: floatPtr(2.8e-9),
 		},
 		{
-			name:              "deepseek chat alias �?flash",
+			name:              "deepseek chat alias → flash",
 			model:             "deepseek-chat",
 			expectedInput:     1.4e-7,
 			expectedOutput:    floatPtr(2.8e-7),
 			expectedCacheRead: floatPtr(2.8e-9),
 		},
 		{
-			name:              "deepseek reasoner alias �?flash",
+			name:              "deepseek reasoner alias → flash",
 			model:             "deepseek-reasoner",
 			expectedInput:     1.4e-7,
 			expectedOutput:    floatPtr(2.8e-7),
 			expectedCacheRead: floatPtr(2.8e-9),
 		},
 
-		// ---- 智谱 GLM（z.ai USD 口径�?---
+		// ---- 智谱 GLM（z.ai USD 口径）----
 		{
 			name:              "glm 5.2 flagship",
 			model:             "glm-5.2",
@@ -556,7 +581,8 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 			expectedInput:  0.1e-6,
 			expectedOutput: floatPtr(0.1e-6),
 		},
-		// 关键�?.1 / 5.2 必须先于 5 匹配（避免被 glm-5 抢走�?		{
+		// 关键：5.1 / 5.2 必须先于 5 匹配（避免被 glm-5 抢走）
+		{
 			name:              "glm 5.1 vs glm 5 ordering (verbatim 5.1)",
 			model:             "glm-5.1",
 			expectedInput:     1.4e-6, // = glm-5.1 价格
@@ -566,13 +592,15 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		{
 			name:              "glm 5.2 vs glm 5 ordering (verbatim 5.2)",
 			model:             "glm-5.2",
-			expectedInput:     1.4e-6, // = glm-5.2 价格（不�?glm-5 �?1e-6�?			expectedOutput:    floatPtr(4.4e-6),
+			expectedInput:     1.4e-6, // = glm-5.2 价格（不是 glm-5 的 1e-6）
+			expectedOutput:    floatPtr(4.4e-6),
 			expectedCacheRead: floatPtr(0.26e-6),
 		},
 		{
 			name:              "glm 4.5-air vs glm 4.5 ordering",
 			model:             "glm-4.5-air",
-			expectedInput:     0.2e-6, // = glm-4.5-air 价格（不�?glm-4.5 �?0.6e-6�?			expectedOutput:    floatPtr(1.1e-6),
+			expectedInput:     0.2e-6, // = glm-4.5-air 价格（不是 glm-4.5 的 0.6e-6）
+			expectedOutput:    floatPtr(1.1e-6),
 			expectedCacheRead: floatPtr(0.03e-6),
 		},
 
@@ -651,7 +679,7 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		{
 			name:              "kimi k2.6 vs k2 ordering",
 			model:             "kimi-k2.6",
-			expectedInput:     0.95e-6, // = k2.6 不是 k2 �?0.56e-6
+			expectedInput:     0.95e-6, // = k2.6 不是 k2 的 0.56e-6
 			expectedOutput:    floatPtr(4e-6),
 			expectedCacheRead: floatPtr(0.15e-6),
 		},
@@ -673,7 +701,7 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		},
 		{
 			name:              "minimax m3 long ctx boundary keep standard tier",
-			model:             "minimax-m3-long", // 仍按 standard tier (�?12K)
+			model:             "minimax-m3-long", // 仍按 standard tier (≤512K)
 			expectedInput:     0.60e-6,
 			expectedOutput:    floatPtr(2.40e-6),
 			expectedCacheRead: floatPtr(0.12e-6),
@@ -707,7 +735,7 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 			expectedCacheRead: floatPtr(0.03e-6),
 		},
 
-		// ---- 火山方舟 豆包 Embedding（多模态向量化�?---
+		// ---- 火山方舟 豆包 Embedding（多模态向量化）----
 		{
 			name:           "doubao embedding vision text rate",
 			model:          "doubao-embedding-vision",
@@ -722,17 +750,24 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 
 		// ---- 负向用例 ----
 		{name: "qwen unknown no fallback", model: "qwen-max", expectNilPricing: true},
-		// doubao-pro / doubao-embedding（纯文本）不在白名单，不回退；仅 doubao-embedding-vision 显式命中�?		{name: "doubao unknown no fallback", model: "doubao-pro", expectNilPricing: true},
+		// doubao-pro / doubao-embedding（纯文本）不在白名单，不回退；仅 doubao-embedding-vision 显式命中。
+		{name: "doubao unknown no fallback", model: "doubao-pro", expectNilPricing: true},
 		{name: "doubao text embedding no fallback", model: "doubao-embedding-text-240515", expectNilPricing: true},
 		{name: "hunyuan unknown no fallback", model: "hunyuan-t1", expectNilPricing: true},
 		{name: "moonshot v1 not covered", model: "moonshot-v1-8k", expectNilPricing: true},
-		// bare k3 仅精�?后缀匹配：相似未知型号不得因�?"k3" 误命中�?		{name: "k3-like unknown no fallback", model: "foo-k3-bar", expectNilPricing: true},
-		// 路径最后一段不�?/k3：foo-k3 不得�?HasSuffix("/k3") �?Contains 误命中�?		{name: "path segment not bare k3 no fallback", model: "vendor/foo-k3", expectNilPricing: true},
-		// kimi-k3 �?Contains：kimi-k30 / 内嵌 foo-kimi-k3-bar 不得误命中�?		{name: "kimi-k30 unknown no fallback", model: "kimi-k30", expectNilPricing: true},
+		// bare k3 仅精确/后缀匹配：相似未知型号不得因含 "k3" 误命中。
+		{name: "k3-like unknown no fallback", model: "foo-k3-bar", expectNilPricing: true},
+		// 路径最后一段不是 /k3：foo-k3 不得因 HasSuffix("/k3") 或 Contains 误命中。
+		{name: "path segment not bare k3 no fallback", model: "vendor/foo-k3", expectNilPricing: true},
+		// kimi-k3 非 Contains：kimi-k30 / 内嵌 foo-kimi-k3-bar 不得误命中。
+		{name: "kimi-k30 unknown no fallback", model: "kimi-k30", expectNilPricing: true},
 		{name: "embedded kimi-k3 unknown no fallback", model: "foo-kimi-k3-bar", expectNilPricing: true},
-		// kimi-k3[1m] �?Claude Code 上下文选择语法，不�?Kimi API 模型 ID，不命中 fallback�?		{name: "kimi-k3[1m] not an API model id no fallback", model: "kimi-k3[1m]", expectNilPricing: true},
+		// kimi-k3[1m] 是 Claude Code 上下文选择语法，不是 Kimi API 模型 ID，不命中 fallback。
+		{name: "kimi-k3[1m] not an API model id no fallback", model: "kimi-k3[1m]", expectNilPricing: true},
 		{name: "path kimi-k3[1m] not an API model id no fallback", model: "moonshot/kimi-k3[1m]", expectNilPricing: true},
-		// kimi-k2-0905 / kimi-k2-0711 官方未公布独立价，走 kimi-k2 隐性回退（接受）—�?		// 如未来官方公布独立价，需�?getFallbackPricing 加显式分支�?		{
+		// kimi-k2-0905 / kimi-k2-0711 官方未公布独立价，走 kimi-k2 隐性回退（接受）——
+		// 如未来官方公布独立价，需在 getFallbackPricing 加显式分支。
+		{
 			name:              "kimi k2-0905-preview implicit fallback to k2",
 			model:             "kimi-k2-0905-preview",
 			expectedInput:     0.56e-6,
@@ -762,7 +797,9 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 	}
 }
 
-// doubao-embedding-vision 是首个图文不同价�?embedding：文�?¥0.7/MTok、图�?¥1.8/MTok�?// 验证回退表同时携带文本与图片两档单价，且能被带版本后缀 / 大小写别名命中�?func TestGetModelPricing_DoubaoEmbeddingVisionImageInputRate(t *testing.T) {
+// doubao-embedding-vision 是首个图文不同价的 embedding：文本 ¥0.7/MTok、图片 ¥1.8/MTok。
+// 验证回退表同时携带文本与图片两档单价，且能被带版本后缀 / 大小写别名命中。
+func TestGetModelPricing_DoubaoEmbeddingVisionImageInputRate(t *testing.T) {
 	svc := newTestBillingService()
 
 	for _, model := range []string{
@@ -780,26 +817,30 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 }
 
 // 验证双档计费：InputCost = 文本token×文本价（不含图片），ImageInputCost = 图片token×图片价；
-// �?ImageInputTokens=0 时走原单价路径，ImageInputTokens>InputTokens 时不负计文本�?func TestCalculateCost_DoubaoEmbeddingVisionDifferentialInput(t *testing.T) {
+// 且 ImageInputTokens=0 时走原单价路径，ImageInputTokens>InputTokens 时不负计文本。
+func TestCalculateCost_DoubaoEmbeddingVisionDifferentialInput(t *testing.T) {
 	svc := newTestBillingService()
 
-	// 图文混合：prompt_tokens=1340，其�?image_tokens=28、text_tokens=1312�?	mixed := UsageTokens{InputTokens: 1340, ImageInputTokens: 28}
+	// 图文混合：prompt_tokens=1340，其中 image_tokens=28、text_tokens=1312。
+	mixed := UsageTokens{InputTokens: 1340, ImageInputTokens: 28}
 	cost, err := svc.CalculateCost("doubao-embedding-vision", mixed, 1.0)
 	require.NoError(t, err)
 	wantText := float64(1312) * 0.098e-6
 	wantImage := float64(28) * 0.252e-6
 	require.InDelta(t, wantText, cost.InputCost, 1e-15, "InputCost 仅计文本输入")
-	require.InDelta(t, wantImage, cost.ImageInputCost, 1e-15, "ImageInputCost 单独计图片输�?)
+	require.InDelta(t, wantImage, cost.ImageInputCost, 1e-15, "ImageInputCost 单独计图片输入")
 	require.InDelta(t, wantText+wantImage, cost.TotalCost, 1e-15, "TotalCost 口径不变")
 	require.Zero(t, cost.OutputCost)
 
-	// 纯文本：全部按文本档计费，与原单价路径一致，无图片输入费用�?	textOnly := UsageTokens{InputTokens: 1340}
+	// 纯文本：全部按文本档计费，与原单价路径一致，无图片输入费用。
+	textOnly := UsageTokens{InputTokens: 1340}
 	costText, err := svc.CalculateCost("doubao-embedding-vision", textOnly, 1.0)
 	require.NoError(t, err)
 	require.InDelta(t, float64(1340)*0.098e-6, costText.InputCost, 1e-15)
 	require.Zero(t, costText.ImageInputCost)
 
-	// 健壮性：ImageInputTokens 超过 InputTokens 时，文本�?0、计�?token 不超�?InputTokens�?	weird := UsageTokens{InputTokens: 10, ImageInputTokens: 50}
+	// 健壮性：ImageInputTokens 超过 InputTokens 时，文本置 0、计费 token 不超过 InputTokens。
+	weird := UsageTokens{InputTokens: 10, ImageInputTokens: 50}
 	costWeird, err := svc.CalculateCost("doubao-embedding-vision", weird, 1.0)
 	require.NoError(t, err)
 	require.Zero(t, costWeird.InputCost, "全为图片输入时文本费用为 0")
@@ -807,8 +848,11 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 	require.InDelta(t, float64(10)*0.252e-6, costWeird.TotalCost, 1e-15)
 }
 
-// 复现 issue #4386：gpt-image-2 /v1/images/edits �?1 张输入图�?// 上游 usage：input_tokens=371（image_tokens=352 + text_tokens=19），
-// output_tokens=439（全部图片输出）。官方定价：文本输入 $5/1M、图片输�?$8/1M�?// 文本输出 $10/1M、图片输�?$30/1M。修复前图片输入被并入文本价，单次偏�?~6.6%�?func TestComputeTokenBreakdown_GptImage2ImageEditIssue4386(t *testing.T) {
+// 复现 issue #4386：gpt-image-2 /v1/images/edits 带 1 张输入图。
+// 上游 usage：input_tokens=371（image_tokens=352 + text_tokens=19），
+// output_tokens=439（全部图片输出）。官方定价：文本输入 $5/1M、图片输入 $8/1M、
+// 文本输出 $10/1M、图片输出 $30/1M。修复前图片输入被并入文本价，单次偏低 ~6.6%。
+func TestComputeTokenBreakdown_GptImage2ImageEditIssue4386(t *testing.T) {
 	svc := newTestBillingService()
 
 	pricing := &ModelPricing{
@@ -831,10 +875,10 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 	wantImageInput := float64(352) * 8e-6   // 0.002816
 	wantImageOutput := float64(439) * 30e-6 // 0.013170
 	require.InDelta(t, wantTextInput, cost.InputCost, 1e-15, "InputCost 仅含文本输入")
-	require.InDelta(t, wantImageInput, cost.ImageInputCost, 1e-15, "图片输入�?$8/1M 独立计费")
-	require.Zero(t, cost.OutputCost, "输出全部为图片，文本输出费用�?0")
+	require.InDelta(t, wantImageInput, cost.ImageInputCost, 1e-15, "图片输入按 $8/1M 独立计费")
+	require.Zero(t, cost.OutputCost, "输出全部为图片，文本输出费用为 0")
 	require.InDelta(t, wantImageOutput, cost.ImageOutputCost, 1e-15)
-	require.InDelta(t, 0.016081, cost.TotalCost, 1e-9, "总额应为 $0.016081（修复前�?$0.015025�?)
+	require.InDelta(t, 0.016081, cost.TotalCost, 1e-9, "总额应为 $0.016081（修复前为 $0.015025）")
 }
 func TestCalculateCostWithLongContext_BelowThreshold(t *testing.T) {
 	svc := newTestBillingService()
@@ -844,7 +888,7 @@ func TestCalculateCostWithLongContext_BelowThreshold(t *testing.T) {
 		OutputTokens:    1000,
 		CacheReadTokens: 100000,
 	}
-	// 总输�?150k < 200k 阈值，应走正常计费
+	// 总输入 150k < 200k 阈值，应走正常计费
 	cost, err := svc.CalculateCostWithLongContext("claude-sonnet-4", tokens, 1.0, 200000, 2.0)
 	require.NoError(t, err)
 
@@ -857,7 +901,8 @@ func TestCalculateCostWithLongContext_BelowThreshold(t *testing.T) {
 func TestCalculateCostWithLongContext_AboveThreshold_CacheExceedsThreshold(t *testing.T) {
 	svc := newTestBillingService()
 
-	// 缓存 210k + 输入 10k = 220k > 200k 阈�?	// 缓存已超阈值：范围�?200k 缓存，范围外 10k 缓存 + 10k 输入
+	// 缓存 210k + 输入 10k = 220k > 200k 阈值
+	// 缓存已超阈值：范围内 200k 缓存，范围外 10k 缓存 + 10k 输入
 	tokens := UsageTokens{
 		InputTokens:     10000,
 		OutputTokens:    1000,
@@ -885,7 +930,8 @@ func TestCalculateCostWithLongContext_AboveThreshold_CacheExceedsThreshold(t *te
 func TestCalculateCostWithLongContext_AboveThreshold_CacheBelowThreshold(t *testing.T) {
 	svc := newTestBillingService()
 
-	// 缓存 100k + 输入 150k = 250k > 200k 阈�?	// 缓存未超阈值：范围�?100k 缓存 + 100k 输入，范围外 50k 输入
+	// 缓存 100k + 输入 150k = 250k > 200k 阈值
+	// 缓存未超阈值：范围内 100k 缓存 + 100k 输入，范围外 50k 输入
 	tokens := UsageTokens{
 		InputTokens:     150000,
 		OutputTokens:    1000,
@@ -894,11 +940,11 @@ func TestCalculateCostWithLongContext_AboveThreshold_CacheBelowThreshold(t *test
 	cost, err := svc.CalculateCostWithLongContext("claude-sonnet-4", tokens, 1.0, 200000, 2.0)
 	require.NoError(t, err)
 
-	require.True(t, cost.ActualCost > 0, "费用应大�?0")
+	require.True(t, cost.ActualCost > 0, "费用应大于 0")
 
 	// 正常费用不含长上下文
 	normalCost, _ := svc.CalculateCost("claude-sonnet-4", tokens, 1.0)
-	require.True(t, cost.ActualCost > normalCost.ActualCost, "长上下文费用应高于正常费�?)
+	require.True(t, cost.ActualCost > normalCost.ActualCost, "长上下文费用应高于正常费用")
 }
 
 func TestCalculateCostWithLongContext_MarkerRequiresActualCostIncrease(t *testing.T) {
@@ -917,7 +963,8 @@ func TestCalculateCostWithLongContext_DisabledThreshold(t *testing.T) {
 
 	tokens := UsageTokens{InputTokens: 300000, CacheReadTokens: 0}
 
-	// threshold <= 0 应禁用长上下文计�?	cost1, err := svc.CalculateCostWithLongContext("claude-sonnet-4", tokens, 1.0, 0, 2.0)
+	// threshold <= 0 应禁用长上下文计费
+	cost1, err := svc.CalculateCostWithLongContext("claude-sonnet-4", tokens, 1.0, 0, 2.0)
 	require.NoError(t, err)
 
 	cost2, err := svc.CalculateCost("claude-sonnet-4", tokens, 1.0)
@@ -931,7 +978,8 @@ func TestCalculateCostWithLongContext_ExtraMultiplierLessEqualOne(t *testing.T) 
 
 	tokens := UsageTokens{InputTokens: 300000}
 
-	// extraMultiplier <= 1 应禁用长上下文计�?	cost, err := svc.CalculateCostWithLongContext("claude-sonnet-4", tokens, 1.0, 200000, 1.0)
+	// extraMultiplier <= 1 应禁用长上下文计费
+	cost, err := svc.CalculateCostWithLongContext("claude-sonnet-4", tokens, 1.0, 200000, 1.0)
 	require.NoError(t, err)
 
 	normalCost, err := svc.CalculateCost("claude-sonnet-4", tokens, 1.0)
@@ -970,7 +1018,8 @@ func TestCalculateVideoCostBillsPerSecond(t *testing.T) {
 
 	oneSecond := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 1, nil, 1.0)
 	fifteenSeconds := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 15, nil, 1.0)
-	// duration <=0 时按上游默认 8 秒计费，超出上限�?15 秒收敛�?	defaultDuration := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 0, nil, 1.0)
+	// duration <=0 时按上游默认 8 秒计费，超出上限按 15 秒收敛。
+	defaultDuration := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 0, nil, 1.0)
 	clampedDuration := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 999, nil, 1.0)
 
 	require.InDelta(t, 0.07, oneSecond.TotalCost, 1e-10)
@@ -996,7 +1045,8 @@ func TestCalculateGrokImagineImageCostUsesDefaultRateCard(t *testing.T) {
 func TestCalculateGrokImagineVideoCostUsesDefaultRateCard(t *testing.T) {
 	svc := newTestBillingService()
 
-	// 默认价目�?xAI 官方每秒价格，按 1 秒时长验证每秒单价�?	standard480P := svc.CalculateVideoCost("grok-imagine-video", "480p", 1, 1, nil, 1.0)
+	// 默认价目为 xAI 官方每秒价格，按 1 秒时长验证每秒单价。
+	standard480P := svc.CalculateVideoCost("grok-imagine-video", "480p", 1, 1, nil, 1.0)
 	standard720P := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 1, nil, 1.0)
 	video15_480P := svc.CalculateVideoCost("grok-imagine-video-1.5", "480p", 1, 1, nil, 1.0)
 	video15_720P := svc.CalculateVideoCost("grok-imagine-video-1.5", "720p", 1, 1, nil, 1.0)
@@ -1050,7 +1100,7 @@ func TestCalculateCostWithConfig_ZeroMultiplier(t *testing.T) {
 	cost, err := svc.CalculateCostWithConfig("claude-sonnet-4", tokens)
 	require.NoError(t, err)
 
-	// 倍率 <=0 时默�?1.0
+	// 倍率 <=0 时默认 1.0
 	expected, _ := svc.CalculateCost("claude-sonnet-4", tokens, 1.0)
 	require.InDelta(t, expected.ActualCost, cost.ActualCost, 1e-10)
 }
@@ -1088,7 +1138,7 @@ func TestForceUpdatePricing_NilService(t *testing.T) {
 }
 
 func TestCalculateCostWithLongContext_PropagatesError(t *testing.T) {
-	// 使用空的 fallback prices �?GetModelPricing 失败
+	// 使用空的 fallback prices 让 GetModelPricing 失败
 	svc := &BillingService{
 		cfg:            &config.Config{},
 		fallbackPrices: make(map[string]*ModelPricing),
@@ -1135,69 +1185,7 @@ func TestGetModelPricing_Grok46OfficialFallback(t *testing.T) {
 	}
 }
 
-func TestCalculateCostUnified_GroupLongContextToggleUsesPresetLadder(t *testing.T) {
-	svc := newTestBillingService()
-	resolver := NewModelPricingResolver(nil, svc)
-	tokens := UsageTokens{InputTokens: 250000, OutputTokens: 1000}
-
-	off := &Group{LongContextPricingEnabled: false}
-	disabled, err := svc.CalculateCostUnified(CostInput{
-		Model: "grok-4.5", Group: off, Tokens: tokens, RateMultiplier: 1, Resolver: resolver,
-	})
-	require.NoError(t, err)
-
-	on := &Group{LongContextPricingEnabled: true}
-	enabled, err := svc.CalculateCostUnified(CostInput{
-		Model: "grok-4.5", Group: on, Tokens: tokens, RateMultiplier: 1, Resolver: resolver,
-	})
-	require.NoError(t, err)
-
-	require.False(t, disabled.LongContextBillingApplied)
-	require.True(t, enabled.LongContextBillingApplied)
-	require.InDelta(t, disabled.InputCost*2, enabled.InputCost, 1e-12)
-	require.InDelta(t, disabled.OutputCost*2, enabled.OutputCost, 1e-12)
-}
-
-func TestGetModelPricing_UnknownGrokTextFallsBackToGrok45(t *testing.T) {
-	svc := newTestBillingService()
-	baseline, err := svc.GetModelPricing("grok-4.5")
-	require.NoError(t, err)
-
-	for _, model := range []string{"grok-5", "grok-5-latest", "x-ai/grok-7", "grok-4.7-beta"} {
-		pricing, err := svc.GetModelPricing(model)
-		require.NoError(t, err, "model %s", model)
-		require.InDelta(t, baseline.InputPricePerToken, pricing.InputPricePerToken, 1e-12, model)
-		require.InDelta(t, baseline.OutputPricePerToken, pricing.OutputPricePerToken, 1e-12, model)
-		require.InDelta(t, baseline.CacheReadPricePerToken, pricing.CacheReadPricePerToken, 1e-12, model)
-	}
-
-	// Per-unit media ids must not inherit the text card just because they carry
-	// a version number; they are billed by the image/video/audio paths instead.
-	for _, model := range []string{"grok-2-image-1212", "grok-2-audio", "grok-5-video", "x-ai/grok-6-image"} {
-		require.False(t, isGrokUnknownTextFamilyModel(model), "model %s", model)
-	}
-	// Multimodal chat models stay token billed.
-	require.True(t, isGrokUnknownTextFamilyModel("grok-2-vision-1212"))
-
-	for _, model := range []string{
-		"grok-imagine-image-3.0",
-		"grok-imagine-video-2",
-		"grok-voice-latest",
-		"grok-web-search",
-		"grok-x-search",
-		"grok-speech-1",
-	} {
-		_, err := svc.GetModelPricing(model)
-		require.Error(t, err, "non-text grok family %s must not inherit grok-4.5 token rates", model)
-		require.ErrorIs(t, err, ErrModelPricingUnavailable)
-	}
-
-	// Known cards stay on their own rate, not the 4.5 family floor.
-	build, err := svc.GetModelPricing("grok-build-0.1")
-	require.NoError(t, err)
-	require.InDelta(t, 1e-6, build.InputPricePerToken, 1e-12)
-}
-`r`nfunc TestGetModelPricing_GrokCatalogFallbacks(t *testing.T) {
+func TestGetModelPricing_GrokCatalogFallbacks(t *testing.T) {
 	svc := newTestBillingService()
 
 	tests := []struct {

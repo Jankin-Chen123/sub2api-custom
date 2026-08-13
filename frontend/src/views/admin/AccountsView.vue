@@ -2186,6 +2186,7 @@ onMounted(async () => {
     }
   }
 
+>>>>>>> e215c98c2 (fix: 账号页自动刷新偏好改为模块初始化时恢�?
   load()
   loadUpstreamBillingProbeGlobalState()
   try {
