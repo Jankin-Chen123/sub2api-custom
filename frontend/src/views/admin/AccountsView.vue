@@ -760,7 +760,7 @@ const formatSchedulerScore = (value: unknown): string => {
 
 const formatStickySchedulerScore = (score: AccountSchedulerGroupScore): string => {
   if (!score) return '-'
-  if (score.sticky_score_infinity) return '+∞'
+  if (score.sticky_score_infinity) return '+�?
   return formatSchedulerScore(score.sticky_score)
 }
 
@@ -769,8 +769,7 @@ const getSchedulerScoreRows = (account: Account): AccountSchedulerGroupScore[] =
     ? account.scheduler_scores.filter(score => score.group_id != null)
     : []
   if (groupRows.length) return groupRows
-  // 未分组账号没有分组维度分数，回退展示后端返回的基础分
-  if (account.scheduler_score) {
+  // 未分组账号没有分组维度分数，回退展示后端返回的基础�?  if (account.scheduler_score) {
     return [{ group_id: null, ...account.scheduler_score }]
   }
   return []
@@ -1361,9 +1360,7 @@ function getAntigravityTierLabel(row: any): string | null {
   }
 }
 
-// 账号显示邮箱:优先账号自身(extra/credentials),影子账号回退母账号 parent_email。
-// 供名称单元格 v-if/标题/文本三处共用,避免同一回退链在模板里重复三次。
-function accountDisplayEmail(row: any): string {
+// 账号显示邮箱:优先账号自身(extra/credentials),影子账号回退母账�?parent_email�?// 供名称单元格 v-if/标题/文本三处共用,避免同一回退链在模板里重复三次�?function accountDisplayEmail(row: any): string {
   return row.extra?.email_address || row.extra?.email || row.credentials?.email || row.parent_email || ''
 }
 
@@ -1496,14 +1493,11 @@ const openMenu = (a: Account, e: MouseEvent) => {
         viewportWidth - menuWidth - padding
       ))
 
-      // 优先显示在按钮下方
-      top = rect.bottom + 4
+      // 优先显示在按钮下�?      top = rect.bottom + 4
 
-      // 如果下方空间不够,显示在上方
-      if (top + menuHeight > viewportHeight - padding) {
+      // 如果下方空间不够,显示在上�?      if (top + menuHeight > viewportHeight - padding) {
         top = rect.top - menuHeight - 4
-        // 如果上方也不够,就贴在视口顶部
-        if (top < padding) {
+        // 如果上方也不�?就贴在视口顶�?        if (top < padding) {
           top = padding
         }
       }
@@ -1868,8 +1862,7 @@ const syncPaginationAfterLocalRemoval = () => {
   if (pagination.page > maxPage) {
     pagination.page = maxPage
   }
-  // 行被本地移除后不立刻全量补页，改为提示用户手动同步。
-  hasPendingListSync.value = nextTotal > 0
+  // 行被本地移除后不立刻全量补页，改为提示用户手动同步�?  hasPendingListSync.value = nextTotal > 0
 }
 
 const patchAccountInList = (updatedAccount: Account) => {
@@ -1958,17 +1951,15 @@ const handleExportData = async () => {
     link.download = filename
     link.click()
     URL.revokeObjectURL(url)
-    // spark 影子账号被后端排除出备份(其凭据透传母账号、调度配置不可经凭据型导入重建);
-    // 跳过非零时明确提示用户,避免「下载成功但少了账号」的静默丢失。
-    if (dataPayload.skipped_shadows && dataPayload.skipped_shadows > 0) {
+    // spark 影子账号被后端排除出备份(其凭据透传母账号、调度配置不可经凭据型导入重�?;
+    // 跳过非零时明确提示用�?避免「下载成功但少了账号」的静默丢失�?    if (dataPayload.skipped_shadows && dataPayload.skipped_shadows > 0) {
       appStore.showWarning(t('admin.accounts.dataExportedSkippedShadows', { count: dataPayload.skipped_shadows }))
     } else {
       appStore.showSuccess(t('admin.accounts.dataExported'))
     }
   } catch (error: any) {
     if (isStepUpCancelled(error)) {
-      // 用户主动取消 step-up 验证，静默返回，不弹错误提示。
-    } else if (isStepUpBlocked(error)) {
+      // 用户主动取消 step-up 验证，静默返回，不弹错误提示�?    } else if (isStepUpBlocked(error)) {
       appStore.showError(
         stepUpBlockReason(error) === 'STEP_UP_ADMIN_API_KEY_FORBIDDEN'
           ? t('stepUp.adminApiKeyForbidden')
@@ -2154,15 +2145,14 @@ const isExpired = (value: number | null) => {
   if (!value) return false
   return value * 1000 <= Date.now()
 }
-// 所绑定代理的有效期(逻辑同 /admin/proxies,见 utils/proxyExpiry)
+// 所绑定代理的有效期(逻辑�?/admin/proxies,�?utils/proxyExpiry)
 const proxyExpiryBadge = (p: AccountProxy): string => proxyExpiryBadgeClass(p.expires_at, p.status)
 const proxyExpiryText = (p: AccountProxy): string => {
   const { key, params } = proxyExpiryLabelKey(p.expires_at, p.status)
   return params ? t(key, params) : t(key)
 }
 
-// 表格滚动时关闭行操作菜单，并让顶部工具菜单继续贴紧触发按钮。
-const handleScroll = () => {
+// 表格滚动时关闭行操作菜单，并让顶部工具菜单继续贴紧触发按钮�?const handleScroll = () => {
   menu.show = false
   if (showAccountToolsDropdown.value) updateAccountToolsDropdownPosition()
 }
@@ -2183,6 +2173,20 @@ const handleClickOutside = (event: MouseEvent) => {
 }
 
 onMounted(async () => {
+  if (typeof window !== 'undefined') {
+    desktopViewportMediaQuery = window.matchMedia(desktopViewportQuery)
+    isDesktopViewport.value = desktopViewportMediaQuery.matches
+    desktopViewportListener = (event: MediaQueryListEvent) => {
+      isDesktopViewport.value = event.matches
+    }
+    if (typeof desktopViewportMediaQuery.addEventListener === 'function') {
+      desktopViewportMediaQuery.addEventListener('change', desktopViewportListener)
+    } else {
+      desktopViewportMediaQuery.addListener(desktopViewportListener)
+    }
+  }
+
+>>>>>>> e215c98c2 (fix: 账号页自动刷新偏好改为模块初始化时恢�?
   load()
   loadUpstreamBillingProbeGlobalState()
   try {
