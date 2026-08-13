@@ -45,10 +45,6 @@ func TestEveryGatewayPOSTRouteIsClassifiedForPromptAuditCoverage(t *testing.T) {
 		"/videos/edits":             {"grok_media.go"},
 		"/videos/extensions":        {"grok_media.go"},
 		"/models/*modelAction":      {"gemini_v1beta_handler.go"},
-		"/tts":                      {"grok_audio.go"},
-		"/web_search":               {"gateway_web_search.go"},
-		"/x_search":                 {"gateway_web_search.go"},
->>>>>>> 0de6d7e9b (feat: 新增独立 /x_search，走原生 x_search 并沿用搜索计�?
 	}
 	excluded := map[string]string{
 		"/messages/count_tokens":     "tokenization only; it does not execute a model request",
