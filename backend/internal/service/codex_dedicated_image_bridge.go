@@ -517,7 +517,7 @@ func (b *CodexDedicatedImageBridge) waitForCompletion(ctx context.Context, apiKe
 			if b.queue != nil {
 				acquired, acquireErr := b.queue.Acquire(ctx, current.JobID)
 				if acquireErr != nil {
-					return nil, errors.New("Codex image delivery capacity is unavailable")
+					return nil, errors.New("codex image delivery capacity is unavailable")
 				}
 				if !acquired {
 					waitingForDeliverySlot = true
