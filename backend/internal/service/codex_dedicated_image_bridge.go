@@ -433,7 +433,7 @@ func (b *CodexDedicatedImageBridge) createCodexImageJob(
 	}
 	request := CangyuanImageRequest{
 		Model: plan.Model, Prompt: plan.Prompt, Size: plan.Size, AspectRatio: plan.AspectRatio, N: 1,
-		Quality: plan.Quality, ResponseFormat: "b64_json", Async: true,
+		Quality: plan.Quality, ResponseFormat: "b64_json", Async: false,
 		ImageSize: tier, OutputResolution: tier,
 	}
 	if err := ValidateCangyuanImageRequest(CangyuanImageOperationGeneration, request); err != nil {
@@ -1153,7 +1153,7 @@ func extractCodexDedicatedImagePlan(raw []byte, requestBody []byte) (*codexDedic
 		}
 	}
 	if selectedPlan != nil {
-		return selectedPlan, true, ValidateCangyuanImageRequest(CangyuanImageOperationGeneration, CangyuanImageRequest{Model: selectedPlan.Model, Prompt: selectedPlan.Prompt, Size: selectedPlan.Size, AspectRatio: selectedPlan.AspectRatio, Quality: selectedPlan.Quality, N: 1, ResponseFormat: "url", ImageSize: dedicatedImageTierForModel(selectedPlan.Model), OutputResolution: dedicatedImageTierForModel(selectedPlan.Model)})
+		return selectedPlan, true, ValidateCangyuanImageRequest(CangyuanImageOperationGeneration, CangyuanImageRequest{Model: selectedPlan.Model, Prompt: selectedPlan.Prompt, Size: selectedPlan.Size, AspectRatio: selectedPlan.AspectRatio, Quality: selectedPlan.Quality, N: 1, ResponseFormat: "b64_json", Async: false, ImageSize: dedicatedImageTierForModel(selectedPlan.Model), OutputResolution: dedicatedImageTierForModel(selectedPlan.Model)})
 	}
 	return nil, false, nil
 }

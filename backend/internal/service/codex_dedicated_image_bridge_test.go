@@ -522,7 +522,9 @@ func TestCodexDedicatedImageJobRequestsProviderBase64(t *testing.T) {
 	job, err := bridge.createCodexImageJob(context.Background(), nil, apiKey, nil, plan, []byte(`{"input":"draw"}`))
 	require.NoError(t, err)
 	require.NotNil(t, job.PayloadObjectRef)
-	require.Equal(t, "b64_json", payloads.saved[*job.PayloadObjectRef].Request.ResponseFormat)
+	request := payloads.saved[*job.PayloadObjectRef].Request
+	require.Equal(t, "b64_json", request.ResponseFormat)
+	require.False(t, request.Async, "Codex must use Cangyuan's synchronous endpoint contract to receive base64")
 }
 
 func TestCodexDedicatedImageBridgeForward_ReplayFailureDoesNotWriteResponse(t *testing.T) {
