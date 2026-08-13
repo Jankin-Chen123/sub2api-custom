@@ -15,6 +15,19 @@ var ErrImageGenerationPayloadNotFound = errors.New("image generation payload not
 type ImageGenerationPayload struct {
 	Request       CangyuanImageRequest `json:"request"`
 	PendingResult *CangyuanImageResult `json:"pending_result,omitempty"`
+	// CodexResult is the normalized, validated image payload returned by the
+	// dedicated Codex bridge. It deliberately remains in the encrypted,
+	// short-lived payload store instead of PostgreSQL job metadata or object
+	// storage. The bridge can therefore reuse the provider's base64 bytes
+	// without downloading, decoding, storing, reopening, and re-encoding the
+	// generated image.
+	CodexResult *CodexImageResult `json:"codex_result,omitempty"`
+}
+
+type CodexImageResult struct {
+	Base64       string `json:"base64"`
+	OutputFormat string `json:"output_format"`
+	ActualSize   string `json:"actual_size"`
 }
 
 type ImageGenerationPayloadStore interface {

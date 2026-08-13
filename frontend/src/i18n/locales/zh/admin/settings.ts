@@ -33,7 +33,7 @@ export default {
         workerEnabled: '启用生图 Worker',
         workerEnabledHint: '负责从持久化队列取出任务、调用上游并完成存储与结算。',
         codexBridgeEnabled: '启用 Codex 生图桥接',
-        codexBridgeEnabledHint: '普通账号负责理解聊天上下文，实际图片执行交给生图专用账号。',
+        codexBridgeEnabledHint: '普通账号负责理解聊天上下文，实际图片执行交给生图专用账号；上游 Base64 结果直接适配 Codex，不写入图片存储桶。',
         fallbackToGeneral: '专用账号不可用时允许普通账号兜底',
         fallbackToGeneralHint: '仅会选择显式配置了苍原 HTTPS API Key 和 GPT Image 2 模型映射的普通账号，不会使用任意普通账号。',
       },

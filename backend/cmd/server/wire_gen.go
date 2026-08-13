@@ -294,7 +294,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	coordinator := securityaudit.NewCoordinator(legacyEngine, promptService)
 	gatewayHandler := handler.ProvideGatewayHandler(gatewayService, openAIGatewayService, geminiMessagesCompatService, antigravityGatewayService, userService, concurrencyService, billingCacheService, usageService, apiKeyService, usageRecordWorkerPool, errorPassthroughService, contentModerationService, userMessageQueueService, configConfig, settingService, coordinator)
 	imageGenerationOrchestrator := service.ProvideImageGenerationOrchestrator(imageGenerationJobRepository, imageGenerationPayloadStore, imageGenerationWakeup, imageGenerationQueueController, configConfig)
-	codexDedicatedImageBridge := service.ProvideCodexDedicatedImageBridge(openAIGatewayService, imageGenerationOrchestrator, imageGenerationJobRepository, resolvingImageGenerationResultStore, billingService, imageGenerationWorkerRuntime, configConfig)
+	codexDedicatedImageBridge := service.ProvideCodexDedicatedImageBridge(openAIGatewayService, imageGenerationOrchestrator, imageGenerationJobRepository, resolvingImageGenerationResultStore, imageGenerationPayloadStore, imageGenerationQueueController, billingService, imageGenerationWorkerRuntime, configConfig)
 	openAIGatewayHandler := handler.ProvideOpenAIGatewayHandler(openAIGatewayService, concurrencyService, billingCacheService, apiKeyService, usageRecordWorkerPool, errorPassthroughService, contentModerationService, opsService, grokQuotaService, configConfig, coordinator, codexDedicatedImageBridge)
 	handlerSettingHandler := handler.ProvideSettingHandler(settingService, buildInfo, notificationEmailService, configConfig)
 	totpHandler := handler.NewTotpHandler(totpService)

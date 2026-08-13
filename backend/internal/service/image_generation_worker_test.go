@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"sync"
@@ -391,6 +392,28 @@ func TestImageGenerationWorkerSyncCompletionStoresAndSettlesOnce(t *testing.T) {
 	require.Equal(t, 1, billing.settleCalls)
 	require.Equal(t, 1, accounts.releases)
 	require.True(t, payloads.deleted)
+}
+
+func TestImageGenerationWorkerCodexCompletionStagesProviderBase64WithoutObjectStorage(t *testing.T) {
+	worker, repo, payloads, results, billing, _, client := newImageWorkerFixture(ImageGenerationJobStatusQueued)
+	repo.job.Source = ImageGenerationJobSourceCodex
+	raw := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDAT\x08\xd7c\xf8\xcf\xc0\xf0\x1f\x00\x05\x00\x01\xff\x89\x99=\x1d\x00\x00\x00\x00IEND\xaeB`\x82")
+	encoded := base64.StdEncoding.EncodeToString(raw)
+	client.submitResults = []*CangyuanImageResult{{Completed: true, Data: []CangyuanImageData{{B64JSON: encoded}}}}
+	cache := &imageAdmissionCacheStub{acquire: []bool{true}}
+	worker.SetQueueController(NewImageGenerationQueueController(nil, nil, NewConcurrencyService(cache)))
+
+	require.NoError(t, worker.RunOnce(context.Background()))
+	require.Equal(t, ImageGenerationJobStatusCompleted, repo.job.Status)
+	require.Empty(t, repo.job.ResultObjectRefs)
+	require.Zero(t, results.calls, "Codex direct delivery must not write the image to object storage")
+	require.NotNil(t, payloads.payload.CodexResult)
+	require.Equal(t, encoded, payloads.payload.CodexResult.Base64)
+	require.Equal(t, "png", payloads.payload.CodexResult.OutputFormat)
+	require.Equal(t, "1x1", payloads.payload.CodexResult.ActualSize)
+	require.False(t, payloads.deleted, "the bridge still needs the short-lived encrypted payload")
+	require.Equal(t, 1, cache.released, "the upstream execution slot is released before the bridge acquires a delivery slot")
+	require.Equal(t, 1, billing.settleCalls)
 }
 
 func TestImageGenerationWorkerCreatedJobHoldsBeforeQueueing(t *testing.T) {

@@ -69,6 +69,8 @@ type CodexDedicatedImageBridge struct {
 	orchestrator  *ImageGenerationOrchestrator
 	repo          ImageGenerationJobRepository
 	results       ImageGenerationResultReader
+	payloads      ImageGenerationPayloadStore
+	queue         *ImageGenerationQueueController
 	billing       *BillingService
 	worker        *ImageGenerationWorkerRuntime
 	enabled       bool
@@ -97,12 +99,14 @@ func NewCodexDedicatedImageBridge(
 	orchestrator *ImageGenerationOrchestrator,
 	repo ImageGenerationJobRepository,
 	results ImageGenerationResultReader,
+	payloads ImageGenerationPayloadStore,
+	queue *ImageGenerationQueueController,
 	billing *BillingService,
 	worker *ImageGenerationWorkerRuntime,
 	cfg *config.Config,
 ) *CodexDedicatedImageBridge {
 	b := &CodexDedicatedImageBridge{
-		gateway: gateway, orchestrator: orchestrator, repo: repo, results: results,
+		gateway: gateway, orchestrator: orchestrator, repo: repo, results: results, payloads: payloads, queue: queue,
 		billing: billing, worker: worker, syncTimeout: 3 * time.Minute,
 		sseKeepalive: 10 * time.Second,
 		maxReadBytes: 64 << 20,
@@ -271,14 +275,18 @@ func (b *CodexDedicatedImageBridge) Forward(
 	}
 	responseID, response, item, err := b.buildCodexImageResponse(ctx, plannerResult, completed, plan)
 	if err != nil {
+		b.finishCodexImageDelivery(completed, false)
 		return plannerResult, err
 	}
 	// Persist the synthetic response replay before writing any bytes. A client
 	// may receive the response ID even when its connection drops immediately;
 	// the next turn must be able to resolve that ID across instances.
 	if err := b.rememberDedicatedImageReplay(ctx, responseID, plannerResult.ResponseID, plan, codexDedicatedImageGroupID(apiKey), account.ID); err != nil {
+		b.finishCodexImageDelivery(completed, false)
 		return plannerResult, err
 	}
+	delivered := false
+	defer func() { b.finishCodexImageDelivery(completed, delivered) }()
 	if plannerResult.Stream {
 		if err := writeCodexDedicatedImageSSE(c, response, item); err != nil {
 			return plannerResult, err
@@ -290,6 +298,7 @@ func (b *CodexDedicatedImageBridge) Forward(
 			return plannerResult, err
 		}
 	}
+	delivered = true
 	plannerResult.ResponseID = responseID
 	plannerResult.RequestID = responseID
 	plannerResult.ImageCount = 0 // image billing is settled by the durable job.
@@ -372,13 +381,16 @@ func (b *CodexDedicatedImageBridge) ForwardWebSocket(
 	}
 	responseID, response, item, err := b.buildCodexImageResponse(ctx, plannerResult, completed, plan)
 	if err != nil {
+		b.finishCodexImageDelivery(completed, false)
 		return plannerResult, nil, err
 	}
 	events, err := buildCodexDedicatedImageEventPayloads(response, item)
 	if err != nil {
+		b.finishCodexImageDelivery(completed, false)
 		return plannerResult, nil, err
 	}
 	if err := b.rememberDedicatedImageReplay(ctx, responseID, plannerResult.ResponseID, plan, codexDedicatedImageGroupID(apiKey), account.ID); err != nil {
+		b.finishCodexImageDelivery(completed, false)
 		return plannerResult, nil, err
 	}
 	plannerResult.ResponseID = responseID
@@ -390,6 +402,9 @@ func (b *CodexDedicatedImageBridge) ForwardWebSocket(
 	}
 	plannerResult.wsReplayInputExists = true
 	plannerResult.ResponseHeaders = recorder.Header().Clone()
+	plannerResult.codexImageDeliveryCleanup = func(delivered bool) {
+		b.finishCodexImageDelivery(completed, delivered)
+	}
 	return plannerResult, events, nil
 }
 
@@ -417,7 +432,7 @@ func (b *CodexDedicatedImageBridge) createCodexImageJob(
 	}
 	request := CangyuanImageRequest{
 		Model: plan.Model, Prompt: plan.Prompt, Size: plan.Size, AspectRatio: plan.AspectRatio, N: 1,
-		Quality: plan.Quality, ResponseFormat: "url", Async: true,
+		Quality: plan.Quality, ResponseFormat: "b64_json", Async: true,
 		ImageSize: tier, OutputResolution: tier,
 	}
 	if err := ValidateCangyuanImageRequest(CangyuanImageOperationGeneration, request); err != nil {
@@ -496,10 +511,21 @@ func (b *CodexDedicatedImageBridge) waitForCompletion(ctx context.Context, apiKe
 		if current == nil {
 			return nil, errors.New("codex image job lookup returned no task")
 		}
+		waitingForDeliverySlot := false
 		switch current.Status {
 		case ImageGenerationJobStatusCompleted:
-			if len(current.ResultObjectRefs) == 0 {
-				return nil, errors.New("completed Codex image job has no result")
+			if b.queue != nil {
+				acquired, acquireErr := b.queue.Acquire(ctx, current.JobID)
+				if acquireErr != nil {
+					return nil, errors.New("Codex image delivery capacity is unavailable")
+				}
+				if !acquired {
+					waitingForDeliverySlot = true
+					break
+				}
+			}
+			if waitingForDeliverySlot {
+				break
 			}
 			return current, nil
 		case ImageGenerationJobStatusFailed:
@@ -544,25 +570,19 @@ func codexDedicatedImageJobError(code, message *string, defaultStatus int) error
 }
 
 func (b *CodexDedicatedImageBridge) buildCodexImageResponse(ctx context.Context, plannerResult *OpenAIForwardResult, job *ImageGenerationJob, plan *codexDedicatedImagePlan) (string, map[string]any, map[string]any, error) {
-	if b.results == nil || plannerResult == nil || job == nil || plan == nil || len(job.ResultObjectRefs) == 0 {
-		return "", nil, nil, errors.New("codex image result reader is unavailable")
+	if plannerResult == nil || job == nil || plan == nil {
+		return "", nil, nil, errors.New("codex image result is unavailable")
 	}
-	reader, contentType, _, err := b.results.Open(ctx, job.ResultObjectRefs[0])
+	result, err := b.loadCodexImageResult(ctx, job)
 	if err != nil {
 		return "", nil, nil, err
 	}
-	defer func() { _ = reader.Close() }()
-	raw, err := io.ReadAll(io.LimitReader(reader, b.maxReadBytes+1))
-	if err != nil || int64(len(raw)) > b.maxReadBytes {
-		return "", nil, nil, errors.New("codex image result is too large to return")
-	}
-	format := imageOutputFormat(contentType)
 	responseID := codexDedicatedImageResponsePrefix + uuid.NewString()
 	itemID := "ig_" + uuid.NewString()
 	item := map[string]any{
 		"id": itemID, "type": "image_generation_call", "status": "completed",
-		"result": base64.StdEncoding.EncodeToString(raw), "revised_prompt": plan.Prompt,
-		"output_format": format,
+		"result": result.Base64, "revised_prompt": plan.Prompt,
+		"output_format": result.OutputFormat,
 	}
 	output := make([]any, 0, len(plan.PartialText)+1)
 	for index, text := range plan.PartialText {
@@ -587,6 +607,50 @@ func (b *CodexDedicatedImageBridge) buildCodexImageResponse(ctx context.Context,
 		"usage": usage,
 	}
 	return responseID, response, item, nil
+}
+
+func (b *CodexDedicatedImageBridge) loadCodexImageResult(ctx context.Context, job *ImageGenerationJob) (*CodexImageResult, error) {
+	if b.payloads != nil && job.PayloadObjectRef != nil {
+		payload, err := b.payloads.Get(ctx, *job.PayloadObjectRef)
+		if err == nil && payload != nil && payload.CodexResult != nil {
+			return payload.CodexResult, nil
+		}
+		if err != nil && !errors.Is(err, ErrImageGenerationPayloadNotFound) {
+			return nil, err
+		}
+	}
+	// Rolling-upgrade compatibility: jobs completed by the previous version
+	// still point at object storage and remain deliverable during deployment.
+	if b.results == nil || len(job.ResultObjectRefs) == 0 {
+		return nil, errors.New("completed Codex image job has no result")
+	}
+	reader, contentType, _, err := b.results.Open(ctx, job.ResultObjectRefs[0])
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = reader.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(reader, b.maxReadBytes+1))
+	if err != nil || int64(len(raw)) > b.maxReadBytes {
+		return nil, errors.New("codex image result is too large to return")
+	}
+	return &CodexImageResult{
+		Base64:       base64.StdEncoding.EncodeToString(raw),
+		OutputFormat: imageOutputFormat(contentType),
+	}, nil
+}
+
+func (b *CodexDedicatedImageBridge) finishCodexImageDelivery(job *ImageGenerationJob, delivered bool) {
+	if b == nil || job == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if delivered && b.payloads != nil && job.PayloadObjectRef != nil {
+		_ = b.payloads.Delete(ctx, *job.PayloadObjectRef)
+	}
+	if b.queue != nil {
+		_ = b.queue.Release(ctx, job.JobID)
+	}
 }
 
 func writeCodexDedicatedImageSSE(c *gin.Context, response, item map[string]any) error {

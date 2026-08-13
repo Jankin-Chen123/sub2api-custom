@@ -188,6 +188,7 @@ type ImageGenerationWorkerOptions struct {
 	IdleDelay         time.Duration
 	RecoveryInterval  time.Duration
 	PayloadTTL        time.Duration
+	MaxOutputBytes    int64
 	MaxSubmitAttempts int
 	RecoveryLimit     int
 	Now               func() time.Time
@@ -245,6 +246,9 @@ func normalizeImageGenerationWorkerOptions(opts ImageGenerationWorkerOptions) Im
 	}
 	if opts.PayloadTTL <= 0 {
 		opts.PayloadTTL = 6 * time.Hour
+	}
+	if opts.MaxOutputBytes <= 0 || opts.MaxOutputBytes > cangyuanImageOutputMaxBytes {
+		opts.MaxOutputBytes = cangyuanImageOutputMaxBytes
 	}
 	if opts.MaxSubmitAttempts <= 0 {
 		opts.MaxSubmitAttempts = 3
@@ -557,6 +561,9 @@ func (w *ImageGenerationWorker) storeAndSettle(ctx context.Context, job *ImageGe
 		// may already have been billed upstream, so never resubmit automatically.
 		return w.markSubmissionUnknown(ctx, job, "image_result_payload_missing", "synchronous image output was lost before object storage")
 	}
+	if job.Source == ImageGenerationJobSourceCodex {
+		return w.stageCodexResultAndSettle(ctx, job, payload)
+	}
 	refs, actualSize, err := w.results.Store(ctx, job.JobID, payload.PendingResult.Data)
 	if err != nil {
 		recordImageGenerationStorageFailure()
@@ -571,6 +578,32 @@ func (w *ImageGenerationWorker) storeAndSettle(ctx context.Context, job *ImageGe
 	return w.settle(ctx, job)
 }
 
+func (w *ImageGenerationWorker) stageCodexResultAndSettle(ctx context.Context, job *ImageGenerationJob, payload *ImageGenerationPayload) error {
+	if payload == nil || payload.PendingResult == nil || len(payload.PendingResult.Data) != 1 {
+		return w.markSubmissionUnknown(ctx, job, "image_result_payload_missing", "completed Codex image output was lost before delivery")
+	}
+	item := payload.PendingResult.Data[0]
+	if strings.TrimSpace(item.B64JSON) == "" {
+		return w.fail(ctx, job, "image_upstream_invalid_response", "Codex image provider did not return base64 image data")
+	}
+	result, err := normalizeCodexImageBase64(item.B64JSON, w.opts.MaxOutputBytes)
+	if err != nil {
+		return w.fail(ctx, job, "image_upstream_invalid_response", "Codex image provider returned invalid base64 image data")
+	}
+	payload.CodexResult = result
+	payload.PendingResult = nil
+	if err := w.payloads.Save(ctx, *job.PayloadObjectRef, payload, w.opts.PayloadTTL); err != nil {
+		return w.retry(ctx, job, ImageGenerationJobStatusStoring, "image_result_payload_failed", "Codex image output could not be durably staged")
+	}
+	if err := w.repo.MarkImageGenerationJobSettling(ctx, job.JobID, job.ClaimVersion, []string{}, result.ActualSize, w.opts.Now()); err != nil {
+		return err
+	}
+	job.Status = ImageGenerationJobStatusSettling
+	job.ResultObjectRefs = []string{}
+	job.ActualSize = stringPointer(result.ActualSize)
+	return w.settle(ctx, job)
+}
+
 func (w *ImageGenerationWorker) settle(ctx context.Context, job *ImageGenerationJob) error {
 	actualCost, err := w.billing.Settle(ctx, job)
 	if err != nil {
@@ -582,7 +615,9 @@ func (w *ImageGenerationWorker) settle(ctx context.Context, job *ImageGeneration
 	}
 	recordImageGenerationTerminal(ImageGenerationJobStatusCompleted)
 	w.releaseQueueSlot(job)
-	w.deletePayloadBestEffort(ctx, job)
+	if job.Source != ImageGenerationJobSourceCodex {
+		w.deletePayloadBestEffort(ctx, job)
+	}
 	return nil
 }
 

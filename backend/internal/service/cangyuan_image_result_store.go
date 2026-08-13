@@ -408,3 +408,64 @@ func cangyuanOutputContentType(format string) string {
 	}
 	return "image/" + format
 }
+
+// normalizeCodexImageBase64 validates a provider b64_json result without
+// materializing a second decoded image buffer. Codex's Responses contract
+// wants the bare base64 payload, so a provider data-URL wrapper is removed,
+// while the original encoded bytes are otherwise reused unchanged.
+func normalizeCodexImageBase64(raw string, maxBytes int64) (*CodexImageResult, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, errors.New("completed Codex image result has no base64 content")
+	}
+	declaredType := ""
+	payload := raw
+	if strings.HasPrefix(strings.ToLower(raw), "data:") {
+		var err error
+		declaredType, payload, err = parseCangyuanOutputDataURL(raw)
+		if err != nil {
+			return nil, err
+		}
+	}
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return nil, errors.New("completed Codex image result has no base64 content")
+	}
+	if maxBytes <= 0 || maxBytes > cangyuanImageOutputMaxBytes {
+		maxBytes = cangyuanImageOutputMaxBytes
+	}
+
+	decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(payload))
+	limited := &countingReader{reader: io.LimitReader(decoder, maxBytes+1)}
+	config, format, err := image.DecodeConfig(limited)
+	if err != nil || validateCangyuanDecodedImageDimensions(config.Width, config.Height) != nil {
+		return nil, errors.New("image result is not decodable")
+	}
+	if _, err := io.Copy(io.Discard, limited); err != nil {
+		return nil, errors.New("image result base64 is invalid")
+	}
+	if limited.read > maxBytes {
+		return nil, errors.New("image result exceeds the configured size limit")
+	}
+	contentType := cangyuanOutputContentType(format)
+	declaredType = strings.ToLower(strings.TrimSpace(declaredType))
+	if declaredType != "" && declaredType != "application/octet-stream" && declaredType != contentType {
+		return nil, errors.New("image result MIME type does not match decoded content")
+	}
+	return &CodexImageResult{
+		Base64:       payload,
+		OutputFormat: imageOutputFormat(contentType),
+		ActualSize:   strconv.Itoa(config.Width) + "x" + strconv.Itoa(config.Height),
+	}, nil
+}
+
+type countingReader struct {
+	reader io.Reader
+	read   int64
+}
+
+func (r *countingReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	r.read += int64(n)
+	return n, err
+}

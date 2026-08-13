@@ -33,7 +33,7 @@ export default {
         workerEnabled: 'Enable image worker',
         workerEnabledHint: 'Consumes durable jobs, calls the provider, stores results, and settles billing.',
         codexBridgeEnabled: 'Enable Codex image bridge',
-        codexBridgeEnabledHint: 'A general account plans from the chat context while an image-only account executes the image request.',
+        codexBridgeEnabledHint: 'A general account plans from chat context while an image-only account executes; upstream Base64 is adapted directly for Codex without writing the image bucket.',
         fallbackToGeneral: 'Allow compatible general-account fallback',
         fallbackToGeneralHint: 'Only general accounts with an explicit Cangyuan HTTPS API key and GPT Image 2 model mapping qualify; arbitrary general accounts are never used.',
       },

@@ -683,6 +683,7 @@ func ProvideImageGenerationWorker(
 		IdleDelay:         time.Duration(cfg.DedicatedImage.IdleDelayMilliseconds) * time.Millisecond,
 		RecoveryInterval:  time.Duration(cfg.DedicatedImage.RecoveryIntervalSeconds) * time.Second,
 		PayloadTTL:        time.Duration(cfg.DedicatedImage.PayloadTTLHours) * time.Hour,
+		MaxOutputBytes:    cfg.DedicatedImage.MaxOutputBytes,
 		MaxSubmitAttempts: cfg.DedicatedImage.MaxSubmitAttempts,
 		RecoveryLimit:     cfg.DedicatedImage.RecoveryLimit,
 	}
@@ -730,11 +731,13 @@ func ProvideCodexDedicatedImageBridge(
 	orchestrator *ImageGenerationOrchestrator,
 	repo ImageGenerationJobRepository,
 	results ImageGenerationResultReader,
+	payloads ImageGenerationPayloadStore,
+	queue *ImageGenerationQueueController,
 	billing *BillingService,
 	worker *ImageGenerationWorkerRuntime,
 	cfg *config.Config,
 ) *CodexDedicatedImageBridge {
-	return NewCodexDedicatedImageBridge(gateway, orchestrator, repo, results, billing, worker, cfg)
+	return NewCodexDedicatedImageBridge(gateway, orchestrator, repo, results, payloads, queue, billing, worker, cfg)
 }
 
 // ProvideBackupService creates and starts BackupService

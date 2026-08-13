@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -478,6 +479,41 @@ func TestCodexDedicatedImageBridgeForward_CompletesImageAndStoresReplay(t *testi
 	require.Equal(t, "function_call_output", gjson.GetBytes(replayedBody, "input.0.type").String())
 }
 
+func TestCodexDedicatedImageBridgeUsesStagedProviderBase64WithoutObjectRead(t *testing.T) {
+	raw := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDAT\x08\xd7c\xf8\xcf\xc0\xf0\x1f\x00\x05\x00\x01\xff\x89\x99=\x1d\x00\x00\x00\x00IEND\xaeB`\x82")
+	encoded := base64.StdEncoding.EncodeToString(raw)
+	payloadRef := ImageGenerationPayloadRef("imgjob_direct_codex")
+	payloads := &imageOrchestratorPayloadStore{saved: map[string]*ImageGenerationPayload{
+		payloadRef: {CodexResult: &CodexImageResult{Base64: encoded, OutputFormat: "png", ActualSize: "1x1"}},
+	}}
+	bridge := &CodexDedicatedImageBridge{payloads: payloads, maxReadBytes: 1 << 20}
+	job := &ImageGenerationJob{JobID: "imgjob_direct_codex", Source: ImageGenerationJobSourceCodex, PayloadObjectRef: &payloadRef}
+
+	_, response, _, err := bridge.buildCodexImageResponse(context.Background(), &OpenAIForwardResult{Model: "gpt-5.5"}, job, &codexDedicatedImagePlan{Prompt: "draw"})
+	require.NoError(t, err)
+	rawResponse, err := json.Marshal(response)
+	require.NoError(t, err)
+	require.Equal(t, encoded, gjson.GetBytes(rawResponse, "output.0.result").String())
+	require.Equal(t, "png", gjson.GetBytes(rawResponse, "output.0.output_format").String())
+}
+
+func TestCodexDedicatedImageJobRequestsProviderBase64(t *testing.T) {
+	repo := &imageOrchestratorRepo{}
+	payloads := &imageOrchestratorPayloadStore{}
+	bridge := &CodexDedicatedImageBridge{
+		orchestrator: NewImageGenerationOrchestrator(repo, payloads, time.Hour),
+		billing:      NewBillingService(nil, nil),
+	}
+	groupID := int64(9)
+	apiKey := &APIKey{ID: 7, UserID: 8, GroupID: &groupID, Group: &Group{ID: groupID, Platform: PlatformOpenAI, AllowImageGeneration: true, RateMultiplier: 1}}
+	plan := &codexDedicatedImagePlan{Prompt: "draw", Model: CangyuanImageModel1K, Size: "1024x1024"}
+
+	job, err := bridge.createCodexImageJob(context.Background(), nil, apiKey, nil, plan, []byte(`{"input":"draw"}`))
+	require.NoError(t, err)
+	require.NotNil(t, job.PayloadObjectRef)
+	require.Equal(t, "b64_json", payloads.saved[*job.PayloadObjectRef].Request.ResponseFormat)
+}
+
 func TestCodexDedicatedImageBridgeForward_ReplayFailureDoesNotWriteResponse(t *testing.T) {
 	body := []byte(`{"model":"gpt-5.5","stream":false,"input":"draw a dog","tools":[{"type":"image_generation"}]}`)
 	upstreamResponse := `{"id":"resp_planner_image_failure","model":"gpt-5.5","output":[{"type":"function_call","id":"call_image_failure","call_id":"call_image_failure","name":"sub2api_generate_image","arguments":"{\"prompt\":\"draw a dog\",\"model\":\"gpt-image-2-1k\",\"size\":\"1024x1024\",\"resolution\":\"1K\"}"}],"usage":{"input_tokens":10,"output_tokens":5}}`
@@ -670,7 +706,7 @@ func TestCodexDedicatedImageBridgeHandlesOrdinaryFollowUpWithSyntheticPreviousRe
 	gin.SetMode(gin.TestMode)
 	runtime := &ImageGenerationWorkerRuntime{cancel: func() {}}
 	bridge := NewCodexDedicatedImageBridge(
-		&OpenAIGatewayService{}, nil, nil, nil, nil, runtime,
+		&OpenAIGatewayService{}, nil, nil, nil, nil, nil, nil, runtime,
 		&config.Config{DedicatedImage: config.DedicatedImageConfig{
 			Enabled: true, WorkerEnabled: true, CodexBridgeEnabled: true,
 		}, Gateway: config.GatewayConfig{ForceCodexCLI: true}},
@@ -691,7 +727,7 @@ func TestCodexDedicatedImageBridgeDoesNotRequireNativeImageToolDeclaration(t *te
 	gin.SetMode(gin.TestMode)
 	runtime := &ImageGenerationWorkerRuntime{cancel: func() {}}
 	bridge := NewCodexDedicatedImageBridge(
-		&OpenAIGatewayService{}, nil, nil, nil, nil, runtime,
+		&OpenAIGatewayService{}, nil, nil, nil, nil, nil, nil, runtime,
 		&config.Config{DedicatedImage: config.DedicatedImageConfig{
 			Enabled: true, WorkerEnabled: true, CodexBridgeEnabled: true,
 		}, Gateway: config.GatewayConfig{ForceCodexCLI: false}},

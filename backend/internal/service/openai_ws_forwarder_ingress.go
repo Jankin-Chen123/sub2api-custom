@@ -609,6 +609,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					bridgePayloadRaw,
 				)
 				if bridgeErr == nil {
+					var imageDeliveryCleanup func(bool)
+					if result != nil && result.codexImageDeliveryCleanup != nil {
+						imageDeliveryCleanup = result.codexImageDeliveryCleanup
+						result.codexImageDeliveryCleanup = nil
+					}
 					for _, event := range events {
 						if err := writeClientMessage(event); err != nil {
 							bridgeErr = wrapOpenAIWSIngressTurnError(
@@ -618,6 +623,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 							)
 							break
 						}
+					}
+					if imageDeliveryCleanup != nil {
+						imageDeliveryCleanup(bridgeErr == nil)
 					}
 				}
 			} else {

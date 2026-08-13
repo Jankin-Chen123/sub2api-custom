@@ -108,7 +108,7 @@ export default {
         enabled: 'Enable async image tasks',
         reuseBackupS3: 'Reuse the backup S3 configuration above (different bucket/prefix only)',
         allowBase64Responses: 'Allow Base64 image responses (b64_json)',
-        allowBase64ResponsesHint: 'Disabled by default to reduce memory and bandwidth usage. When disabled, image APIs accept URL responses only.',
+        allowBase64ResponsesHint: 'Disabled by default to reduce memory and bandwidth usage. When disabled, regular image APIs accept URL responses only; the dedicated Codex image bridge is unaffected.',
         bucket: 'Bucket',
         bucketInherited: 'Leave empty to use the backup bucket',
         prefix: 'Key prefix',

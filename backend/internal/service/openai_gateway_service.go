@@ -281,8 +281,9 @@ type OpenAIForwardResult struct {
 	// 上游不返回 usage 字段，>0 时走按次计费（分组单价 × 次数 × 倍率）。
 	WebSearchCalls int
 
-	wsReplayInput       []json.RawMessage
-	wsReplayInputExists bool
+	wsReplayInput             []json.RawMessage
+	wsReplayInputExists       bool
+	codexImageDeliveryCleanup func(bool)
 }
 
 // SucceededForScheduling reports whether this result is an upstream success
