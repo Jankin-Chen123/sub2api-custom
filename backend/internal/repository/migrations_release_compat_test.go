@@ -37,11 +37,27 @@ func TestSelectedReleaseMigrationSetPreservesCustomImageHistory(t *testing.T) {
 
 	files, err := migrationfs.FS.ReadDir(".")
 	require.NoError(t, err)
+	expectedV2 := []string{
+		"194_channel_monitor_v2.sql",
+		"195_channel_monitor_mode.sql",
+		"196_channel_monitor_v2_ignored_error_categories.sql",
+		"197_channel_monitor_v2_seed_popular_models.sql",
+		"198_channel_monitor_v2_health_thresholds.sql",
+		"199_channel_monitor_v2_fixed_rollups.sql",
+		"200_channel_monitor_v2_rollup_permissions.sql",
+		"201_channel_monitor_v2_refresh_5m.sql",
+		"202_channel_monitor_v2_full_table_permissions.sql",
+		"203_channel_monitor_v2_default_ignore_and_cache.sql",
+		"204_channel_monitor_hide_throughput.sql",
+		"205_channel_monitor_v2_reset_factory_cache_thresholds.sql",
+		"206_channel_monitor_v2_privacy_defaults.sql",
+	}
+	for _, name := range expectedV2 {
+		_, err := migrationfs.FS.ReadFile(name)
+		require.NoError(t, err, "approved Channel Monitor V2 migration %s is missing", name)
+	}
 	for _, entry := range files {
-		name := entry.Name()
-		require.NotContains(t, name, "channel_monitor_v2", "Channel Monitor V2 is deferred from this release")
-		require.NotEqual(t, "195_channel_monitor_mode.sql", name, "Channel Monitor V2 mode migration is deferred from this release")
-		require.NotEqual(t, "220_clear_non_grok_video_generation_config.sql", name, "destructive Grok pricing cleanup is deferred from this release")
+		require.NotEqual(t, "220_clear_non_grok_video_generation_config.sql", entry.Name(), "destructive Grok pricing cleanup is deferred from this release")
 	}
 }
 
