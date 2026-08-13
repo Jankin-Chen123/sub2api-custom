@@ -618,12 +618,12 @@ type PublicSettingsInjectionPayload struct {
 	// without waiting for API redaction alone (defense in depth).
 	ChannelMonitorHideThroughput bool `json:"channel_monitor_hide_throughput"`
 	AvailableChannelsEnabled     bool `json:"available_channels_enabled"`
-	ModelPlazaEnabled          bool `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth      bool `json:"model_plaza_require_auth"`
-	AffiliateEnabled           bool `json:"affiliate_enabled"`
-	RiskControlEnabled         bool `json:"risk_control_enabled"`
-	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
-	DedicatedImageEnabled      bool `json:"dedicated_image_enabled"`
+	ModelPlazaEnabled            bool `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth        bool `json:"model_plaza_require_auth"`
+	AffiliateEnabled             bool `json:"affiliate_enabled"`
+	RiskControlEnabled           bool `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests   bool `json:"allow_user_view_error_requests"`
+	DedicatedImageEnabled        bool `json:"dedicated_image_enabled"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.

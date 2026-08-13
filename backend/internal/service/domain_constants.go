@@ -428,7 +428,7 @@ const (
 	// SettingKeyChannelMonitorHideThroughput hides RPM/TPM (and similar absolute
 	// throughput rates) from non-admin user-facing monitor APIs and UI, so users
 	// cannot reverse-estimate fleet volume from rates × window length.
-	// Default false (show rates). Admin endpoints always keep full metrics.
+	// Default true (hide rates) for privacy. Admin endpoints always keep full metrics.
 	SettingKeyChannelMonitorHideThroughput = "channel_monitor_hide_throughput"
 
 	// SettingKeyAvailableChannelsEnabled is a DB-backed soft switch for the "Available Channels"
