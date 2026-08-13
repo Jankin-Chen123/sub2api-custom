@@ -32,8 +32,10 @@ func TestLegacyCustomMigrationsRemainImmutable(t *testing.T) {
 
 func Test194And195MigrationPrefixesAreExplicitlyAllowlisted(t *testing.T) {
 	allowed := map[string]struct{}{
+		"194_channel_monitor_v2.sql":                             {},
 		"194_add_usage_log_upstream_response_model.sql":            {},
 		"194_image_generation_jobs.sql":                            {},
+		"195_channel_monitor_mode.sql":                             {},
 		"195_add_usage_log_upstream_model_mismatch_index_notx.sql": {},
 		"195_image_generation_jobs_claim_created.sql":              {},
 	}
