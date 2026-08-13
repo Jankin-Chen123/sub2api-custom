@@ -56,7 +56,6 @@ var grokTextResponsesModelAliases = map[string]string{
 	"grok-4.20-multi-agent":        "grok-4.20-multi-agent-0309",
 	"grok-4.20-multi-agent-latest": "grok-4.20-multi-agent-0309",
 	"grok-4.20-multi-agent-0309":   "grok-4.20-multi-agent-0309",
->>>>>>> a04ce4901 (feat: 新增 grok-4.6 目录、官方定价与请求路径支持)
 }
 
 func DefaultModels() []Model {

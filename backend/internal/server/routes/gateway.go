@@ -337,7 +337,6 @@ import (
 			}
 			h.Gateway.XSearch(c)
 		})
->>>>>>> 0de6d7e9b (feat: 新增独立 /x_search，走原生 x_search 并沿用搜索计�?
 	}
 
 	// Gemini 原生 API 兼容层（Gemini SDK/CLI 直连�?	gemini := r.Group("/v1beta")
@@ -468,7 +467,6 @@ import (
 		h.Gateway.XSearch(c)
 	})
 
->>>>>>> 0de6d7e9b (feat: 新增独立 /x_search，走原生 x_search 并沿用搜索计�?
 	// Antigravity 模型列表
 	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, h.Gateway.AntigravityModels)
 
