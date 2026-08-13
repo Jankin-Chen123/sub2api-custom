@@ -25,6 +25,7 @@ type DedicatedImageHandler struct {
 	orchestrator   *service.ImageGenerationOrchestrator
 	repo           service.ImageGenerationJobRepository
 	results        service.ImageGenerationResultReader
+	payloads       service.ImageGenerationPayloadStore
 	billing        *service.BillingService
 	worker         *service.ImageGenerationWorkerRuntime
 	openAI         *OpenAIGatewayHandler
@@ -41,6 +42,7 @@ func NewDedicatedImageHandler(
 	orchestrator *service.ImageGenerationOrchestrator,
 	repo service.ImageGenerationJobRepository,
 	results service.ImageGenerationResultReader,
+	payloads service.ImageGenerationPayloadStore,
 	billing *service.BillingService,
 	worker *service.ImageGenerationWorkerRuntime,
 	openAI *OpenAIGatewayHandler,
@@ -48,7 +50,7 @@ func NewDedicatedImageHandler(
 	cfg *config.Config,
 ) *DedicatedImageHandler {
 	h := &DedicatedImageHandler{
-		orchestrator: orchestrator, repo: repo, results: results, billing: billing,
+		orchestrator: orchestrator, repo: repo, results: results, payloads: payloads, billing: billing,
 		worker: worker, openAI: openAI, imageStorage: imageStorage,
 		syncTimeout: 3 * time.Minute, codexHeartbeat: 15 * time.Second, maxReadBytes: 64 << 20,
 	}
@@ -190,7 +192,9 @@ func (h *DedicatedImageHandler) submit(c *gin.Context, body []byte, parsed *serv
 	if strings.TrimSpace(request.ResponseFormat) == "" {
 		request.ResponseFormat = "url"
 	}
-	if err := h.enforceResponseFormatPolicy(c.Request.Context(), request.ResponseFormat); err != nil {
+	if codexNativeImage {
+		configureCodexNativeImageDelivery(&request)
+	} else if err := h.enforceResponseFormatPolicy(c.Request.Context(), request.ResponseFormat); err != nil {
 		h.writeServiceError(c, err)
 		return
 	}
@@ -232,20 +236,38 @@ func (h *DedicatedImageHandler) submit(c *gin.Context, body []byte, parsed *serv
 	h.waitForCompletion(c, apiKey, job, codexNativeImage)
 }
 
-// normalizeCodexNativeImageRequest maps the fixed request emitted by Codex's
-// client-side image_gen extension onto the default dedicated Cangyuan tier.
-// The extension always sends model=gpt-image-2 with size=auto and expects a
-// synchronous data[].b64_json response. Restrict the alias to official Codex
-// clients (or the existing force_codex_cli compatibility switch) so ordinary
-// Images API callers keep the upstream gpt-image-2 behavior unchanged.
+func configureCodexNativeImageDelivery(request *service.CangyuanImageRequest) {
+	if request == nil {
+		return
+	}
+	// Codex renders the image from the synchronous base64 response. This path
+	// is independent from the workbench/API object-storage response policy.
+	request.ResponseFormat = "b64_json"
+	request.Async = false
+}
+
+// normalizeCodexNativeImageRequest recognizes requests emitted by Codex's
+// client-side image_gen extension. Older clients send gpt-image-2/size=auto;
+// newer desktop clients send the selected dedicated tier directly. Both expect
+// a synchronous data[].b64_json response. Restrict this behavior to official
+// Codex clients (or the existing force_codex_cli compatibility switch) so
+// ordinary Images API callers continue to follow the administrator's response
+// format policy.
 func (h *DedicatedImageHandler) normalizeCodexNativeImageRequest(c *gin.Context, parsed *service.OpenAIImagesRequest) bool {
-	if h == nil || c == nil || parsed == nil || strings.TrimSpace(parsed.Model) != "gpt-image-2" {
+	if h == nil || c == nil || parsed == nil {
 		return false
 	}
 	if !h.forceCodexCLI && !pkgopenai.IsCodexOfficialClientByHeaders(c.GetHeader("User-Agent"), c.GetHeader("originator")) {
 		return false
 	}
-	parsed.Model = service.CangyuanImageModel1K
+	switch strings.TrimSpace(parsed.Model) {
+	case "gpt-image-2":
+		parsed.Model = service.CangyuanImageModel1K
+	case service.CangyuanImageModel1K, service.CangyuanImageModel2K, service.CangyuanImageModel4K:
+		// Keep the tier explicitly selected by Codex.
+	default:
+		return false
+	}
 	if strings.EqualFold(strings.TrimSpace(parsed.Size), "auto") {
 		parsed.Size = ""
 		parsed.ExplicitSize = false
@@ -300,7 +322,7 @@ func (h *DedicatedImageHandler) waitForCompletion(c *gin.Context, apiKey *servic
 		}
 		switch current.Status {
 		case service.ImageGenerationJobStatusCompleted:
-			h.writeCompletedImage(c, current)
+			h.writeCompletedImage(c, current, codexNativeImage)
 			return
 		case service.ImageGenerationJobStatusFailed:
 			code := imageJobString(current.ErrorCode, "image_upstream_rejected")
@@ -367,9 +389,27 @@ func (h *DedicatedImageHandler) Content(c *gin.Context) {
 	_, _ = io.Copy(c.Writer, body)
 }
 
-func (h *DedicatedImageHandler) writeCompletedImage(c *gin.Context, job *service.ImageGenerationJob) {
+func (h *DedicatedImageHandler) writeCompletedImage(c *gin.Context, job *service.ImageGenerationJob, codexNativeImage bool) {
 	created := job.CreatedAt.Unix()
+	if codexNativeImage {
+		if h.payloads == nil || job.PayloadObjectRef == nil {
+			h.writeError(c, http.StatusBadGateway, "image_result_payload_missing", "Codex image output could not be delivered")
+			return
+		}
+		payload, err := h.payloads.Get(c.Request.Context(), *job.PayloadObjectRef)
+		if err != nil || payload == nil || payload.CodexResult == nil || strings.TrimSpace(payload.CodexResult.Base64) == "" {
+			h.writeError(c, http.StatusBadGateway, "image_result_payload_missing", "Codex image output could not be delivered")
+			return
+		}
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusOK, gin.H{"created": created, "data": []gin.H{{"b64_json": payload.CodexResult.Base64}}})
+		return
+	}
 	if imageJobString(job.ResponseFormat, "url") == "b64_json" && h.imageStorage != nil && h.imageStorage.Base64ResponsesAllowed(c.Request.Context()) {
+		if h.results == nil || len(job.ResultObjectRefs) == 0 {
+			h.writeError(c, http.StatusBadGateway, "image_result_payload_missing", "image result could not be delivered")
+			return
+		}
 		body, _, _, err := h.results.Open(c.Request.Context(), job.ResultObjectRefs[0])
 		if err != nil {
 			h.writeError(c, http.StatusBadGateway, "image_storage_failed", "image result could not be read")

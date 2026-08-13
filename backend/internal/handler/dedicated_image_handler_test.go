@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"io"
 	"net/http"
@@ -34,6 +35,27 @@ func (r *dedicatedImageHandlerRepo) GetImageGenerationJobForOwner(_ context.Cont
 type dedicatedImageReader struct {
 	ref string
 	raw []byte
+}
+
+type dedicatedImagePayloadStore struct {
+	payload *service.ImageGenerationPayload
+	gotRef  string
+}
+
+func (s *dedicatedImagePayloadStore) Save(context.Context, string, *service.ImageGenerationPayload, time.Duration) error {
+	return nil
+}
+
+func (s *dedicatedImagePayloadStore) Get(_ context.Context, ref string) (*service.ImageGenerationPayload, error) {
+	s.gotRef = ref
+	if s.payload == nil {
+		return nil, service.ErrImageGenerationPayloadNotFound
+	}
+	return s.payload, nil
+}
+
+func (s *dedicatedImagePayloadStore) Delete(context.Context, string) error {
+	return nil
 }
 
 func (r *dedicatedImageReader) Open(_ context.Context, ref string) (io.ReadCloser, string, int64, error) {
@@ -76,6 +98,23 @@ func TestNormalizeCodexNativeImageRequestUsesDedicated1KAndBase64(t *testing.T) 
 
 	require.True(t, (&DedicatedImageHandler{}).normalizeCodexNativeImageRequest(c, parsed))
 	require.Equal(t, service.CangyuanImageModel1K, parsed.Model)
+	require.Empty(t, parsed.Size)
+	require.False(t, parsed.ExplicitSize)
+	require.Equal(t, "b64_json", parsed.ResponseFormat)
+}
+
+func TestNormalizeCodexNativeImageRequestKeepsDesktopDedicatedTier(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	c.Request.Header.Set("originator", "codex-tui")
+	parsed := &service.OpenAIImagesRequest{
+		Model: service.CangyuanImageModel2K, Size: "auto", ExplicitSize: true, ResponseFormat: "url",
+	}
+
+	require.True(t, (&DedicatedImageHandler{}).normalizeCodexNativeImageRequest(c, parsed))
+	require.Equal(t, service.CangyuanImageModel2K, parsed.Model)
 	require.Empty(t, parsed.Size)
 	require.False(t, parsed.ExplicitSize)
 	require.Equal(t, "b64_json", parsed.ResponseFormat)
@@ -138,6 +177,19 @@ func TestDedicatedCangyuanRequestConvertsUploadsWithoutChangingTier(t *testing.T
 	require.Contains(t, request.Mask, "data:image/png;base64,")
 }
 
+func TestDedicatedCodexRequestForcesSynchronousProviderBase64WhenGlobalBase64IsDisabled(t *testing.T) {
+	parsed := &service.OpenAIImagesRequest{
+		Model: service.CangyuanImageModel1K, Prompt: "TCP map", N: 1, ResponseFormat: "b64_json",
+	}
+	request, err := dedicatedCangyuanRequest(parsed)
+	require.NoError(t, err)
+
+	configureCodexNativeImageDelivery(&request)
+
+	require.Equal(t, "b64_json", request.ResponseFormat)
+	require.False(t, request.Async)
+}
+
 func TestDedicatedImageContentUsesOwnerScopeAndPrivateCacheHeaders(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	now := time.Now()
@@ -165,6 +217,47 @@ func TestDedicatedImageContentUsesOwnerScopeAndPrivateCacheHeaders(t *testing.T)
 	require.Equal(t, int64(11), repo.ownerUser)
 	require.Equal(t, int64(22), repo.ownerKey)
 	require.Equal(t, job.ResultObjectRefs[0], reader.ref)
+}
+
+func TestDedicatedImageCodexCompletionReturnsEncryptedPayloadBase64WithoutObjectStorage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	payloadRef := service.ImageGenerationPayloadRef("imgjob_codex")
+	encoded := base64.StdEncoding.EncodeToString([]byte("provider-image"))
+	payloads := &dedicatedImagePayloadStore{payload: &service.ImageGenerationPayload{CodexResult: &service.CodexImageResult{
+		Base64: encoded, OutputFormat: "png", ActualSize: "1024x1024",
+	}}}
+	h := &DedicatedImageHandler{payloads: payloads}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	job := &service.ImageGenerationJob{
+		JobID: "imgjob_codex", Source: service.ImageGenerationJobSourceCodex,
+		PayloadObjectRef: &payloadRef, CreatedAt: time.Unix(123, 0), ResultObjectRefs: []string{},
+	}
+
+	h.writeCompletedImage(c, job, true)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
+	require.Contains(t, rec.Body.String(), encoded)
+	require.Equal(t, payloadRef, payloads.gotRef)
+}
+
+func TestDedicatedImageOrdinaryCompletionWithMissingObjectRefReturnsErrorInsteadOfPanicking(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &DedicatedImageHandler{}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	responseFormat := "b64_json"
+	job := &service.ImageGenerationJob{
+		JobID: "imgjob_missing_ref", ResponseFormat: &responseFormat,
+		CreatedAt: time.Unix(123, 0), ResultObjectRefs: []string{},
+	}
+
+	require.NotPanics(t, func() { h.writeCompletedImage(c, job, false) })
+	require.Equal(t, http.StatusBadGateway, rec.Code)
+	require.Contains(t, rec.Body.String(), `image_result_payload_missing`)
 }
 
 func TestDedicatedImageTaskResponseDoesNotExposePrivateBinding(t *testing.T) {
