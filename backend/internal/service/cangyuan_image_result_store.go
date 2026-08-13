@@ -459,6 +459,37 @@ func normalizeCodexImageBase64(raw string, maxBytes int64) (*CodexImageResult, e
 	}, nil
 }
 
+// resolveCodexImageResult keeps the provider's base64 payload unchanged when
+// possible. Some compatible providers ignore response_format=b64_json and
+// return an HTTPS URL instead; in that case only, download and validate the
+// image through the same bounded SSRF-safe path used by the workbench, then
+// encode it for Codex's image_generation_call result. Nothing is persisted to
+// object storage on this path.
+func resolveCodexImageResult(ctx context.Context, item CangyuanImageData, maxBytes int64) (*CodexImageResult, error) {
+	return resolveCodexImageResultWithStore(ctx, item, maxBytes, nil)
+}
+
+func resolveCodexImageResultWithStore(ctx context.Context, item CangyuanImageData, maxBytes int64, resolver *CangyuanImageResultStore) (*CodexImageResult, error) {
+	if strings.TrimSpace(item.B64JSON) != "" {
+		return normalizeCodexImageBase64(item.B64JSON, maxBytes)
+	}
+	if strings.TrimSpace(item.URL) == "" {
+		return nil, errors.New("completed Codex image result has no content")
+	}
+	if resolver == nil {
+		resolver = NewCangyuanImageResultStore(nil, "", maxBytes)
+	}
+	asset, err := resolver.resolve(ctx, CangyuanImageData{URL: item.URL})
+	if err != nil {
+		return nil, err
+	}
+	return &CodexImageResult{
+		Base64:       base64.StdEncoding.EncodeToString(asset.Data),
+		OutputFormat: imageOutputFormat(asset.ContentType),
+		ActualSize:   strconv.Itoa(asset.Width) + "x" + strconv.Itoa(asset.Height),
+	}, nil
+}
+
 type countingReader struct {
 	reader io.Reader
 	read   int64

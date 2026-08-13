@@ -1,10 +1,12 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
@@ -413,6 +415,37 @@ func TestImageGenerationWorkerCodexCompletionStagesProviderBase64WithoutObjectSt
 	require.Equal(t, "1x1", payloads.payload.CodexResult.ActualSize)
 	require.False(t, payloads.deleted, "the bridge still needs the short-lived encrypted payload")
 	require.Equal(t, 1, cache.released, "the upstream execution slot is released before the bridge acquires a delivery slot")
+	require.Equal(t, 1, billing.settleCalls)
+}
+
+func TestImageGenerationWorkerCodexCompletionResolvesProviderURLWithoutObjectStorage(t *testing.T) {
+	worker, repo, payloads, results, billing, _, client := newImageWorkerFixture(ImageGenerationJobStatusQueued)
+	repo.job.Source = ImageGenerationJobSourceCodex
+	raw := imageResultTestPNG(t, 24, 12)
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(raw)
+	}))
+	defer upstream.Close()
+	client.submitResults = []*CangyuanImageResult{{Completed: true, Data: []CangyuanImageData{{URL: upstream.URL + "/result.png"}}}}
+	resultResolver := NewCangyuanImageResultStore(nil, "", 0)
+	resultResolver.httpClient = upstream.Client()
+	resultResolver.hostValidator = func(context.Context, string) (bool, error) { return false, nil }
+	worker.resolveCodexResult = func(ctx context.Context, item CangyuanImageData, maxBytes int64) (*CodexImageResult, error) {
+		return resolveCodexImageResultWithStore(ctx, item, maxBytes, resultResolver)
+	}
+	cache := &imageAdmissionCacheStub{acquire: []bool{true}}
+	worker.SetQueueController(NewImageGenerationQueueController(nil, nil, NewConcurrencyService(cache)))
+
+	require.NoError(t, worker.RunOnce(context.Background()))
+	require.Equal(t, ImageGenerationJobStatusCompleted, repo.job.Status)
+	require.Empty(t, repo.job.ResultObjectRefs)
+	require.Zero(t, results.calls)
+	require.NotNil(t, payloads.payload.CodexResult)
+	decoded, err := base64.StdEncoding.DecodeString(payloads.payload.CodexResult.Base64)
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(raw, decoded))
+	require.Equal(t, "24x12", payloads.payload.CodexResult.ActualSize)
 	require.Equal(t, 1, billing.settleCalls)
 }
 

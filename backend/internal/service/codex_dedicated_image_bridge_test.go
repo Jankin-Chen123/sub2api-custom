@@ -266,6 +266,17 @@ func TestExtractCodexDedicatedImagePlanRejectsReferenceInStructuredField(t *test
 	require.Contains(t, err.Error(), "unexpanded conversation reference")
 }
 
+func TestExtractCodexDedicatedImagePlanAllowsExpandedConversationReference(t *testing.T) {
+	request := []byte(`{"model":"gpt-5","stream":false}`)
+	response := []byte(`{"output":[{"type":"function_call","name":"sub2api_generate_image","arguments":"{\"visual_prompt\":\"Based on the previous discussion, create a TCP connection lifecycle diagram with client and server swimlanes. Show SYN, SYN-ACK, ACK for the three-way handshake, then bidirectional data transfer, followed by FIN, ACK, FIN, ACK for four-way termination. Label sequence-number changes and the ESTABLISHED, FIN_WAIT, CLOSE_WAIT, LAST_ACK, and TIME_WAIT states.\",\"layout\":\"flowchart\"}"}]}`)
+
+	plan, found, err := extractCodexDedicatedImagePlan(response, request)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Contains(t, plan.Prompt, "SYN-ACK")
+	require.Contains(t, plan.Prompt, "TIME_WAIT")
+}
+
 func TestExtractCodexDedicatedImagePlanRejectsResolutionConflict(t *testing.T) {
 	request := []byte(`{"model":"gpt-5","stream":false}`)
 	response := []byte(`{"output":[{"type":"function_call","name":"sub2api_generate_image","arguments":"{\"prompt\":\"draw a dog\",\"model\":\"gpt-image-2-2k\",\"resolution\":\"4K\"}"}]}`)
@@ -637,6 +648,27 @@ func TestExtractCodexDedicatedImagePlanDeduplicatesExactRepeatedToolCall(t *test
 
 func TestNormalizeDedicatedImageModel_UnknownIsRejected(t *testing.T) {
 	require.Empty(t, normalizeDedicatedImageModel("gpt-image-2"))
+}
+
+func TestNormalizeCodexDedicatedImagePlanRemovesProviderConflictingSize(t *testing.T) {
+	plan := &codexDedicatedImagePlan{
+		Prompt:      "draw a blue circle",
+		Size:        "1024x1024",
+		AspectRatio: "1:1",
+		Resolution:  "1K",
+	}
+	require.NoError(t, normalizeAndValidateCodexDedicatedImagePlan(plan))
+	require.Empty(t, plan.Size)
+	require.Equal(t, CangyuanImageModel1K, plan.Model)
+
+	plannerTier := &codexDedicatedImagePlan{
+		Prompt:     "draw a blue circle",
+		Size:       "1K",
+		Resolution: "1K",
+	}
+	require.NoError(t, normalizeAndValidateCodexDedicatedImagePlan(plannerTier))
+	require.Empty(t, plannerTier.Size)
+	require.Equal(t, CangyuanImageModel1K, plannerTier.Model)
 }
 
 func TestCodexDedicatedImageReplayReplacesSyntheticPreviousResponse(t *testing.T) {

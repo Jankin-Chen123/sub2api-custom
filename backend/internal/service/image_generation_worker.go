@@ -195,14 +195,15 @@ type ImageGenerationWorkerOptions struct {
 }
 
 type ImageGenerationWorker struct {
-	repo      ImageGenerationJobRepository
-	payloads  ImageGenerationPayloadStore
-	results   ImageGenerationResultStore
-	billing   ImageGenerationBilling
-	accounts  ImageGenerationAccountSelector
-	providers ImageGenerationProviderFactory
-	queue     *ImageGenerationQueueController
-	opts      ImageGenerationWorkerOptions
+	repo               ImageGenerationJobRepository
+	payloads           ImageGenerationPayloadStore
+	results            ImageGenerationResultStore
+	billing            ImageGenerationBilling
+	accounts           ImageGenerationAccountSelector
+	providers          ImageGenerationProviderFactory
+	queue              *ImageGenerationQueueController
+	resolveCodexResult func(context.Context, CangyuanImageData, int64) (*CodexImageResult, error)
+	opts               ImageGenerationWorkerOptions
 }
 
 func NewImageGenerationWorker(
@@ -216,7 +217,8 @@ func NewImageGenerationWorker(
 ) *ImageGenerationWorker {
 	return &ImageGenerationWorker{
 		repo: repo, payloads: payloads, results: results, billing: billing,
-		accounts: accounts, providers: providers, opts: normalizeImageGenerationWorkerOptions(opts),
+		accounts: accounts, providers: providers, resolveCodexResult: resolveCodexImageResult,
+		opts: normalizeImageGenerationWorkerOptions(opts),
 	}
 }
 
@@ -583,12 +585,13 @@ func (w *ImageGenerationWorker) stageCodexResultAndSettle(ctx context.Context, j
 		return w.markSubmissionUnknown(ctx, job, "image_result_payload_missing", "completed Codex image output was lost before delivery")
 	}
 	item := payload.PendingResult.Data[0]
-	if strings.TrimSpace(item.B64JSON) == "" {
-		return w.fail(ctx, job, "image_upstream_invalid_response", "Codex image provider did not return base64 image data")
+	resolver := w.resolveCodexResult
+	if resolver == nil {
+		resolver = resolveCodexImageResult
 	}
-	result, err := normalizeCodexImageBase64(item.B64JSON, w.opts.MaxOutputBytes)
+	result, err := resolver(ctx, item, w.opts.MaxOutputBytes)
 	if err != nil {
-		return w.fail(ctx, job, "image_upstream_invalid_response", "Codex image provider returned invalid base64 image data")
+		return w.fail(ctx, job, "image_upstream_invalid_response", "Codex image provider returned invalid image data")
 	}
 	payload.CodexResult = result
 	payload.PendingResult = nil

@@ -107,6 +107,31 @@ func TestCangyuanImageResultStoreNeverReturnsSignedStorageURLAsObjectRef(t *test
 	require.NotContains(t, refs[0], "signed.example.test")
 }
 
+func TestResolveCodexImageResultDownloadsHTTPSWithoutObjectStorage(t *testing.T) {
+	raw := imageResultTestPNG(t, 24, 12)
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(raw)
+	}))
+	defer upstream.Close()
+
+	storage := &recordingImageStorage{}
+	resolver := NewCangyuanImageResultStore(storage, "unused", 0)
+	resolver.httpClient = upstream.Client()
+	resolver.hostValidator = func(context.Context, string) (bool, error) { return false, nil }
+	result, err := resolveCodexImageResultWithStore(context.Background(), CangyuanImageData{
+		URL: upstream.URL + "/result.png",
+	}, 0, resolver)
+
+	require.NoError(t, err)
+	require.Equal(t, "png", result.OutputFormat)
+	require.Equal(t, "24x12", result.ActualSize)
+	decoded, err := base64.StdEncoding.DecodeString(result.Base64)
+	require.NoError(t, err)
+	require.Equal(t, raw, decoded)
+	require.Empty(t, storage.keys, "Codex URL fallback must never write object storage")
+}
+
 func TestCangyuanImageResultStoreUsesBoundedStreamingStorageForLargeOutput(t *testing.T) {
 	storage := &recordingStreamingImageStorage{}
 	store := NewCangyuanImageResultStore(storage, "private", 64<<20)

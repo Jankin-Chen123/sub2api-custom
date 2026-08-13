@@ -13,6 +13,7 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1188,6 +1189,18 @@ func normalizeAndValidateCodexDedicatedImagePlan(plan *codexDedicatedImagePlan) 
 	plan.Resolution = strings.ToUpper(strings.TrimSpace(plan.Resolution))
 	plan.AspectRatio = strings.TrimSpace(plan.AspectRatio)
 	plan.Size = strings.TrimSpace(plan.Size)
+	// Codex planners often use the public 1K/2K/4K labels in `size`, even
+	// though Cangyuan receives those labels through image_size/output_resolution
+	// and expects `size` to be WIDTHxHEIGHT. Also, Cangyuan rejects a request
+	// that carries both an explicit size and aspect_ratio. Normalize these
+	// equivalent planner representations before validating the provider request.
+	switch strings.ToUpper(plan.Size) {
+	case "1K", "2K", "4K":
+		plan.Size = ""
+	}
+	if plan.AspectRatio != "" {
+		plan.Size = ""
+	}
 	plan.Quality = normalizeCodexDedicatedImageQuality(plan.Quality)
 	rawModel := strings.TrimSpace(plan.Model)
 	plan.Model = normalizeDedicatedImageModel(rawModel)
@@ -1316,13 +1329,40 @@ func codexDedicatedImagePlanHasUnexpandedReference(value string) bool {
 	if value == "" {
 		return false
 	}
-	for _, marker := range []string{"之前", "上述", "刚才", "前面", "上文", "我们讨论", "previous", "above", "earlier", "as discussed"} {
-		if strings.Contains(value, marker) {
-			return true
+	for _, pattern := range codexDedicatedImageUnexpandedReferencePatterns {
+		matches := pattern.FindAllStringIndex(value, -1)
+		for _, match := range matches {
+			if !codexDedicatedImageReferenceHasConcreteContext(value, match[0], match[1]) {
+				return true
+			}
 		}
 	}
 	return false
 }
+
+var codexDedicatedImageUnexpandedReferencePatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?:按|根据|依照)?(?:我们)?(?:之前|上述|刚才|前面|上文)(?:讨论|提到|说过|提供)?(?:过的)?(?:内容|信息|要点|观点|细节|资料|需求)?`),
+	regexp.MustCompile(`(?:based\s+on\s+)?(?:the\s+)?(?:previous|earlier|above)(?:ly)?(?:\s+(?:discussion|conversation|content|points?|information|messages?|details?|requirements?))?`),
+	regexp.MustCompile(`as\s+discussed(?:\s+(?:above|earlier|previously))?`),
+}
+
+func codexDedicatedImageReferenceHasConcreteContext(value string, start, end int) bool {
+	nearby := value[:start] + " " + value[end:]
+	nearby = codexDedicatedImageGenericReferenceWords.ReplaceAllString(nearby, " ")
+	concrete := 0
+	for _, token := range codexDedicatedImageConcreteTokenPattern.FindAllString(nearby, -1) {
+		if len([]rune(token)) >= 2 {
+			concrete += len([]rune(token))
+		}
+	}
+	// A short subject name alone does not expand a conversational reference.
+	// Requiring several concrete terms still accepts compact technical prompts
+	// such as "TCP 三次握手: SYN, SYN-ACK, ACK".
+	return concrete >= 18
+}
+
+var codexDedicatedImageGenericReferenceWords = regexp.MustCompile(`(?i)\b(?:create|draw|generate|make|image|diagram|visual|visualize|include|show|summarize|summary|mind|map|using|with|from|about|please|the|a|an|of|and|or|all|those|these|them|it|this|that|our|we|discussed|mentioned|provided|content|points?|information|details?|requirements?)\b|(?:生成|创建|绘制|制作|图片|图像|图表|示意图|思维导图|可视化|展示|包含|总结|所有|这些|那些|这个|那个|内容|信息|要点|观点|细节|资料|需求|讨论|提到|说过|提供|请|按照|根据|基于|关于|以及|并且|用于)`)
+var codexDedicatedImageConcreteTokenPattern = regexp.MustCompile(`[a-z0-9][a-z0-9_+./:-]*|[\p{Han}]+`)
 
 func codexDedicatedImagePlanError(message string) error {
 	return &CangyuanAdapterError{Code: "image_plan_invalid", HTTPStatus: http.StatusBadRequest, Err: errors.New(message)}
