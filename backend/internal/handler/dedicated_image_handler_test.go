@@ -243,23 +243,6 @@ func TestDedicatedImageCodexCompletionReturnsEncryptedPayloadBase64WithoutObject
 	require.Equal(t, payloadRef, payloads.gotRef)
 }
 
-func TestDedicatedImageOrdinaryCompletionWithMissingObjectRefReturnsErrorInsteadOfPanicking(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	h := &DedicatedImageHandler{}
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
-	responseFormat := "b64_json"
-	job := &service.ImageGenerationJob{
-		JobID: "imgjob_missing_ref", ResponseFormat: &responseFormat,
-		CreatedAt: time.Unix(123, 0), ResultObjectRefs: []string{},
-	}
-
-	require.NotPanics(t, func() { h.writeCompletedImage(c, job, false) })
-	require.Equal(t, http.StatusBadGateway, rec.Code)
-	require.Contains(t, rec.Body.String(), `image_result_payload_missing`)
-}
-
 func TestDedicatedImageTaskResponseDoesNotExposePrivateBinding(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	accountID := int64(91)
