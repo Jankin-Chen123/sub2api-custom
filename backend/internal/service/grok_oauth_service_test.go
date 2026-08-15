@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/stretchr/testify/require"
 )
@@ -16,6 +17,9 @@ import (
 type grokOAuthClientStub struct {
 	refreshResponse *xai.TokenResponse
 	ssoResponse     *xai.TokenResponse
+	loginResult     *GrokPasswordLoginResult
+	loginEmail      string
+	loginPassword   string
 	exchangeCalls   int
 }
 
@@ -28,8 +32,10 @@ func (s *grokOAuthClientStub) RefreshToken(context.Context, string, string, stri
 	return s.refreshResponse, nil
 }
 
-func (s *grokOAuthClientStub) LoginWithPassword(context.Context, string, string, string) (*GrokPasswordLoginResult, error) {
-	return nil, nil
+func (s *grokOAuthClientStub) LoginWithPassword(_ context.Context, email, password, _ string) (*GrokPasswordLoginResult, error) {
+	s.loginEmail = email
+	s.loginPassword = password
+	return s.loginResult, nil
 }
 
 func (s *grokOAuthClientStub) ConvertSSOToBuild(context.Context, string, string) (*xai.TokenResponse, error) {
@@ -88,8 +94,17 @@ func TestGrokOAuthServiceExchangeCodeRequiresStateForCallbackURLAndConsumesSessi
 		State:     auth.State,
 	})
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "GROK_OAUTH_INVALID_TOKEN_RESPONSE")
+	require.Equal(t, 1, client.exchangeCalls)
+
+	_, err = svc.ExchangeCode(context.Background(), &GrokExchangeCodeInput{
+		SessionID: auth.SessionID,
+		Code:      "code-with-state",
+		State:     auth.State,
+	})
+	require.Error(t, err)
 	require.Contains(t, err.Error(), "GROK_OAUTH_SESSION_NOT_FOUND")
-	require.Zero(t, client.exchangeCalls)
+	require.Equal(t, 1, client.exchangeCalls)
 }
 
 func TestGrokOAuthServiceBuildAccountCredentialsDefaultsToSubscriptionProxy(t *testing.T) {
