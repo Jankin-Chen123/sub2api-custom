@@ -842,7 +842,7 @@ func isBareOpenAIResponsesPath(c *gin.Context) bool {
 	}
 }
 
-func isOpenAIRemoteCompactionV2Request(arg interface{}, rest ...[]byte) bool {
+func isOpenAIRemoteCompactionV2Request(arg any, rest ...[]byte) bool {
 	var body []byte
 	if ctx, ok := arg.(*gin.Context); ok {
 		_ = ctx // retained for source compatibility with the context-aware call site
