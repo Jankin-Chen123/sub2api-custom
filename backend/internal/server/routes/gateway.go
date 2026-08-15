@@ -530,6 +530,17 @@ func compositeGeminiTargetPlatformMiddleware(resolver *service.CompositeRouteRes
 	}
 }
 
+// grokCustomVoiceEndpoint derives the upstream Voice endpoint from the matched
+// route template, so a voice literally named "audio" is not mistaken for the
+// /audio suffix.
+func grokCustomVoiceEndpoint(c *gin.Context) string {
+	endpoint := "custom-voices/" + c.Param("voice_id")
+	if strings.HasSuffix(c.FullPath(), "/:voice_id/audio") {
+		endpoint += "/audio"
+	}
+	return endpoint
+}
+
 func compositeGeminiModelFromParams(c *gin.Context) string {
 	if c == nil {
 		return ""

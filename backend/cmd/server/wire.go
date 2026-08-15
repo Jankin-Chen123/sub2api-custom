@@ -95,8 +95,6 @@ func provideCleanup(
 	idempotencyCleanup *service.IdempotencyCleanupService,
 	batchImageCleanup *service.BatchImageCleanupService,
 	batchImageWorker *service.BatchImageWorkerRuntime,
-	imageGenerationWorker *service.ImageGenerationWorkerRuntime,
-	imageGenerationCleanup *service.ImageGenerationCleanupService,
 	pricing *service.PricingService,
 	emailQueue *service.EmailQueueService,
 	billingCache *service.BillingCacheService,
@@ -232,18 +230,6 @@ func provideCleanup(
 				}
 				return nil
 			}},
-			{"ImageGenerationWorkerRuntime", func() error {
-				if imageGenerationWorker != nil {
-					imageGenerationWorker.Stop()
-				}
-				return nil
-			}},
-			{"ImageGenerationCleanupService", func() error {
-				if imageGenerationCleanup != nil {
-					imageGenerationCleanup.Stop()
-				}
-				return nil
-			}},
 			{"TokenRefreshService", func() error {
 				tokenRefresh.Stop()
 				return nil
@@ -335,12 +321,12 @@ func provideCleanup(
 				return nil
 			}},
 			{"ChannelMonitorV2Aggregator", func() error {
-				if channelMonitorV2Aggregator != nil {
-					channelMonitorV2Aggregator.Stop()
-				}
-				return nil
-			}},
-			{"ChannelMonitorRunner", func() error {
+			if channelMonitorV2Aggregator != nil {
+				channelMonitorV2Aggregator.Stop()
+			}
+			return nil
+		}},
+		{"ChannelMonitorRunner", func() error {
 				if channelMonitorRunner != nil {
 					channelMonitorRunner.Stop()
 				}

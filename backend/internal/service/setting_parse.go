@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 )
 
 func normalizeImageWorkbenchAnnouncements(items []ImageWorkbenchAnnouncement) []ImageWorkbenchAnnouncement {
@@ -97,6 +98,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyRegistrationEnabled:                       "true",
 		SettingKeyEmailVerifyEnabled:                        "false",
 		SettingKeyRegistrationEmailSuffixWhitelist:          "[]",
+		SettingKeyRegistrationEmailDomainQuotaEnabled:       "false",
 		SettingKeyPromoCodeEnabled:                          "true", // 默认启用优惠码功能
 		SettingKeyLoginAgreementEnabled:                     "false",
 		SettingKeyLoginAgreementMode:                        defaultLoginAgreementMode,
@@ -243,6 +245,12 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyChannelMonitorDefaultIntervalSeconds: "60",
 		SettingKeyChannelMonitorHideThroughput:         "true",
 
+		// Grok defaults: keep cross-client mapping enabled while using the CLI endpoint.
+		SettingKeyGrokDefaultTextModel:           "grok-4.5",
+		SettingKeyGrokCrossClientModelMapEnabled: "true",
+		SettingKeyGrokDefaultBaseURLMode:         GrokDefaultBaseURLModeCLI,
+		SettingKeyAccountSchedulingThresholds:    `{"openai":100,"anthropic":100,"grok":100}`,
+
 		// Available channels feature (default disabled; opt-in)
 		SettingKeyAvailableChannelsEnabled: "false",
 
@@ -371,6 +379,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		RegistrationEnabled:                    settings[SettingKeyRegistrationEnabled] == "true",
 		EmailVerifyEnabled:                     emailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       ParseRegistrationEmailSuffixWhitelist(settings[SettingKeyRegistrationEmailSuffixWhitelist]),
+		RegistrationEmailDomainQuotaEnabled:    settings[SettingKeyRegistrationEmailDomainQuotaEnabled] == "true",
 		PromoCodeEnabled:                       settings[SettingKeyPromoCodeEnabled] != "false", // 默认启用
 		PasswordResetEnabled:                   emailVerifyEnabled && settings[SettingKeyPasswordResetEnabled] == "true",
 		FrontendURL:                            settings[SettingKeyFrontendURL],
@@ -872,6 +881,14 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	// 公开读取路径给出同一个值，否则管理端看到“未隐藏”而用户端实际已隐藏。
 	result.ChannelMonitorHideThroughput = !isFalseSettingValue(settings[SettingKeyChannelMonitorHideThroughput])
 
+	// Grok default mapping policy.
+	result.GrokDefaultTextModel = strings.TrimSpace(settings[SettingKeyGrokDefaultTextModel])
+	if result.GrokDefaultTextModel == "" {
+		result.GrokDefaultTextModel = "grok-4.5"
+	}
+	result.GrokCrossClientModelMapEnabled = !isFalseSettingValue(settings[SettingKeyGrokCrossClientModelMapEnabled])
+	result.GrokDefaultBaseURLMode = normalizeGrokDefaultBaseURLMode(settings[SettingKeyGrokDefaultBaseURLMode])
+
 	// Available channels feature (default: disabled; strict true)
 	result.AvailableChannelsEnabled = settings[SettingKeyAvailableChannelsEnabled] == "true"
 
@@ -1016,8 +1033,20 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 			result.DefaultPlatformQuotas = parsed
 		}
 	}
+	result.AccountSchedulingThresholds = defaultAccountSchedulingThresholds()
+	if raw := strings.TrimSpace(settings[SettingKeyAccountSchedulingThresholds]); raw != "" {
+		if thresholds, err := parseAccountSchedulingThresholdsSetting(raw); err != nil {
+			slog.Warn("[Setting] parseSettings: unmarshal account_scheduling_thresholds failed", "error", err)
+		} else {
+			result.AccountSchedulingThresholds = thresholds
+		}
+	}
 
 	result.AllowUserViewErrorRequests = settings[SettingKeyAllowUserViewErrorRequests] == "true" // default false
+	xai.SetRuntimeModelMappingOptions(xai.ModelMappingOptions{
+		DefaultText:          result.GrokDefaultTextModel,
+		EnableCrossClientMap: result.GrokCrossClientModelMapEnabled,
+	})
 
 	return result
 }

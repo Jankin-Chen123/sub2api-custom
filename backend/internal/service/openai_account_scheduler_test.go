@@ -191,6 +191,9 @@ func (c *schedulerTestGatewayCache) GetGrokVideoPendingBilling(_ context.Context
 func (c *schedulerTestGatewayCache) ClaimGrokVideoBilled(_ context.Context, _ string, _ time.Duration) (bool, error) {
 	return true, nil
 }
+func (c *schedulerTestGatewayCache) ReleaseGrokVideoBilled(_ context.Context, _ string) error {
+	return nil
+}
 
 func newSchedulerTestOpenAIWSV2Config() *config.Config {
 	cfg := &config.Config{}

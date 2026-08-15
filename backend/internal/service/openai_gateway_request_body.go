@@ -282,6 +282,12 @@ func IsOpenAIResponsesCompactPath(c *gin.Context) bool {
 	return isOpenAIResponsesCompactPath(c)
 }
 
+// IsOpenAIResponsesCompactPathForTest is retained for the custom handler's
+// compatibility path; production callers should use IsOpenAIResponsesCompactPath.
+func IsOpenAIResponsesCompactPathForTest(c *gin.Context) bool {
+	return IsOpenAIResponsesCompactPath(c)
+}
+
 func OpenAICompactSessionSeedKeyForTest() string {
 	return openAICompactSessionSeedKey
 }

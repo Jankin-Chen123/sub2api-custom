@@ -68,7 +68,20 @@ func explicitOpenAISessionID(c *gin.Context, body []byte) string {
 	if sessionID == "" && len(body) > 0 {
 		sessionID = strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String())
 	}
+	if sessionID == "" && isGrokRequestContext(c) && len(body) > 0 {
+		sessionID = grokPreviousResponseSessionSeed(body)
+	}
 	return sessionID
+}
+
+// grokPreviousResponseSessionSeed returns a stable sticky seed from a Grok
+// Responses previous_response_id. Only response IDs are accepted.
+func grokPreviousResponseSessionSeed(body []byte) string {
+	id := strings.TrimSpace(gjson.GetBytes(body, "previous_response_id").String())
+	if id == "" || ClassifyOpenAIPreviousResponseIDKind(id) != OpenAIPreviousResponseIDKindResponseID {
+		return ""
+	}
+	return "grok-prev-resp:" + id
 }
 
 // explicitOpenAIRequestSessionID extends the common OpenAI session signals
@@ -1037,6 +1050,9 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 		if s.isOpenAIAccountRequestRuntimeBlocked(acc, requestedModel) {
 			continue
 		}
+		if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, acc) {
+			continue
+		}
 		if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, acc, requestedModel, requireCompact) {
 			continue
 		}
@@ -1243,7 +1259,14 @@ func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, grou
 	platform = normalizeOpenAICompatiblePlatform(platform)
 	if s.schedulerSnapshot != nil {
 		accounts, _, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, platform, false)
-		return accounts, err
+		if err != nil {
+			return accounts, err
+		}
+		accounts = s.filterOpenAIAccountsBySchedulingThreshold(ctx, accounts)
+		if platform == PlatformGrok {
+			accounts = s.filterGrokFreeQuotaAccountsForOpenAI(ctx, accounts)
+		}
+		return accounts, nil
 	}
 	var accounts []Account
 	var err error
@@ -1257,7 +1280,39 @@ func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, grou
 	if err != nil {
 		return nil, fmt.Errorf("query accounts failed: %w", err)
 	}
+	accounts = s.filterOpenAIAccountsBySchedulingThreshold(ctx, accounts)
+	if platform == PlatformGrok {
+		accounts = s.filterGrokFreeQuotaAccountsForOpenAI(ctx, accounts)
+	}
 	return accounts, nil
+}
+
+func (s *OpenAIGatewayService) filterGrokFreeQuotaAccountsForOpenAI(ctx context.Context, accounts []Account) []Account {
+	if s == nil {
+		return accounts
+	}
+	return filterGrokFreeQuotaAccountsCore(ctx, s.cfg, s.usageLogRepo, &openaiGrokFreeQuotaGateCache, accounts)
+}
+
+func (s *OpenAIGatewayService) filterOpenAIAccountsBySchedulingThreshold(ctx context.Context, accounts []Account) []Account {
+	if len(accounts) == 0 {
+		return accounts
+	}
+	filtered := make([]Account, 0, len(accounts))
+	for i := range accounts {
+		if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, &accounts[i]) {
+			continue
+		}
+		filtered = append(filtered, accounts[i])
+	}
+	return filtered
+}
+
+func (s *OpenAIGatewayService) isOpenAIAccountBlockedBySchedulingThreshold(ctx context.Context, account *Account) bool {
+	if s == nil || s.rateLimitService == nil || account == nil {
+		return false
+	}
+	return s.rateLimitService.ApplyAccountSchedulingThreshold(ctx, account)
 }
 
 func (s *OpenAIGatewayService) tryAcquireAccountSlot(ctx context.Context, accountID int64, maxConcurrency int) (*AcquireResult, error) {
@@ -1300,6 +1355,9 @@ func (s *OpenAIGatewayService) resolveFreshSchedulableOpenAIAccountBeforeProfit(
 		return nil
 	}
 	if s.isOpenAIAccountRequestRuntimeBlocked(fresh, requestedModel) {
+		return nil
+	}
+	if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, fresh) {
 		return nil
 	}
 	if s.isOpenAIProxyStreamQuarantined(ctx, fresh) {
@@ -1345,6 +1403,9 @@ func (s *OpenAIGatewayService) recheckSelectedOpenAIAccountFromDBBeforeProfit(ct
 		if !parentHealthyForShadow(account, s.parentAccountLookup(ctx)) {
 			return nil
 		}
+		if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, account) {
+			return nil
+		}
 		if s.isOpenAIProxyStreamQuarantined(ctx, account) {
 			return nil
 		}
@@ -1365,6 +1426,9 @@ func (s *OpenAIGatewayService) recheckSelectedOpenAIAccountFromDBBeforeProfit(ct
 		return nil
 	}
 	if s.isOpenAIAccountRequestRuntimeBlocked(latest, requestedModel) {
+		return nil
+	}
+	if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, latest) {
 		return nil
 	}
 	if s.isOpenAIProxyStreamQuarantined(ctx, latest) {
@@ -1392,6 +1456,14 @@ func (s *OpenAIGatewayService) getSchedulableAccount(ctx context.Context, accoun
 	}
 	if err != nil || account == nil {
 		return account, err
+	}
+	if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, account) {
+		return nil, nil
+	}
+	if account.IsGrok() {
+		if gated := s.filterGrokFreeQuotaAccountsForOpenAI(ctx, []Account{*account}); len(gated) == 0 {
+			return nil, nil
+		}
 	}
 	return account, nil
 }

@@ -160,6 +160,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyEmailVerifyEnabled,
 		SettingKeyForceEmailOnThirdPartySignup,
 		SettingKeyRegistrationEmailSuffixWhitelist,
+		SettingKeyRegistrationEmailDomainQuotaEnabled,
 		SettingKeyPromoCodeEnabled,
 		SettingKeyPasswordResetEnabled,
 		SettingKeyInvitationCodeEnabled,
@@ -234,6 +235,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorMode,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyChannelMonitorHideThroughput,
+		SettingKeyGrokDefaultTextModel,
+		SettingKeyGrokCrossClientModelMapEnabled,
+		SettingKeyGrokDefaultBaseURLMode,
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeyModelPlazaEnabled,
 		SettingKeyModelPlazaRequireAuth,
@@ -306,6 +310,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		EmailVerifyEnabled:                        emailVerifyEnabled,
 		ForceEmailOnThirdPartySignup:              settings[SettingKeyForceEmailOnThirdPartySignup] == "true",
 		RegistrationEmailSuffixWhitelist:          registrationEmailSuffixWhitelist,
+		RegistrationEmailDomainQuotaEnabled:       settings[SettingKeyRegistrationEmailDomainQuotaEnabled] == "true",
 		PromoCodeEnabled:                          settings[SettingKeyPromoCodeEnabled] != "false", // 默认启用
 		PasswordResetEnabled:                      passwordResetEnabled,
 		InvitationCodeEnabled:                     settings[SettingKeyInvitationCodeEnabled] == "true",
@@ -363,6 +368,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ChannelMonitorMode:                   normalizeChannelMonitorMode(settings[SettingKeyChannelMonitorMode]),
 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
 		ChannelMonitorHideThroughput:         !isFalseSettingValue(settings[SettingKeyChannelMonitorHideThroughput]),
+		GrokDefaultTextModel:                 strings.TrimSpace(settings[SettingKeyGrokDefaultTextModel]),
+		GrokCrossClientModelMapEnabled:       !isFalseSettingValue(settings[SettingKeyGrokCrossClientModelMapEnabled]),
+		GrokDefaultBaseURLMode:               normalizeGrokDefaultBaseURLMode(settings[SettingKeyGrokDefaultBaseURLMode]),
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 
@@ -551,6 +559,7 @@ type PublicSettingsInjectionPayload struct {
 	RegistrationEnabled                       bool                         `json:"registration_enabled"`
 	EmailVerifyEnabled                        bool                         `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist          []string                     `json:"registration_email_suffix_whitelist"`
+	RegistrationEmailDomainQuotaEnabled       bool                         `json:"registration_email_domain_quota_enabled"`
 	PromoCodeEnabled                          bool                         `json:"promo_code_enabled"`
 	PasswordResetEnabled                      bool                         `json:"password_reset_enabled"`
 	InvitationCodeEnabled                     bool                         `json:"invitation_code_enabled"`
@@ -616,14 +625,17 @@ type PublicSettingsInjectionPayload struct {
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
 	// ChannelMonitorHideThroughput is public so the user UI can hide RPM/TPM
 	// without waiting for API redaction alone (defense in depth).
-	ChannelMonitorHideThroughput bool `json:"channel_monitor_hide_throughput"`
-	AvailableChannelsEnabled     bool `json:"available_channels_enabled"`
-	ModelPlazaEnabled            bool `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth        bool `json:"model_plaza_require_auth"`
-	AffiliateEnabled             bool `json:"affiliate_enabled"`
-	RiskControlEnabled           bool `json:"risk_control_enabled"`
-	AllowUserViewErrorRequests   bool `json:"allow_user_view_error_requests"`
-	DedicatedImageEnabled        bool `json:"dedicated_image_enabled"`
+	ChannelMonitorHideThroughput   bool   `json:"channel_monitor_hide_throughput"`
+	AvailableChannelsEnabled       bool   `json:"available_channels_enabled"`
+	ModelPlazaEnabled              bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth          bool   `json:"model_plaza_require_auth"`
+	AffiliateEnabled               bool   `json:"affiliate_enabled"`
+	RiskControlEnabled             bool   `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests     bool   `json:"allow_user_view_error_requests"`
+	DedicatedImageEnabled          bool   `json:"dedicated_image_enabled"`
+	GrokDefaultTextModel           string `json:"grok_default_text_model"`
+	GrokCrossClientModelMapEnabled bool   `json:"grok_cross_client_model_map_enabled"`
+	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
@@ -638,6 +650,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		RegistrationEnabled:                       settings.RegistrationEnabled,
 		EmailVerifyEnabled:                        settings.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:          settings.RegistrationEmailSuffixWhitelist,
+		RegistrationEmailDomainQuotaEnabled:       settings.RegistrationEmailDomainQuotaEnabled,
 		PromoCodeEnabled:                          settings.PromoCodeEnabled,
 		PasswordResetEnabled:                      settings.PasswordResetEnabled,
 		InvitationCodeEnabled:                     settings.InvitationCodeEnabled,
@@ -705,6 +718,9 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		RiskControlEnabled:                   settings.RiskControlEnabled,
 		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,
 		DedicatedImageEnabled:                settings.DedicatedImageEnabled,
+		GrokDefaultTextModel:                 settings.GrokDefaultTextModel,
+		GrokCrossClientModelMapEnabled:       settings.GrokCrossClientModelMapEnabled,
+		GrokDefaultBaseURLMode:               settings.GrokDefaultBaseURLMode,
 	}, nil
 }
 

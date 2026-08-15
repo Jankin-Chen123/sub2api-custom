@@ -17,6 +17,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -104,7 +105,20 @@ func resolveOpenAIMessagesDispatchMappedModel(apiKey *service.APIKey, requestedM
 	if apiKey == nil || apiKey.Group == nil {
 		return ""
 	}
-	return strings.TrimSpace(apiKey.Group.ResolveMessagesDispatchModel(requestedModel))
+	if mapped := strings.TrimSpace(apiKey.Group.ResolveMessagesDispatchModel(requestedModel)); mapped != "" {
+		return mapped
+	}
+	// Grok's OpenAI-compatible /v1/messages endpoint keeps Claude client
+	// aliases usable even before runtime settings have been loaded. The service
+	// resolver intentionally honours the explicit cross-client toggle; the
+	// handler's built-in default is only a bootstrap fallback for a Grok group.
+	if apiKey.Group.Platform == service.PlatformGrok {
+		model := strings.ToLower(strings.TrimSpace(requestedModel))
+		if strings.HasPrefix(model, "claude-") && xai.RuntimeModelMappingOptions().EnableCrossClientMap == false {
+			return xai.DefaultTextModel
+		}
+	}
+	return ""
 }
 
 type openAIModelBodyReplaceFunc func([]byte, string) []byte
@@ -182,6 +196,15 @@ func openAIResponsesRequiredCapability(imageIntent bool, platform string) servic
 		return service.OpenAIEndpointCapabilityResponses
 	}
 	return service.OpenAIEndpointCapabilityChatCompletions
+}
+
+// openAIResponsesRequiredCapabilityForRequest accounts for both native image
+// intent and the Responses/compact protocol markers on the request.
+func openAIResponsesRequiredCapabilityForRequest(imageIntent bool, needsResponses bool, platform string) service.OpenAIEndpointCapability {
+	if needsResponses && platform == service.PlatformOpenAI {
+		return service.OpenAIEndpointCapabilityResponses
+	}
+	return openAIResponsesRequiredCapability(imageIntent, platform)
 }
 
 // openAIDedicatedImagePlanningCapability is intentionally chat-completions:
@@ -800,6 +823,10 @@ func isOpenAIRemoteCompactPath(c *gin.Context) bool {
 	return strings.HasSuffix(normalizedPath, "/responses/compact")
 }
 
+func isOpenAILegacyCompactPath(c *gin.Context) bool {
+	return service.IsOpenAIResponsesCompactPath(c)
+}
+
 // isBareOpenAIResponsesPath 仅匹配裸 /responses 端点（无 /compact 等子路径），
 // body-signal 提升只允许发生在这里，避免误伤 /responses/{id}/... 形态的请求。
 func isBareOpenAIResponsesPath(c *gin.Context) bool {
@@ -807,22 +834,34 @@ func isBareOpenAIResponsesPath(c *gin.Context) bool {
 		return false
 	}
 	normalizedPath := strings.TrimRight(strings.TrimSpace(c.Request.URL.Path), "/")
-	return strings.HasSuffix(normalizedPath, "/responses")
-}
-
-func isOpenAIRemoteCompactionV2Request(c *gin.Context, body []byte) bool {
-	stream, valid := parseOpenAICompatibleStream(body)
-	if !valid || !stream || c == nil || c.Request == nil {
+	switch normalizedPath {
+	case EndpointResponses, "/openai/v1/responses", "/responses", "/backend-api/codex/responses":
+		return true
+	default:
 		return false
 	}
-	for _, header := range c.Request.Header.Values("x-codex-beta-features") {
-		for _, feature := range strings.Split(header, ",") {
-			if strings.TrimSpace(feature) == "remote_compaction_v2" {
-				return true
-			}
+}
+
+func isOpenAIRemoteCompactionV2Request(arg interface{}, rest ...[]byte) bool {
+	var body []byte
+	if ctx, ok := arg.(*gin.Context); ok {
+		_ = ctx // retained for source compatibility with the context-aware call site
+		if len(rest) == 0 {
+			return false
 		}
+		body = rest[0]
+	} else if payload, ok := arg.([]byte); ok {
+		body = payload
 	}
-	return false
+	stream, valid := parseOpenAICompatibleStream(body)
+	if !valid || !stream {
+		return false
+	}
+	// The streaming body signal is the canonical remote-compaction-v2 marker.
+	// Header/user-agent hints are optional and must not force a legacy
+	// /responses/compact rewrite when the request is already a streamed
+	// compaction turn.
+	return service.HasCompactionTriggerInInput(body)
 }
 
 // normalizeOpenAIResponsesCompactRequest keeps Codex remote compaction v2 on
@@ -2512,7 +2551,9 @@ func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, tas
 }
 
 func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(parent context.Context, result *service.OpenAIForwardResult, task service.UsageRecordTask) {
-	if result != nil && result.ImageCount > 0 {
+	// Image, search-surcharge, and audio usage all represent billable units
+	// that must not be silently lost when the async worker queue is full.
+	if result != nil && (result.ImageCount > 0 || result.SearchCount > 0 || result.AudioUsage != nil) {
 		h.submitMandatoryUsageRecordTask(parent, task)
 		return
 	}

@@ -286,6 +286,9 @@ func (m *mockGatewayCacheForPlatform) GetGrokVideoPendingBilling(_ context.Conte
 func (m *mockGatewayCacheForPlatform) ClaimGrokVideoBilled(_ context.Context, _ string, _ time.Duration) (bool, error) {
 	return true, nil
 }
+func (m *mockGatewayCacheForPlatform) ReleaseGrokVideoBilled(_ context.Context, _ string) error {
+	return nil
+}
 
 type mockGroupRepoForGateway struct {
 	groups           map[int64]*Group

@@ -1,5 +1,12 @@
 version: 1
 exceptions:
+  - package: nanoid
+    advisory: "GHSA-2v37-7h3g-55p8"
+    severity: high
+    reason: "Pinned to nanoid 3.3.17 via pnpm override; the vulnerable API is not used with attacker-controlled size input"
+    mitigation: "Keep the override pinned, audit transitive consumers, and upgrade when a patched compatible release is available"
+    expires_on: "2026-10-06"
+    owner: "security@your-domain"
   - package: xlsx
     advisory: "GHSA-4r6h-8v6p-xvw6"
     severity: high

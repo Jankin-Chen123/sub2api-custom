@@ -48,6 +48,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		EmailVerifyEnabled:                        settings.EmailVerifyEnabled,
 		ForceEmailOnThirdPartySignup:              settings.ForceEmailOnThirdPartySignup,
 		RegistrationEmailSuffixWhitelist:          settings.RegistrationEmailSuffixWhitelist,
+		RegistrationEmailDomainQuotaEnabled:       settings.RegistrationEmailDomainQuotaEnabled,
 		PromoCodeEnabled:                          settings.PromoCodeEnabled,
 		PasswordResetEnabled:                      settings.PasswordResetEnabled,
 		InvitationCodeEnabled:                     settings.InvitationCodeEnabled,
@@ -108,6 +109,9 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		ChannelMonitorMode:                   settings.ChannelMonitorMode,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 		ChannelMonitorHideThroughput:         settings.ChannelMonitorHideThroughput,
+		GrokDefaultTextModel:                 settings.GrokDefaultTextModel,
+		GrokCrossClientModelMapEnabled:       settings.GrokCrossClientModelMapEnabled,
+		GrokDefaultBaseURLMode:               settings.GrokDefaultBaseURLMode,
 
 		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
 

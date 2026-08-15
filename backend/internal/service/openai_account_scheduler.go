@@ -297,6 +297,9 @@ type defaultOpenAIAccountScheduler struct {
 	service *OpenAIGatewayService
 	metrics openAIAccountSchedulerMetrics
 	stats   *openAIAccountRuntimeStats
+	// grokFreeQuotaGateCache keeps the local free-tier soft-gate hot path
+	// isolated per scheduler instance.
+	grokFreeQuotaGateCache sync.Map
 }
 
 type openAISelectionProbeBudget struct {
@@ -2217,10 +2220,10 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 	// 此处对同分组门直接复用（failover 重入阈值稳定），仅为不经 handler 装配的
 	// 内部调用兜底。图片/视频调度不在利润门范围：requiredImageCapability 非空的
 	// Images 调度不装门；requiredCapability == OpenAIEndpointCapabilityResponses
-	// 当前仅显式生图意图的 /v1/responses 设置（HTTP openAIResponsesRequiredCapability
-	// 与 WS 桥同款判定），同样不装门——若未来把该 capability 用于非生图流量，
-	// 需要同步收窄本条件（有测试钉死该映射）。
-	if requiredImageCapability == "" && requiredCapability != OpenAIEndpointCapabilityResponses {
+	// Responses capability is still a text-capability request (including native
+	// remote compaction), so it must pass the same profit gate. Only explicit
+	// image capability requests are outside this gate.
+	if requiredImageCapability == "" {
 		ctx = s.withOpenAIProfitControlGate(ctx, groupID)
 	}
 	platform = normalizeOpenAICompatiblePlatform(platform)

@@ -143,6 +143,9 @@ func (c *comboCacheAndStore) GetGrokVideoPendingBilling(_ context.Context, _ str
 func (c *comboCacheAndStore) ClaimGrokVideoBilled(_ context.Context, _ string, _ time.Duration) (bool, error) {
 	return true, nil
 }
+func (c *comboCacheAndStore) ReleaseGrokVideoBilled(_ context.Context, _ string) error {
+	return nil
+}
 
 func (c *comboCacheAndStore) SetCyberSessionBlocked(ctx context.Context, key string, ttl time.Duration) error {
 	return c.store.SetCyberSessionBlocked(ctx, key, ttl)
