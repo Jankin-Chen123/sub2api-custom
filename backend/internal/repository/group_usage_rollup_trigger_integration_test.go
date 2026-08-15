@@ -468,6 +468,11 @@ func beginGroupUsageRollupTriggerTestTx(t *testing.T, ctx context.Context, schem
 	tx, err := integrationDB.BeginTx(ctx, nil)
 	require.NoError(t, err)
 	require.NoError(t, setGroupUsageRollupTriggerSearchPath(ctx, tx, pq.QuoteIdentifier(schema)))
+	// The service default timezone is Asia/Shanghai. Keep the trigger tests
+	// deterministic on CI, whose PostgreSQL sessions default to UTC; individual
+	// cases can still override this with SET LOCAL TIME ZONE.
+	_, err = tx.ExecContext(ctx, "SET LOCAL TIME ZONE 'Asia/Shanghai'")
+	require.NoError(t, err)
 	return tx
 }
 
