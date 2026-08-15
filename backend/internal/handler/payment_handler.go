@@ -68,6 +68,9 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 		ValidityDays       int      `json:"validity_days"`
 		ValidityUnit       string   `json:"validity_unit"`
 		Features           string   `json:"features"`
+		DailyLimitUSD      *float64 `json:"daily_limit_usd,omitempty"`
+		WeeklyLimitUSD     *float64 `json:"weekly_limit_usd,omitempty"`
+		MonthlyLimitUSD    *float64 `json:"monthly_limit_usd,omitempty"`
 		ProductName        string   `json:"product_name"`
 		ForSale            bool     `json:"for_sale"`
 		SortOrder          int      `json:"sort_order"`
@@ -82,8 +85,11 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 			RateMultiplier: gi.RateMultiplier, PeakRateEnabled: gi.PeakRateEnabled,
 			PeakStart: gi.PeakStart, PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
 			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
-			Currency:     p.Currency,
-			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: p.Features,
+			Currency:        p.Currency,
+			DailyLimitUSD:   service.ResolvePlanLimit(p.DailyLimitUsd, gi.DailyLimitUSD),
+			WeeklyLimitUSD:  service.ResolvePlanLimit(p.WeeklyLimitUsd, gi.WeeklyLimitUSD),
+			MonthlyLimitUSD: service.ResolvePlanLimit(p.MonthlyLimitUsd, gi.MonthlyLimitUSD),
+			ValidityDays:    p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: p.Features,
 			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
 		})
 	}
@@ -130,10 +136,11 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 			RateMultiplier:  gi.RateMultiplier,
 			PeakRateEnabled: gi.PeakRateEnabled, PeakStart: gi.PeakStart,
 			PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
-			DailyLimitUSD:  gi.DailyLimitUSD,
-			WeeklyLimitUSD: gi.WeeklyLimitUSD, MonthlyLimitUSD: gi.MonthlyLimitUSD,
-			ModelScopes: gi.ModelScopes,
-			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
+			DailyLimitUSD:   service.ResolvePlanLimit(p.DailyLimitUsd, gi.DailyLimitUSD),
+			WeeklyLimitUSD:  service.ResolvePlanLimit(p.WeeklyLimitUsd, gi.WeeklyLimitUSD),
+			MonthlyLimitUSD: service.ResolvePlanLimit(p.MonthlyLimitUsd, gi.MonthlyLimitUSD),
+			ModelScopes:     gi.ModelScopes,
+			Name:            p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
 			Currency:     p.Currency,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
 			ProductName: p.ProductName,

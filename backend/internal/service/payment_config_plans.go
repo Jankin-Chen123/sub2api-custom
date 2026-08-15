@@ -48,6 +48,13 @@ func validatePlanRequired(name string, groupID int64, price float64, validityDay
 	return nil
 }
 
+func validatePlanLimit(value *float64, code string) error {
+	if value != nil && *value < 0 {
+		return infraerrors.BadRequest(code, "subscription limit must be >= 0")
+	}
+	return nil
+}
+
 // validatePlanPatch validates only the non-nil fields in a patch update.
 func validatePlanPatch(req UpdatePlanRequest) error {
 	if req.Name != nil && strings.TrimSpace(*req.Name) == "" {
@@ -68,6 +75,15 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 	if req.OriginalPrice != nil && *req.OriginalPrice < 0 {
 		return infraerrors.BadRequest("PLAN_ORIGINAL_PRICE_INVALID", "original price must be >= 0")
 	}
+	if err := validatePlanLimit(req.DailyLimitUSD, "PLAN_DAILY_LIMIT_INVALID"); err != nil {
+		return err
+	}
+	if err := validatePlanLimit(req.WeeklyLimitUSD, "PLAN_WEEKLY_LIMIT_INVALID"); err != nil {
+		return err
+	}
+	if err := validatePlanLimit(req.MonthlyLimitUSD, "PLAN_MONTHLY_LIMIT_INVALID"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -86,6 +102,15 @@ type PlanGroupInfo struct {
 	WeeklyLimitUSD     *float64 `json:"weekly_limit_usd"`
 	MonthlyLimitUSD    *float64 `json:"monthly_limit_usd"`
 	ModelScopes        []string `json:"supported_model_scopes"`
+}
+
+// ResolvePlanLimit returns the plan override when present, otherwise the
+// group's default. A nil result means the quota is unlimited.
+func ResolvePlanLimit(planLimit, groupLimit *float64) *float64 {
+	if planLimit != nil {
+		return planLimit
+	}
+	return groupLimit
 }
 
 // GetGroupInfoMap returns a map of group_id → PlanGroupInfo for the given plans.
@@ -136,6 +161,15 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 	if err := validatePlanRequired(req.Name, req.GroupID, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
 		return nil, err
 	}
+	if err := validatePlanLimit(req.DailyLimitUSD, "PLAN_DAILY_LIMIT_INVALID"); err != nil {
+		return nil, err
+	}
+	if err := validatePlanLimit(req.WeeklyLimitUSD, "PLAN_WEEKLY_LIMIT_INVALID"); err != nil {
+		return nil, err
+	}
+	if err := validatePlanLimit(req.MonthlyLimitUSD, "PLAN_MONTHLY_LIMIT_INVALID"); err != nil {
+		return nil, err
+	}
 	currency, err := normalizePlanCurrency(req.Currency)
 	if err != nil {
 		return nil, err
@@ -145,6 +179,15 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 		SetPrice(req.Price).SetCurrency(currency).SetValidityDays(req.ValidityDays).SetValidityUnit(req.ValidityUnit).
 		SetFeatures(req.Features).SetProductName(req.ProductName).
 		SetForSale(req.ForSale).SetSortOrder(req.SortOrder)
+	if req.DailyLimitUSD != nil && *req.DailyLimitUSD > 0 {
+		b.SetDailyLimitUsd(*req.DailyLimitUSD)
+	}
+	if req.WeeklyLimitUSD != nil && *req.WeeklyLimitUSD > 0 {
+		b.SetWeeklyLimitUsd(*req.WeeklyLimitUSD)
+	}
+	if req.MonthlyLimitUSD != nil && *req.MonthlyLimitUSD > 0 {
+		b.SetMonthlyLimitUsd(*req.MonthlyLimitUSD)
+	}
 	if req.OriginalPrice != nil {
 		b.SetOriginalPrice(*req.OriginalPrice)
 	}
@@ -180,6 +223,27 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 			return nil, err
 		}
 		u.SetCurrency(currency)
+	}
+	if req.DailyLimitUSD != nil {
+		if *req.DailyLimitUSD > 0 {
+			u.SetDailyLimitUsd(*req.DailyLimitUSD)
+		} else {
+			u.ClearDailyLimitUsd()
+		}
+	}
+	if req.WeeklyLimitUSD != nil {
+		if *req.WeeklyLimitUSD > 0 {
+			u.SetWeeklyLimitUsd(*req.WeeklyLimitUSD)
+		} else {
+			u.ClearWeeklyLimitUsd()
+		}
+	}
+	if req.MonthlyLimitUSD != nil {
+		if *req.MonthlyLimitUSD > 0 {
+			u.SetMonthlyLimitUsd(*req.MonthlyLimitUSD)
+		} else {
+			u.ClearMonthlyLimitUsd()
+		}
 	}
 	if req.ValidityDays != nil {
 		u.SetValidityDays(*req.ValidityDays)

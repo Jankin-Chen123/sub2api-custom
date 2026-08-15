@@ -93,6 +93,67 @@ func (_u *RedeemCodeUpdate) SetNillableStatus(v *string) *RedeemCodeUpdate {
 	return _u
 }
 
+// SetAffiliateRebateStatus sets the "affiliate_rebate_status" field.
+func (_u *RedeemCodeUpdate) SetAffiliateRebateStatus(v string) *RedeemCodeUpdate {
+	_u.mutation.SetAffiliateRebateStatus(v)
+	return _u
+}
+
+// SetNillableAffiliateRebateStatus sets the "affiliate_rebate_status" field if the given value is not nil.
+func (_u *RedeemCodeUpdate) SetNillableAffiliateRebateStatus(v *string) *RedeemCodeUpdate {
+	if v != nil {
+		_u.SetAffiliateRebateStatus(*v)
+	}
+	return _u
+}
+
+// SetAffiliateRebateAmount sets the "affiliate_rebate_amount" field.
+func (_u *RedeemCodeUpdate) SetAffiliateRebateAmount(v float64) *RedeemCodeUpdate {
+	_u.mutation.ResetAffiliateRebateAmount()
+	_u.mutation.SetAffiliateRebateAmount(v)
+	return _u
+}
+
+// SetNillableAffiliateRebateAmount sets the "affiliate_rebate_amount" field if the given value is not nil.
+func (_u *RedeemCodeUpdate) SetNillableAffiliateRebateAmount(v *float64) *RedeemCodeUpdate {
+	if v != nil {
+		_u.SetAffiliateRebateAmount(*v)
+	}
+	return _u
+}
+
+// AddAffiliateRebateAmount adds value to the "affiliate_rebate_amount" field.
+func (_u *RedeemCodeUpdate) AddAffiliateRebateAmount(v float64) *RedeemCodeUpdate {
+	_u.mutation.AddAffiliateRebateAmount(v)
+	return _u
+}
+
+// ClearAffiliateRebateAmount clears the value of the "affiliate_rebate_amount" field.
+func (_u *RedeemCodeUpdate) ClearAffiliateRebateAmount() *RedeemCodeUpdate {
+	_u.mutation.ClearAffiliateRebateAmount()
+	return _u
+}
+
+// SetAffiliateRebateReviewedAt sets the "affiliate_rebate_reviewed_at" field.
+func (_u *RedeemCodeUpdate) SetAffiliateRebateReviewedAt(v time.Time) *RedeemCodeUpdate {
+	_u.mutation.SetAffiliateRebateReviewedAt(v)
+	return _u
+}
+
+// SetNillableAffiliateRebateReviewedAt sets the "affiliate_rebate_reviewed_at" field if the given value is not nil.
+func (_u *RedeemCodeUpdate) SetNillableAffiliateRebateReviewedAt(v *time.Time) *RedeemCodeUpdate {
+	if v != nil {
+		_u.SetAffiliateRebateReviewedAt(*v)
+	}
+	return _u
+}
+
+// ClearAffiliateRebateReviewedAt clears the value of the "affiliate_rebate_reviewed_at" field.
+func (_u *RedeemCodeUpdate) ClearAffiliateRebateReviewedAt() *RedeemCodeUpdate {
+	_u.mutation.ClearAffiliateRebateReviewedAt()
+	return _u
+}
+
 // SetUsedBy sets the "used_by" field.
 func (_u *RedeemCodeUpdate) SetUsedBy(v int64) *RedeemCodeUpdate {
 	_u.mutation.SetUsedBy(v)
@@ -299,6 +360,11 @@ func (_u *RedeemCodeUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AffiliateRebateStatus(); ok {
+		if err := redeemcode.AffiliateRebateStatusValidator(v); err != nil {
+			return &ValidationError{Name: "affiliate_rebate_status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.affiliate_rebate_status": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -328,6 +394,24 @@ func (_u *RedeemCodeUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(redeemcode.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AffiliateRebateStatus(); ok {
+		_spec.SetField(redeemcode.FieldAffiliateRebateStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AffiliateRebateAmount(); ok {
+		_spec.SetField(redeemcode.FieldAffiliateRebateAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedAffiliateRebateAmount(); ok {
+		_spec.AddField(redeemcode.FieldAffiliateRebateAmount, field.TypeFloat64, value)
+	}
+	if _u.mutation.AffiliateRebateAmountCleared() {
+		_spec.ClearField(redeemcode.FieldAffiliateRebateAmount, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.AffiliateRebateReviewedAt(); ok {
+		_spec.SetField(redeemcode.FieldAffiliateRebateReviewedAt, field.TypeTime, value)
+	}
+	if _u.mutation.AffiliateRebateReviewedAtCleared() {
+		_spec.ClearField(redeemcode.FieldAffiliateRebateReviewedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.UsedAt(); ok {
 		_spec.SetField(redeemcode.FieldUsedAt, field.TypeTime, value)
@@ -491,6 +575,67 @@ func (_u *RedeemCodeUpdateOne) SetNillableStatus(v *string) *RedeemCodeUpdateOne
 	if v != nil {
 		_u.SetStatus(*v)
 	}
+	return _u
+}
+
+// SetAffiliateRebateStatus sets the "affiliate_rebate_status" field.
+func (_u *RedeemCodeUpdateOne) SetAffiliateRebateStatus(v string) *RedeemCodeUpdateOne {
+	_u.mutation.SetAffiliateRebateStatus(v)
+	return _u
+}
+
+// SetNillableAffiliateRebateStatus sets the "affiliate_rebate_status" field if the given value is not nil.
+func (_u *RedeemCodeUpdateOne) SetNillableAffiliateRebateStatus(v *string) *RedeemCodeUpdateOne {
+	if v != nil {
+		_u.SetAffiliateRebateStatus(*v)
+	}
+	return _u
+}
+
+// SetAffiliateRebateAmount sets the "affiliate_rebate_amount" field.
+func (_u *RedeemCodeUpdateOne) SetAffiliateRebateAmount(v float64) *RedeemCodeUpdateOne {
+	_u.mutation.ResetAffiliateRebateAmount()
+	_u.mutation.SetAffiliateRebateAmount(v)
+	return _u
+}
+
+// SetNillableAffiliateRebateAmount sets the "affiliate_rebate_amount" field if the given value is not nil.
+func (_u *RedeemCodeUpdateOne) SetNillableAffiliateRebateAmount(v *float64) *RedeemCodeUpdateOne {
+	if v != nil {
+		_u.SetAffiliateRebateAmount(*v)
+	}
+	return _u
+}
+
+// AddAffiliateRebateAmount adds value to the "affiliate_rebate_amount" field.
+func (_u *RedeemCodeUpdateOne) AddAffiliateRebateAmount(v float64) *RedeemCodeUpdateOne {
+	_u.mutation.AddAffiliateRebateAmount(v)
+	return _u
+}
+
+// ClearAffiliateRebateAmount clears the value of the "affiliate_rebate_amount" field.
+func (_u *RedeemCodeUpdateOne) ClearAffiliateRebateAmount() *RedeemCodeUpdateOne {
+	_u.mutation.ClearAffiliateRebateAmount()
+	return _u
+}
+
+// SetAffiliateRebateReviewedAt sets the "affiliate_rebate_reviewed_at" field.
+func (_u *RedeemCodeUpdateOne) SetAffiliateRebateReviewedAt(v time.Time) *RedeemCodeUpdateOne {
+	_u.mutation.SetAffiliateRebateReviewedAt(v)
+	return _u
+}
+
+// SetNillableAffiliateRebateReviewedAt sets the "affiliate_rebate_reviewed_at" field if the given value is not nil.
+func (_u *RedeemCodeUpdateOne) SetNillableAffiliateRebateReviewedAt(v *time.Time) *RedeemCodeUpdateOne {
+	if v != nil {
+		_u.SetAffiliateRebateReviewedAt(*v)
+	}
+	return _u
+}
+
+// ClearAffiliateRebateReviewedAt clears the value of the "affiliate_rebate_reviewed_at" field.
+func (_u *RedeemCodeUpdateOne) ClearAffiliateRebateReviewedAt() *RedeemCodeUpdateOne {
+	_u.mutation.ClearAffiliateRebateReviewedAt()
 	return _u
 }
 
@@ -713,6 +858,11 @@ func (_u *RedeemCodeUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AffiliateRebateStatus(); ok {
+		if err := redeemcode.AffiliateRebateStatusValidator(v); err != nil {
+			return &ValidationError{Name: "affiliate_rebate_status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.affiliate_rebate_status": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -759,6 +909,24 @@ func (_u *RedeemCodeUpdateOne) sqlSave(ctx context.Context) (_node *RedeemCode, 
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(redeemcode.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AffiliateRebateStatus(); ok {
+		_spec.SetField(redeemcode.FieldAffiliateRebateStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AffiliateRebateAmount(); ok {
+		_spec.SetField(redeemcode.FieldAffiliateRebateAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedAffiliateRebateAmount(); ok {
+		_spec.AddField(redeemcode.FieldAffiliateRebateAmount, field.TypeFloat64, value)
+	}
+	if _u.mutation.AffiliateRebateAmountCleared() {
+		_spec.ClearField(redeemcode.FieldAffiliateRebateAmount, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.AffiliateRebateReviewedAt(); ok {
+		_spec.SetField(redeemcode.FieldAffiliateRebateReviewedAt, field.TypeTime, value)
+	}
+	if _u.mutation.AffiliateRebateReviewedAtCleared() {
+		_spec.ClearField(redeemcode.FieldAffiliateRebateReviewedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.UsedAt(); ok {
 		_spec.SetField(redeemcode.FieldUsedAt, field.TypeTime, value)

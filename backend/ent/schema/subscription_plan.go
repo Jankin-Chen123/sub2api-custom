@@ -46,6 +46,19 @@ func (SubscriptionPlan) Fields() []ent.Field {
 		field.String("currency").
 			MaxLen(3).
 			Default(""),
+		// 套餐级限额。为 nil 时沿用分组配置，非 nil 时作为购买后订阅卡的快照。
+		field.Float("daily_limit_usd").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("weekly_limit_usd").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("monthly_limit_usd").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
 		field.Int("validity_days").
 			Default(30),
 		field.String("validity_unit").

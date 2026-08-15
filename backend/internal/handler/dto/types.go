@@ -420,7 +420,10 @@ type RedeemCode struct {
 type AdminRedeemCode struct {
 	RedeemCode
 
-	Notes string `json:"notes"`
+	Notes                     string     `json:"notes"`
+	AffiliateRebateStatus     string     `json:"affiliate_rebate_status"`
+	AffiliateRebateAmount     *float64   `json:"affiliate_rebate_amount,omitempty"`
+	AffiliateRebateReviewedAt *time.Time `json:"affiliate_rebate_reviewed_at,omitempty"`
 }
 
 type NullableTimeField struct {
@@ -634,9 +637,14 @@ type UserSubscription struct {
 	UserID  int64 `json:"user_id"`
 	GroupID int64 `json:"group_id"`
 
-	StartsAt  time.Time `json:"starts_at"`
-	ExpiresAt time.Time `json:"expires_at"`
-	Status    string    `json:"status"`
+	StartsAt     time.Time `json:"starts_at"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	ValidityDays int       `json:"validity_days"`
+	Status       string    `json:"status"`
+
+	DailyLimitUSD   *float64 `json:"daily_limit_usd,omitempty"`
+	WeeklyLimitUSD  *float64 `json:"weekly_limit_usd,omitempty"`
+	MonthlyLimitUSD *float64 `json:"monthly_limit_usd,omitempty"`
 
 	DailyWindowStart   *time.Time `json:"daily_window_start"`
 	WeeklyWindowStart  *time.Time `json:"weekly_window_start"`

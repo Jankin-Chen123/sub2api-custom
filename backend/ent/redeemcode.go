@@ -27,6 +27,12 @@ type RedeemCode struct {
 	Value float64 `json:"value,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
+	// AffiliateRebateStatus holds the value of the "affiliate_rebate_status" field.
+	AffiliateRebateStatus string `json:"affiliate_rebate_status,omitempty"`
+	// AffiliateRebateAmount holds the value of the "affiliate_rebate_amount" field.
+	AffiliateRebateAmount *float64 `json:"affiliate_rebate_amount,omitempty"`
+	// AffiliateRebateReviewedAt holds the value of the "affiliate_rebate_reviewed_at" field.
+	AffiliateRebateReviewedAt *time.Time `json:"affiliate_rebate_reviewed_at,omitempty"`
 	// UsedBy holds the value of the "used_by" field.
 	UsedBy *int64 `json:"used_by,omitempty"`
 	// UsedAt holds the value of the "used_at" field.
@@ -85,13 +91,13 @@ func (*RedeemCode) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case redeemcode.FieldValue:
+		case redeemcode.FieldValue, redeemcode.FieldAffiliateRebateAmount:
 			values[i] = new(sql.NullFloat64)
 		case redeemcode.FieldID, redeemcode.FieldUsedBy, redeemcode.FieldGroupID, redeemcode.FieldValidityDays:
 			values[i] = new(sql.NullInt64)
-		case redeemcode.FieldCode, redeemcode.FieldType, redeemcode.FieldStatus, redeemcode.FieldNotes:
+		case redeemcode.FieldCode, redeemcode.FieldType, redeemcode.FieldStatus, redeemcode.FieldAffiliateRebateStatus, redeemcode.FieldNotes:
 			values[i] = new(sql.NullString)
-		case redeemcode.FieldUsedAt, redeemcode.FieldCreatedAt, redeemcode.FieldExpiresAt:
+		case redeemcode.FieldAffiliateRebateReviewedAt, redeemcode.FieldUsedAt, redeemcode.FieldCreatedAt, redeemcode.FieldExpiresAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -137,6 +143,26 @@ func (_m *RedeemCode) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = value.String
+			}
+		case redeemcode.FieldAffiliateRebateStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field affiliate_rebate_status", values[i])
+			} else if value.Valid {
+				_m.AffiliateRebateStatus = value.String
+			}
+		case redeemcode.FieldAffiliateRebateAmount:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field affiliate_rebate_amount", values[i])
+			} else if value.Valid {
+				_m.AffiliateRebateAmount = new(float64)
+				*_m.AffiliateRebateAmount = value.Float64
+			}
+		case redeemcode.FieldAffiliateRebateReviewedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field affiliate_rebate_reviewed_at", values[i])
+			} else if value.Valid {
+				_m.AffiliateRebateReviewedAt = new(time.Time)
+				*_m.AffiliateRebateReviewedAt = value.Time
 			}
 		case redeemcode.FieldUsedBy:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -242,6 +268,19 @@ func (_m *RedeemCode) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("affiliate_rebate_status=")
+	builder.WriteString(_m.AffiliateRebateStatus)
+	builder.WriteString(", ")
+	if v := _m.AffiliateRebateAmount; v != nil {
+		builder.WriteString("affiliate_rebate_amount=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.AffiliateRebateReviewedAt; v != nil {
+		builder.WriteString("affiliate_rebate_reviewed_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	if v := _m.UsedBy; v != nil {
 		builder.WriteString("used_by=")

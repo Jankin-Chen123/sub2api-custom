@@ -48,6 +48,17 @@ func (RedeemCode) Fields() []ent.Field {
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusUnused),
+		field.String("affiliate_rebate_status").
+			MaxLen(20).
+			Default(domain.AffiliateRebateStatusNotApplicable),
+		field.Float("affiliate_rebate_amount").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Time("affiliate_rebate_reviewed_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.Int64("used_by").
 			Optional().
 			Nillable(),

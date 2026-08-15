@@ -44,6 +44,14 @@ const (
 	RedeemTypeInvitation   = "invitation"
 )
 
+// Affiliate rebate review states for positive balance redeem codes.
+const (
+	AffiliateRebateStatusPending       = "pending"
+	AffiliateRebateStatusApproved      = "approved"
+	AffiliateRebateStatusExcluded      = "excluded"
+	AffiliateRebateStatusNotApplicable = "not_applicable"
+)
+
 // PromoCode status constants
 const (
 	PromoCodeStatusActive   = "active"
@@ -64,6 +72,7 @@ const (
 
 // Subscription status constants
 const (
+	SubscriptionStatusPending   = "pending"
 	SubscriptionStatusActive    = "active"
 	SubscriptionStatusExpired   = "expired"
 	SubscriptionStatusSuspended = "suspended"

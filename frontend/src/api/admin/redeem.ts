@@ -149,6 +149,20 @@ export async function expire(id: number): Promise<RedeemCode> {
   return data
 }
 
+export type AffiliateReviewDecision = 'valid' | 'free'
+
+/** Review a used positive balance code for affiliate rebate. */
+export async function reviewAffiliate(
+  id: number,
+  decision: AffiliateReviewDecision,
+): Promise<RedeemCode> {
+  const { data } = await apiClient.post<RedeemCode>(
+    `/admin/redeem-codes/${id}/affiliate-review`,
+    { decision },
+  )
+  return data
+}
+
 /**
  * Get redeem code statistics
  * @returns Statistics about redeem codes
@@ -199,6 +213,7 @@ export const redeemAPI = {
   batchDelete,
   batchUpdate,
   expire,
+  reviewAffiliate,
   getStats,
   exportCodes
 }

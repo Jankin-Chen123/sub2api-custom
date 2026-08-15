@@ -1752,6 +1752,9 @@ export interface RedeemCode {
   type: RedeemCodeType
   value: number
   status: 'active' | 'used' | 'expired' | 'unused' | 'disabled'
+  affiliate_rebate_status?: 'pending' | 'approved' | 'excluded' | 'not_applicable'
+  affiliate_rebate_amount?: number | null
+  affiliate_rebate_reviewed_at?: string | null
   used_by: number | null
   used_at: string | null
   created_at: string
@@ -1985,8 +1988,12 @@ export interface UserSubscription {
   id: number
   user_id: number
   group_id: number
-  status: 'active' | 'expired' | 'revoked' | 'suspended'
+  status: 'pending' | 'active' | 'expired' | 'revoked' | 'suspended'
   starts_at: string
+  validity_days: number
+  daily_limit_usd?: number | null
+  weekly_limit_usd?: number | null
+  monthly_limit_usd?: number | null
   daily_usage_usd: number
   weekly_usage_usd: number
   monthly_usage_usd: number

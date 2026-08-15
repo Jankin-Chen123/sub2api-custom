@@ -262,6 +262,7 @@ export default {
         usedAt: 'Used At',
         createdAt: 'Created At',
         expiresAt: 'Expires At',
+        affiliateReview: 'Affiliate Review',
         actions: 'Actions'
       },
       userPrefix: 'User #{id}',
@@ -368,7 +369,23 @@ export default {
       codeDisabledSuccess: 'Redeem code disabled',
       codeEnabledSuccess: 'Redeem code enabled',
       codeDeletedSuccess: 'Redeem code deleted successfully',
-      failedToUpdate: 'Failed to update redeem code'
+      failedToUpdate: 'Failed to update redeem code',
+      affiliateReview: {
+        title: 'Review Redeem Rebate',
+        status: {
+          pending: 'Pending',
+          approved: 'Rebate Applied',
+          excluded: 'Free Gift',
+          not_applicable: 'N/A'
+        },
+        approve: 'Apply Rebate',
+        exclude: 'Mark Gift',
+        approveConfirm: 'Confirm this is a valid paid redemption and apply the current affiliate rebate rate?',
+        excludeConfirm: 'Confirm this code was given away for free? It will not generate affiliate rebate.',
+        approveSuccess: 'Affiliate rebate applied',
+        excludeSuccess: 'Marked as free gift',
+        failed: 'Failed to review redeem rebate'
+      }
     },
 
     // Announcements

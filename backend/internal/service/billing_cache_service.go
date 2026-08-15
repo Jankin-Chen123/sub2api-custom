@@ -921,16 +921,20 @@ func (s *BillingCacheService) checkSubscriptionEligibility(ctx context.Context, 
 		return ErrSubscriptionInvalid
 	}
 
-	// 检查限额（使用传入的Group限额配置）
-	if group.HasDailyLimit() && subData.DailyUsage >= *group.DailyLimitUSD {
+	// 检查限额。已购买的订阅卡优先使用购买时的快照，历史/管理员分配的
+	// 订阅仍回退到分组默认限额。
+	dailyLimit := subscription.EffectiveDailyLimit(group)
+	weeklyLimit := subscription.EffectiveWeeklyLimit(group)
+	monthlyLimit := subscription.EffectiveMonthlyLimit(group)
+	if dailyLimit != nil && *dailyLimit > 0 && subData.DailyUsage >= *dailyLimit {
 		return ErrDailyLimitExceeded
 	}
 
-	if group.HasWeeklyLimit() && subData.WeeklyUsage >= *group.WeeklyLimitUSD {
+	if weeklyLimit != nil && *weeklyLimit > 0 && subData.WeeklyUsage >= *weeklyLimit {
 		return ErrWeeklyLimitExceeded
 	}
 
-	if group.HasMonthlyLimit() && subData.MonthlyUsage >= *group.MonthlyLimitUSD {
+	if monthlyLimit != nil && *monthlyLimit > 0 && subData.MonthlyUsage >= *monthlyLimit {
 		return ErrMonthlyLimitExceeded
 	}
 

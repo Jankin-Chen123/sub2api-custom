@@ -8,22 +8,86 @@
         ></div>
       </div>
 
-      <!-- Empty State -->
-      <div v-else-if="subscriptions.length === 0" class="card p-12 text-center">
-        <div
-          class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700"
-        >
-          <Icon name="creditCard" size="xl" class="text-gray-400" />
-        </div>
-        <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-          {{ t('userSubscriptions.noActiveSubscriptions') }}
-        </h3>
-        <p class="text-gray-500 dark:text-dark-400">
-          {{ t('userSubscriptions.noActiveSubscriptionsDesc') }}
-        </p>
-      </div>
+      <div v-else class="space-y-8">
+        <!-- Purchasable plans -->
+        <section v-if="plans.length">
+          <div class="mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+              {{ t('userSubscriptions.availablePlans') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
+              {{ t('userSubscriptions.availablePlansDesc') }}
+            </p>
+          </div>
+          <div class="grid gap-5 lg:grid-cols-3">
+            <div
+              v-for="plan in plans"
+              :key="plan.id"
+              class="flex flex-col rounded-2xl border border-primary-100 bg-white p-5 shadow-sm dark:border-primary-900/40 dark:bg-dark-800"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-xs font-medium uppercase tracking-wide text-primary-600 dark:text-primary-400">
+                    {{ plan.group_name || `Group #${plan.group_id}` }}
+                  </p>
+                  <h3 class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ plan.name }}</h3>
+                </div>
+                <div class="text-right">
+                  <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">
+                    {{ plan.currency || '$' }}{{ plan.price.toFixed(2) }}
+                  </div>
+                  <div class="text-xs text-gray-500 dark:text-dark-400">
+                    {{ t('userSubscriptions.planValidity', { days: plan.validity_days }) }}
+                  </div>
+                </div>
+              </div>
+              <p v-if="plan.description" class="mt-3 text-sm text-gray-600 dark:text-dark-300">{{ plan.description }}</p>
+              <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
+                <div class="rounded-lg bg-gray-50 p-2 dark:bg-dark-700">
+                  <div class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.daily') }}</div>
+                  <div class="mt-1 font-semibold text-gray-800 dark:text-gray-200">{{ formatPlanLimit(plan.daily_limit_usd) }}</div>
+                </div>
+                <div class="rounded-lg bg-gray-50 p-2 dark:bg-dark-700">
+                  <div class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.weekly') }}</div>
+                  <div class="mt-1 font-semibold text-gray-800 dark:text-gray-200">{{ formatPlanLimit(plan.weekly_limit_usd) }}</div>
+                </div>
+                <div class="rounded-lg bg-gray-50 p-2 dark:bg-dark-700">
+                  <div class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.monthly') }}</div>
+                  <div class="mt-1 font-semibold text-gray-800 dark:text-gray-200">{{ formatPlanLimit(plan.monthly_limit_usd) }}</div>
+                </div>
+              </div>
+              <ul v-if="plan.features?.length" class="mt-4 space-y-1 text-sm text-gray-600 dark:text-dark-300">
+                <li v-for="feature in plan.features" :key="feature" class="flex gap-2">
+                  <span class="text-emerald-500">✓</span><span>{{ feature }}</span>
+                </li>
+              </ul>
+              <button
+                class="mt-5 w-full rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="purchasingPlanId === plan.id"
+                @click="purchasePlan(plan)"
+              >
+                {{ purchasingPlanId === plan.id ? t('common.loading') : t('userSubscriptions.purchase') }}
+              </button>
+            </div>
+          </div>
+        </section>
 
-      <!-- Subscriptions Grid -->
+        <!-- Empty State -->
+        <div v-if="subscriptions.length === 0" class="card p-12 text-center">
+          <div
+            class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700"
+          >
+            <Icon name="creditCard" size="xl" class="text-gray-400" />
+          </div>
+          <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+            {{ t('userSubscriptions.noActiveSubscriptions') }}
+          </h3>
+          <p class="text-gray-500 dark:text-dark-400">
+            {{ plans.length ? t('userSubscriptions.noPurchasedSubscriptionsDesc') : t('userSubscriptions.noActiveSubscriptionsDesc') }}
+          </p>
+        </div>
+
+        <!-- Subscriptions Grid -->
       <div v-else class="grid gap-6 lg:grid-cols-2">
         <div
           v-for="subscription in subscriptions"
@@ -65,13 +129,23 @@
                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
                     : subscription.status === 'expired'
                       ? 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-400'
-                      : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                      : subscription.status === 'pending'
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
                 ]"
               >
                 {{ t(`userSubscriptions.status.${subscription.status}`) }}
               </span>
               <button
-                v-if="subscription.status === 'active'"
+                v-if="subscription.status === 'pending'"
+                class="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
+                :disabled="activatingSubscriptionId === subscription.id"
+                @click="activateSubscription(subscription)"
+              >
+                {{ activatingSubscriptionId === subscription.id ? t('common.loading') : t('userSubscriptions.activate') }}
+              </button>
+              <button
+                v-else-if="subscription.status === 'active'"
                 :class="['rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-colors', platformButtonClass(subscription.group?.platform || '')]"
                 @click="router.push({ path: '/purchase', query: { tab: 'subscription', group: String(subscription.group_id) } })"
               >
@@ -83,7 +157,13 @@
           <!-- Usage Progress -->
           <div class="space-y-4 p-4">
             <!-- Expiration Info -->
-            <div v-if="subscription.expires_at" class="flex items-center justify-between text-sm">
+            <div v-if="subscription.status === 'pending'" class="flex items-center justify-between text-sm">
+              <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.validity') }}</span>
+              <span class="font-medium text-amber-600 dark:text-amber-400">
+                {{ t('userSubscriptions.readyToActivate') }} · {{ t('userSubscriptions.planValidity', { days: subscription.validity_days }) }}
+              </span>
+            </div>
+            <div v-else-if="subscription.expires_at" class="flex items-center justify-between text-sm">
               <span class="text-gray-500 dark:text-dark-400">{{
                 t('userSubscriptions.expires')
               }}</span>
@@ -101,14 +181,14 @@
             </div>
 
             <!-- Daily Usage -->
-            <div v-if="subscription.group?.daily_limit_usd" class="space-y-2">
+            <div v-if="getDailyLimit(subscription)" class="space-y-2">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('userSubscriptions.daily') }}
                 </span>
                 <span class="text-sm text-gray-500 dark:text-dark-400">
                   ${{ (subscription.daily_usage_usd || 0).toFixed(2) }} / ${{
-                    subscription.group.daily_limit_usd.toFixed(2)
+                    getDailyLimit(subscription)!.toFixed(2)
                   }}
                 </span>
               </div>
@@ -118,13 +198,13 @@
                   :class="
                     getProgressBarClass(
                       subscription.daily_usage_usd,
-                      subscription.group.daily_limit_usd
+                      getDailyLimit(subscription)
                     )
                   "
                   :style="{
                     width: getProgressWidth(
                       subscription.daily_usage_usd,
-                      subscription.group.daily_limit_usd
+                      getDailyLimit(subscription)
                     )
                   }"
                 ></div>
@@ -138,14 +218,14 @@
             </div>
 
             <!-- Weekly Usage -->
-            <div v-if="subscription.group?.weekly_limit_usd" class="space-y-2">
+            <div v-if="getWeeklyLimit(subscription)" class="space-y-2">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('userSubscriptions.weekly') }}
                 </span>
                 <span class="text-sm text-gray-500 dark:text-dark-400">
                   ${{ (subscription.weekly_usage_usd || 0).toFixed(2) }} / ${{
-                    subscription.group.weekly_limit_usd.toFixed(2)
+                    getWeeklyLimit(subscription)!.toFixed(2)
                   }}
                 </span>
               </div>
@@ -155,13 +235,13 @@
                   :class="
                     getProgressBarClass(
                       subscription.weekly_usage_usd,
-                      subscription.group.weekly_limit_usd
+                      getWeeklyLimit(subscription)
                     )
                   "
                   :style="{
                     width: getProgressWidth(
                       subscription.weekly_usage_usd,
-                      subscription.group.weekly_limit_usd
+                      getWeeklyLimit(subscription)
                     )
                   }"
                 ></div>
@@ -179,14 +259,14 @@
             </div>
 
             <!-- Monthly Usage -->
-            <div v-if="subscription.group?.monthly_limit_usd" class="space-y-2">
+            <div v-if="getMonthlyLimit(subscription)" class="space-y-2">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('userSubscriptions.monthly') }}
                 </span>
                 <span class="text-sm text-gray-500 dark:text-dark-400">
                   ${{ (subscription.monthly_usage_usd || 0).toFixed(2) }} / ${{
-                    subscription.group.monthly_limit_usd.toFixed(2)
+                    getMonthlyLimit(subscription)!.toFixed(2)
                   }}
                 </span>
               </div>
@@ -196,13 +276,13 @@
                   :class="
                     getProgressBarClass(
                       subscription.monthly_usage_usd,
-                      subscription.group.monthly_limit_usd
+                      getMonthlyLimit(subscription)
                     )
                   "
                   :style="{
                     width: getProgressWidth(
                       subscription.monthly_usage_usd,
-                      subscription.group.monthly_limit_usd
+                      getMonthlyLimit(subscription)
                     )
                   }"
                 ></div>
@@ -222,9 +302,9 @@
             <!-- No limits configured - Unlimited badge -->
             <div
               v-if="
-                !subscription.group?.daily_limit_usd &&
-                !subscription.group?.weekly_limit_usd &&
-                !subscription.group?.monthly_limit_usd
+                !getDailyLimit(subscription) &&
+                !getWeeklyLimit(subscription) &&
+                !getMonthlyLimit(subscription)
               "
               class="flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 py-6 dark:from-emerald-900/20 dark:to-teal-900/20"
             >
@@ -244,6 +324,7 @@
         </div>
       </div>
     </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -254,9 +335,11 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
+import type { SubscriptionPlan } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import { platformBorderClass, platformBadgeClass, platformButtonClass, platformLabel } from '@/utils/platformColors'
 import {
@@ -281,7 +364,10 @@ const router = useRouter()
 const appStore = useAppStore()
 
 const subscriptions = ref<UserSubscription[]>([])
+const plans = ref<SubscriptionPlan[]>([])
 const loading = ref(true)
+const purchasingPlanId = ref<number | null>(null)
+const activatingSubscriptionId = ref<number | null>(null)
 
 function subscriptionHasPeakRate(subscription: UserSubscription): boolean {
   return hasPeakRate(subscription.group)
@@ -294,13 +380,65 @@ function subscriptionPeakRateLabel(subscription: UserSubscription): string {
 async function loadSubscriptions() {
   try {
     loading.value = true
-    subscriptions.value = await subscriptionsAPI.getMySubscriptions()
+    const [mySubscriptions, availablePlans] = await Promise.all([
+      subscriptionsAPI.getMySubscriptions(),
+      subscriptionsAPI.getAvailablePlans()
+    ])
+    subscriptions.value = mySubscriptions
+    plans.value = availablePlans
   } catch (error) {
     console.error('Failed to load subscriptions:', error)
     appStore.showError(t('userSubscriptions.failedToLoad'))
   } finally {
     loading.value = false
   }
+}
+
+async function purchasePlan(plan: SubscriptionPlan) {
+  if (!window.confirm(t('userSubscriptions.purchaseConfirm', { name: plan.name, price: plan.price }))) {
+    return
+  }
+  purchasingPlanId.value = plan.id
+  try {
+    await subscriptionsAPI.purchasePlan(plan.id)
+    appStore.showSuccess(t('userSubscriptions.purchaseSuccess'))
+    await loadSubscriptions()
+  } catch (error) {
+    console.error('Failed to purchase subscription:', error)
+    appStore.showError(extractApiErrorMessage(error, t('userSubscriptions.purchaseFailed')))
+  } finally {
+    purchasingPlanId.value = null
+  }
+}
+
+async function activateSubscription(subscription: UserSubscription) {
+  activatingSubscriptionId.value = subscription.id
+  try {
+    await subscriptionsAPI.activateSubscription(subscription.id)
+    appStore.showSuccess(t('userSubscriptions.activateSuccess'))
+    await loadSubscriptions()
+  } catch (error) {
+    console.error('Failed to activate subscription:', error)
+    appStore.showError(extractApiErrorMessage(error, t('userSubscriptions.activateFailed')))
+  } finally {
+    activatingSubscriptionId.value = null
+  }
+}
+
+function getDailyLimit(subscription: UserSubscription): number | null | undefined {
+  return subscription.daily_limit_usd ?? subscription.group?.daily_limit_usd
+}
+
+function getWeeklyLimit(subscription: UserSubscription): number | null | undefined {
+  return subscription.weekly_limit_usd ?? subscription.group?.weekly_limit_usd
+}
+
+function getMonthlyLimit(subscription: UserSubscription): number | null | undefined {
+  return subscription.monthly_limit_usd ?? subscription.group?.monthly_limit_usd
+}
+
+function formatPlanLimit(limit: number | null | undefined): string {
+  return limit != null && limit > 0 ? `$${limit.toFixed(2)}` : t('userSubscriptions.unlimited')
 }
 
 function getProgressWidth(used: number | undefined, limit: number | null | undefined): string {

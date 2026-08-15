@@ -22,6 +22,12 @@ const (
 	FieldValue = "value"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldAffiliateRebateStatus holds the string denoting the affiliate_rebate_status field in the database.
+	FieldAffiliateRebateStatus = "affiliate_rebate_status"
+	// FieldAffiliateRebateAmount holds the string denoting the affiliate_rebate_amount field in the database.
+	FieldAffiliateRebateAmount = "affiliate_rebate_amount"
+	// FieldAffiliateRebateReviewedAt holds the string denoting the affiliate_rebate_reviewed_at field in the database.
+	FieldAffiliateRebateReviewedAt = "affiliate_rebate_reviewed_at"
 	// FieldUsedBy holds the string denoting the used_by field in the database.
 	FieldUsedBy = "used_by"
 	// FieldUsedAt holds the string denoting the used_at field in the database.
@@ -65,6 +71,9 @@ var Columns = []string{
 	FieldType,
 	FieldValue,
 	FieldStatus,
+	FieldAffiliateRebateStatus,
+	FieldAffiliateRebateAmount,
+	FieldAffiliateRebateReviewedAt,
 	FieldUsedBy,
 	FieldUsedAt,
 	FieldNotes,
@@ -97,6 +106,10 @@ var (
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultAffiliateRebateStatus holds the default value on creation for the "affiliate_rebate_status" field.
+	DefaultAffiliateRebateStatus string
+	// AffiliateRebateStatusValidator is a validator for the "affiliate_rebate_status" field. It is called by the builders before save.
+	AffiliateRebateStatusValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultValidityDays holds the default value on creation for the "validity_days" field.
@@ -129,6 +142,21 @@ func ByValue(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByAffiliateRebateStatus orders the results by the affiliate_rebate_status field.
+func ByAffiliateRebateStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAffiliateRebateStatus, opts...).ToFunc()
+}
+
+// ByAffiliateRebateAmount orders the results by the affiliate_rebate_amount field.
+func ByAffiliateRebateAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAffiliateRebateAmount, opts...).ToFunc()
+}
+
+// ByAffiliateRebateReviewedAt orders the results by the affiliate_rebate_reviewed_at field.
+func ByAffiliateRebateReviewedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAffiliateRebateReviewedAt, opts...).ToFunc()
 }
 
 // ByUsedBy orders the results by the used_by field.

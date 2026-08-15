@@ -140,6 +140,9 @@ func RegisterUserRoutes(
 		// 用户订阅
 		subscriptions := authenticated.Group("/subscriptions")
 		{
+			subscriptions.GET("/plans", h.Subscription.ListPlans)
+			subscriptions.POST("/purchase", h.Subscription.Purchase)
+			subscriptions.POST("/:id/activate", h.Subscription.Activate)
 			subscriptions.GET("", h.Subscription.List)
 			subscriptions.GET("/active", h.Subscription.GetActive)
 			subscriptions.GET("/progress", h.Subscription.GetProgress)

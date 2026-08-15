@@ -32,6 +32,9 @@ func (r *userSubscriptionRepository) Create(ctx context.Context, sub *service.Us
 		SetUserID(sub.UserID).
 		SetGroupID(sub.GroupID).
 		SetExpiresAt(sub.ExpiresAt).
+		SetNillableDailyLimitUsd(sub.DailyLimitUSD).
+		SetNillableWeeklyLimitUsd(sub.WeeklyLimitUSD).
+		SetNillableMonthlyLimitUsd(sub.MonthlyLimitUSD).
 		SetNillableDailyWindowStart(sub.DailyWindowStart).
 		SetNillableWeeklyWindowStart(sub.WeeklyWindowStart).
 		SetNillableMonthlyWindowStart(sub.MonthlyWindowStart).
@@ -39,6 +42,9 @@ func (r *userSubscriptionRepository) Create(ctx context.Context, sub *service.Us
 		SetWeeklyUsageUsd(sub.WeeklyUsageUSD).
 		SetMonthlyUsageUsd(sub.MonthlyUsageUSD).
 		SetNillableAssignedBy(sub.AssignedBy)
+	if sub.ValidityDays > 0 {
+		builder.SetValidityDays(sub.ValidityDays)
+	}
 
 	if sub.StartsAt.IsZero() {
 		builder.SetStartsAt(time.Now())
@@ -142,6 +148,10 @@ func (r *userSubscriptionRepository) Update(ctx context.Context, sub *service.Us
 		SetGroupID(sub.GroupID).
 		SetStartsAt(sub.StartsAt).
 		SetExpiresAt(sub.ExpiresAt).
+		SetValidityDays(sub.ValidityDays).
+		SetNillableDailyLimitUsd(sub.DailyLimitUSD).
+		SetNillableWeeklyLimitUsd(sub.WeeklyLimitUSD).
+		SetNillableMonthlyLimitUsd(sub.MonthlyLimitUSD).
 		SetStatus(sub.Status).
 		SetNillableDailyWindowStart(sub.DailyWindowStart).
 		SetNillableWeeklyWindowStart(sub.WeeklyWindowStart).
@@ -646,7 +656,11 @@ func userSubscriptionEntityToServiceWithStatusMapping(m *dbent.UserSubscription,
 		GroupID:            m.GroupID,
 		StartsAt:           m.StartsAt,
 		ExpiresAt:          m.ExpiresAt,
+		ValidityDays:       m.ValidityDays,
 		Status:             status,
+		DailyLimitUSD:      m.DailyLimitUsd,
+		WeeklyLimitUSD:     m.WeeklyLimitUsd,
+		MonthlyLimitUSD:    m.MonthlyLimitUsd,
 		DailyWindowStart:   m.DailyWindowStart,
 		WeeklyWindowStart:  m.WeeklyWindowStart,
 		MonthlyWindowStart: m.MonthlyWindowStart,

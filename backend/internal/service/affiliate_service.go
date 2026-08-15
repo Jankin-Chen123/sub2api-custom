@@ -116,6 +116,13 @@ type AffiliateRepository interface {
 	GetAffiliateUserOverview(ctx context.Context, userID int64) (*AffiliateUserOverview, error)
 }
 
+// AffiliateRedeemCodeRepository is an optional capability implemented by the
+// SQL repository. Keeping it separate preserves small in-memory test doubles
+// and makes the redeem-code review workflow explicit.
+type AffiliateRedeemCodeRepository interface {
+	AccrueQuotaForRedeemCode(ctx context.Context, inviterID, inviteeUserID int64, amount float64, freezeHours int, redeemCodeID int64) (bool, error)
+}
+
 // AffiliateAdminFilter 列表筛选条件
 type AffiliateAdminFilter struct {
 	Search   string
@@ -316,6 +323,26 @@ func (s *AffiliateService) AccrueInviteRebate(ctx context.Context, inviteeUserID
 }
 
 func (s *AffiliateService) AccrueInviteRebateForOrder(ctx context.Context, inviteeUserID int64, baseRechargeAmount float64, sourceOrderID *int64) (float64, error) {
+	return s.accrueInviteRebate(ctx, inviteeUserID, baseRechargeAmount, sourceOrderID, nil)
+}
+
+// AccrueInviteRebateForRedeemCode applies the normal percentage/cap/freeze
+// rules to an approved redeem-code review. The redeem code ID is persisted in
+// the affiliate ledger so approving the same record twice is a no-op.
+func (s *AffiliateService) AccrueInviteRebateForRedeemCode(ctx context.Context, inviteeUserID, redeemCodeID int64, baseRechargeAmount float64) (float64, error) {
+	if redeemCodeID <= 0 {
+		return 0, infraerrors.BadRequest("REDEEM_CODE_INVALID", "invalid redeem code id")
+	}
+	if s == nil || s.repo == nil {
+		return 0, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate service unavailable")
+	}
+	if _, ok := s.repo.(AffiliateRedeemCodeRepository); !ok {
+		return 0, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate redeem review unavailable")
+	}
+	return s.accrueInviteRebate(ctx, inviteeUserID, baseRechargeAmount, nil, &redeemCodeID)
+}
+
+func (s *AffiliateService) accrueInviteRebate(ctx context.Context, inviteeUserID int64, baseRechargeAmount float64, sourceOrderID *int64, sourceRedeemCodeID *int64) (float64, error) {
 	if s == nil || s.repo == nil {
 		return 0, nil
 	}
@@ -376,7 +403,13 @@ func (s *AffiliateService) AccrueInviteRebateForOrder(ctx context.Context, invit
 		freezeHours = s.settingService.GetAffiliateRebateFreezeHours(ctx)
 	}
 
-	applied, err := s.repo.AccrueQuota(ctx, *inviteeSummary.InviterID, inviteeUserID, rebate, freezeHours, sourceOrderID)
+	var applied bool
+	if sourceRedeemCodeID != nil {
+		redeemRepo := s.repo.(AffiliateRedeemCodeRepository)
+		applied, err = redeemRepo.AccrueQuotaForRedeemCode(ctx, *inviteeSummary.InviterID, inviteeUserID, rebate, freezeHours, *sourceRedeemCodeID)
+	} else {
+		applied, err = s.repo.AccrueQuota(ctx, *inviteeSummary.InviterID, inviteeUserID, rebate, freezeHours, sourceOrderID)
+	}
 	if err != nil {
 		return 0, err
 	}

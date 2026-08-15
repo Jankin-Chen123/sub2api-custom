@@ -162,6 +162,121 @@ VALUES ($1, 'accrue', $2, $3, $4, NOW(), NOW())`, inviterID, amount, inviteeUser
 	return applied, nil
 }
 
+// AccrueQuotaForRedeemCode is the redeem-code-specific variant of AccrueQuota.
+// It stores a unique source ID and also attempts to link one unambiguous
+// historical ledger row created by the old automatic redeem flow. That makes
+// the rollout safe for already-used codes without silently issuing duplicates.
+func (r *affiliateRepository) AccrueQuotaForRedeemCode(ctx context.Context, inviterID, inviteeUserID int64, amount float64, freezeHours int, redeemCodeID int64) (bool, error) {
+	if amount <= 0 || redeemCodeID <= 0 {
+		return false, nil
+	}
+
+	var applied bool
+	err := r.withTx(ctx, func(txCtx context.Context, txClient *dbent.Client) error {
+		rows, err := txClient.QueryContext(txCtx, `
+SELECT EXISTS (
+    SELECT 1
+    FROM user_affiliate_ledger
+    WHERE action = 'accrue' AND source_redeem_code_id = $1
+)`, redeemCodeID)
+		if err != nil {
+			return fmt.Errorf("check redeem affiliate ledger: %w", err)
+		}
+		var alreadyLinked bool
+		if rows.Next() {
+			if err := rows.Scan(&alreadyLinked); err != nil {
+				_ = rows.Close()
+				return err
+			}
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if alreadyLinked {
+			// The source has already been processed. Return true so the caller
+			// can persist the calculated rebate amount without crediting twice.
+			applied = true
+			return nil
+		}
+
+		// Match the legacy automatic rebate only when exactly one row can be
+		// associated with this code and amount in the same short time window.
+		rows, err = txClient.QueryContext(txCtx, `
+SELECT MIN(ual.id), COUNT(*)
+FROM user_affiliate_ledger ual
+JOIN redeem_codes rc ON rc.id = $4
+WHERE ual.action = 'accrue'
+  AND ual.source_redeem_code_id IS NULL
+  AND ual.source_order_id IS NULL
+  AND ual.user_id = $1
+  AND ual.source_user_id = $2
+  AND ABS(ual.amount - $3) < 0.00000001
+  AND rc.used_at IS NOT NULL
+  AND ual.created_at BETWEEN rc.used_at - INTERVAL '10 minutes'
+                         AND rc.used_at + INTERVAL '10 minutes'`,
+			inviterID, inviteeUserID, amount, redeemCodeID)
+		if err != nil {
+			return fmt.Errorf("find legacy redeem affiliate ledger: %w", err)
+		}
+		var legacyLedgerID sql.NullInt64
+		var legacyMatches int
+		if rows.Next() {
+			if err := rows.Scan(&legacyLedgerID, &legacyMatches); err != nil {
+				_ = rows.Close()
+				return err
+			}
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if legacyMatches == 1 && legacyLedgerID.Valid {
+			if _, err := txClient.ExecContext(txCtx, `
+UPDATE user_affiliate_ledger
+SET source_redeem_code_id = $1, updated_at = NOW()
+WHERE id = $2 AND source_redeem_code_id IS NULL`, redeemCodeID, legacyLedgerID.Int64); err != nil {
+				return fmt.Errorf("link legacy redeem affiliate ledger: %w", err)
+			}
+			applied = true
+			return nil
+		}
+
+		var updateSQL string
+		if freezeHours > 0 {
+			updateSQL = "UPDATE user_affiliates SET aff_frozen_quota = aff_frozen_quota + $1, aff_history_quota = aff_history_quota + $1, updated_at = NOW() WHERE user_id = $2"
+		} else {
+			updateSQL = "UPDATE user_affiliates SET aff_quota = aff_quota + $1, aff_history_quota = aff_history_quota + $1, updated_at = NOW() WHERE user_id = $2"
+		}
+		res, err := txClient.ExecContext(txCtx, updateSQL, amount, inviterID)
+		if err != nil {
+			return err
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			return nil
+		}
+
+		if freezeHours > 0 {
+			_, err = txClient.ExecContext(txCtx, `
+INSERT INTO user_affiliate_ledger (user_id, action, amount, source_user_id, source_redeem_code_id, frozen_until, created_at, updated_at)
+VALUES ($1, 'accrue', $2, $3, $4, NOW() + make_interval(hours => $5), NOW(), NOW())`,
+				inviterID, amount, inviteeUserID, redeemCodeID, freezeHours)
+		} else {
+			_, err = txClient.ExecContext(txCtx, `
+INSERT INTO user_affiliate_ledger (user_id, action, amount, source_user_id, source_redeem_code_id, created_at, updated_at)
+VALUES ($1, 'accrue', $2, $3, $4, NOW(), NOW())`, inviterID, amount, inviteeUserID, redeemCodeID)
+		}
+		if err != nil {
+			return fmt.Errorf("insert redeem affiliate ledger: %w", err)
+		}
+		applied = true
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	return applied, nil
+}
+
 func (r *affiliateRepository) GetAccruedRebateFromInvitee(ctx context.Context, inviterID, inviteeUserID int64) (float64, error) {
 	client := clientFromContext(ctx, r.client)
 	rows, err := client.QueryContext(ctx,

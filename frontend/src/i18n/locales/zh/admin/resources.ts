@@ -250,6 +250,7 @@ export default {
         usedAt: '使用时间',
         expiresAt: '过期时间',
         createdAt: '创建时间',
+        affiliateReview: '返利审核',
         actions: '操作'
       },
       types: {
@@ -365,7 +366,23 @@ export default {
       failedToLoad: '加载兑换码列表失败',
       failedToGenerate: '生成兑换码失败',
       failedToUpdate: '更新兑换码失败',
-      failedToDelete: '删除兑换码失败'
+      failedToDelete: '删除兑换码失败',
+      affiliateReview: {
+        title: '审核兑换返利',
+        status: {
+          pending: '待审核',
+          approved: '已计入返利',
+          excluded: '免费赠送',
+          not_applicable: '不适用'
+        },
+        approve: '计入返利',
+        exclude: '标记赠送',
+        approveConfirm: '确认该兑换记录是有效兑换，并按当前比例给邀请者返利？',
+        excludeConfirm: '确认该兑换码是免费赠送的吗？标记后不会产生邀请返利。',
+        approveSuccess: '已计入邀请返利',
+        excludeSuccess: '已标记为免费赠送',
+        failed: '兑换返利审核失败'
+      }
     },
 
     // Announcements

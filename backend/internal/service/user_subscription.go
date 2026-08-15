@@ -13,9 +13,16 @@ type UserSubscription struct {
 	UserID  int64
 	GroupID int64
 
-	StartsAt  time.Time
-	ExpiresAt time.Time
-	Status    string
+	StartsAt     time.Time
+	ExpiresAt    time.Time
+	ValidityDays int
+	Status       string
+
+	// Quota snapshots are set for purchased cards. Legacy/admin-assigned
+	// subscriptions leave them nil and use the group's limits instead.
+	DailyLimitUSD   *float64
+	WeeklyLimitUSD  *float64
+	MonthlyLimitUSD *float64
 
 	DailyWindowStart   *time.Time
 	WeeklyWindowStart  *time.Time
@@ -197,24 +204,66 @@ func (s *UserSubscription) MonthlyResetTime() *time.Time {
 }
 
 func (s *UserSubscription) CheckDailyLimit(group *Group, additionalCost float64) bool {
-	if !group.HasDailyLimit() {
+	limit := s.DailyLimitUSD
+	if limit == nil && group != nil {
+		limit = group.DailyLimitUSD
+	}
+	if limit == nil || *limit <= 0 {
 		return true
 	}
-	return s.DailyUsageUSD+additionalCost <= *group.DailyLimitUSD
+	return s.DailyUsageUSD+additionalCost <= *limit
 }
 
 func (s *UserSubscription) CheckWeeklyLimit(group *Group, additionalCost float64) bool {
-	if !group.HasWeeklyLimit() {
+	limit := s.WeeklyLimitUSD
+	if limit == nil && group != nil {
+		limit = group.WeeklyLimitUSD
+	}
+	if limit == nil || *limit <= 0 {
 		return true
 	}
-	return s.WeeklyUsageUSD+additionalCost <= *group.WeeklyLimitUSD
+	return s.WeeklyUsageUSD+additionalCost <= *limit
 }
 
 func (s *UserSubscription) CheckMonthlyLimit(group *Group, additionalCost float64) bool {
-	if !group.HasMonthlyLimit() {
+	limit := s.MonthlyLimitUSD
+	if limit == nil && group != nil {
+		limit = group.MonthlyLimitUSD
+	}
+	if limit == nil || *limit <= 0 {
 		return true
 	}
-	return s.MonthlyUsageUSD+additionalCost <= *group.MonthlyLimitUSD
+	return s.MonthlyUsageUSD+additionalCost <= *limit
+}
+
+func (s *UserSubscription) EffectiveDailyLimit(group *Group) *float64 {
+	if s != nil && s.DailyLimitUSD != nil {
+		return s.DailyLimitUSD
+	}
+	if group != nil {
+		return group.DailyLimitUSD
+	}
+	return nil
+}
+
+func (s *UserSubscription) EffectiveWeeklyLimit(group *Group) *float64 {
+	if s != nil && s.WeeklyLimitUSD != nil {
+		return s.WeeklyLimitUSD
+	}
+	if group != nil {
+		return group.WeeklyLimitUSD
+	}
+	return nil
+}
+
+func (s *UserSubscription) EffectiveMonthlyLimit(group *Group) *float64 {
+	if s != nil && s.MonthlyLimitUSD != nil {
+		return s.MonthlyLimitUSD
+	}
+	if group != nil {
+		return group.MonthlyLimitUSD
+	}
+	return nil
 }
 
 func (s *UserSubscription) CheckAllLimits(group *Group, additionalCost float64) (daily, weekly, monthly bool) {

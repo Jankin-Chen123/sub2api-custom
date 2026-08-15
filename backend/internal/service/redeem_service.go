@@ -11,7 +11,6 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
@@ -66,6 +65,13 @@ type RedeemCodeRepository interface {
 	ListByUserPaginated(ctx context.Context, userID int64, params pagination.PaginationParams, codeType string) ([]RedeemCode, *pagination.PaginationResult, error)
 	// SumPositiveBalanceByUser returns the total recharged amount (sum of positive balance values) for a user.
 	SumPositiveBalanceByUser(ctx context.Context, userID int64) (float64, error)
+}
+
+// RedeemAffiliateReviewRepository is implemented by the SQL repository for
+// the administrator-only affiliate review workflow.
+type RedeemAffiliateReviewRepository interface {
+	UpdateAffiliateReview(ctx context.Context, id int64, status string, amount *float64, reviewedAt time.Time) error
+	GetByIDForUpdate(ctx context.Context, id int64) (*RedeemCode, error)
 }
 
 // GenerateCodesRequest 生成兑换码请求
@@ -225,10 +231,11 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 		}
 
 		codes = append(codes, RedeemCode{
-			Code:   code,
-			Type:   codeType,
-			Value:  value,
-			Status: StatusUnused,
+			Code:                  code,
+			Type:                  codeType,
+			Value:                 value,
+			Status:                StatusUnused,
+			AffiliateRebateStatus: AffiliateRebateStatusNotApplicable,
 		})
 	}
 
@@ -259,6 +266,9 @@ func (s *RedeemService) CreateCode(ctx context.Context, code *RedeemCode) error 
 	}
 	if code.Status == "" {
 		code.Status = StatusUnused
+	}
+	if code.AffiliateRebateStatus == "" {
+		code.AffiliateRebateStatus = AffiliateRebateStatusNotApplicable
 	}
 	if code.IsExpired() {
 		return ErrRedeemCodeExpired
@@ -516,11 +526,6 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 	// 事务提交成功后失效缓存
 	s.invalidateRedeemCaches(ctx, userID, redeemCode)
 
-	// 余额类正数兑换码触发邀请返利（best-effort，失败不影响兑换结果）
-	if redeemCode.Type == RedeemTypeBalance && redeemCode.Value > 0 {
-		s.tryAccrueAffiliateRebateForRedeem(ctx, userID, redeemCode.Value)
-	}
-
 	// 重新获取更新后的兑换码
 	redeemCode, err = s.redeemRepo.GetByID(ctx, redeemCode.ID)
 	if err != nil {
@@ -570,24 +575,97 @@ func (s *RedeemService) invalidateRedeemCaches(ctx context.Context, userID int64
 	}
 }
 
-func (s *RedeemService) tryAccrueAffiliateRebateForRedeem(ctx context.Context, userID int64, amount float64) {
-	if ctx.Value(ctxKeySkipRedeemAffiliate{}) != nil {
-		return
+// ReviewAffiliateRedeem applies or excludes a used positive balance redeem
+// code. Approval and quota accrual share one database transaction; the ledger
+// source ID makes retries idempotent.
+func (s *RedeemService) ReviewAffiliateRedeem(ctx context.Context, id int64, decision string) (*RedeemCode, error) {
+	reviewRepo, ok := s.redeemRepo.(RedeemAffiliateReviewRepository)
+	if !ok || s.entClient == nil {
+		return nil, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "redeem affiliate review unavailable")
 	}
-	if s.affiliateService == nil {
-		return
+
+	decision = strings.ToLower(strings.TrimSpace(decision))
+	if decision != "valid" && decision != "free" {
+		return nil, infraerrors.BadRequest("REDEEM_AFFILIATE_DECISION_INVALID", "decision must be valid or free")
 	}
-	if !s.affiliateService.IsEnabled(ctx) {
-		return
-	}
-	rebate, err := s.affiliateService.AccrueInviteRebate(ctx, userID, amount)
+
+	code, err := s.redeemRepo.GetByID(ctx, id)
 	if err != nil {
-		logger.LegacyPrintf("service.redeem", "[Redeem] affiliate rebate failed for user %d amount %.2f: %v", userID, amount, err)
-		return
+		return nil, err
 	}
-	if rebate > 0 {
-		logger.LegacyPrintf("service.redeem", "[Redeem] affiliate rebate accrued %.8f for inviter of user %d", rebate, userID)
+	if code.Status != StatusUsed || code.UsedBy == nil || code.Type != RedeemTypeBalance || code.Value <= 0 {
+		return nil, infraerrors.BadRequest("REDEEM_AFFILIATE_NOT_ELIGIBLE", "only used positive balance redeem codes can be reviewed")
 	}
+	if code.AffiliateRebateStatus == "" {
+		code.AffiliateRebateStatus = AffiliateRebateStatusPending
+	}
+	if decision == "free" {
+		if code.AffiliateRebateStatus == AffiliateRebateStatusApproved {
+			return nil, infraerrors.Conflict("REDEEM_AFFILIATE_ALREADY_APPROVED", "approved redeem code rebate cannot be excluded")
+		}
+		tx, err := s.entClient.Tx(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("begin affiliate review transaction: %w", err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		txCtx := dbent.NewTxContext(ctx, tx)
+		lockedCode, err := reviewRepo.GetByIDForUpdate(txCtx, id)
+		if err != nil {
+			return nil, err
+		}
+		if lockedCode.Status != StatusUsed || lockedCode.UsedBy == nil || lockedCode.Type != RedeemTypeBalance || lockedCode.Value <= 0 {
+			return nil, infraerrors.BadRequest("REDEEM_AFFILIATE_NOT_ELIGIBLE", "only used positive balance redeem codes can be reviewed")
+		}
+		if lockedCode.AffiliateRebateStatus == AffiliateRebateStatusApproved {
+			return nil, infraerrors.Conflict("REDEEM_AFFILIATE_ALREADY_APPROVED", "approved redeem code rebate cannot be excluded")
+		}
+		if err := reviewRepo.UpdateAffiliateReview(txCtx, id, AffiliateRebateStatusExcluded, nil, time.Now().UTC()); err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit affiliate review transaction: %w", err)
+		}
+		return s.redeemRepo.GetByID(ctx, id)
+	}
+
+	if code.AffiliateRebateStatus == AffiliateRebateStatusApproved {
+		return code, nil
+	}
+	if s.affiliateService == nil || !s.affiliateService.IsEnabled(ctx) {
+		return nil, infraerrors.Conflict("AFFILIATE_DISABLED", "affiliate rebate is disabled")
+	}
+
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin affiliate review transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	lockedCode, err := reviewRepo.GetByIDForUpdate(txCtx, id)
+	if err != nil {
+		return nil, err
+	}
+	if lockedCode.Status != StatusUsed || lockedCode.UsedBy == nil || lockedCode.Type != RedeemTypeBalance || lockedCode.Value <= 0 {
+		return nil, infraerrors.BadRequest("REDEEM_AFFILIATE_NOT_ELIGIBLE", "only used positive balance redeem codes can be reviewed")
+	}
+	if lockedCode.AffiliateRebateStatus == AffiliateRebateStatusApproved {
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+		return s.redeemRepo.GetByID(ctx, id)
+	}
+
+	rebate, err := s.affiliateService.AccrueInviteRebateForRedeemCode(txCtx, *lockedCode.UsedBy, lockedCode.ID, lockedCode.Value)
+	if err != nil {
+		return nil, fmt.Errorf("accrue redeem affiliate rebate: %w", err)
+	}
+	if err := reviewRepo.UpdateAffiliateReview(txCtx, id, AffiliateRebateStatusApproved, &rebate, time.Now().UTC()); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit affiliate review transaction: %w", err)
+	}
+	return s.redeemRepo.GetByID(ctx, id)
 }
 
 // GetByID 根据ID获取兑换码

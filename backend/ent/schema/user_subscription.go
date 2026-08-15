@@ -42,9 +42,25 @@ func (UserSubscription) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.Time("expires_at").
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Int("validity_days").
+			Default(30),
 		field.String("status").
 			MaxLen(20).
 			Default(domain.SubscriptionStatusActive),
+
+		// 购买时保存套餐配置快照，避免管理员修改套餐后影响已购买的订阅卡。
+		field.Float("daily_limit_usd").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("weekly_limit_usd").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("monthly_limit_usd").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
 
 		field.Time("daily_window_start").
 			Optional().

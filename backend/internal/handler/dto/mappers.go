@@ -597,8 +597,11 @@ func RedeemCodeFromServiceAdmin(rc *service.RedeemCode) *AdminRedeemCode {
 		return nil
 	}
 	return &AdminRedeemCode{
-		RedeemCode: redeemCodeFromServiceBase(rc),
-		Notes:      rc.Notes,
+		RedeemCode:                redeemCodeFromServiceBase(rc),
+		Notes:                     rc.Notes,
+		AffiliateRebateStatus:     rc.AffiliateRebateStatus,
+		AffiliateRebateAmount:     rc.AffiliateRebateAmount,
+		AffiliateRebateReviewedAt: rc.AffiliateRebateReviewedAt,
 	}
 }
 
@@ -821,7 +824,11 @@ func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscrip
 		GroupID:            sub.GroupID,
 		StartsAt:           sub.StartsAt,
 		ExpiresAt:          sub.ExpiresAt,
+		ValidityDays:       sub.ValidityDays,
 		Status:             sub.Status,
+		DailyLimitUSD:      sub.DailyLimitUSD,
+		WeeklyLimitUSD:     sub.WeeklyLimitUSD,
+		MonthlyLimitUSD:    sub.MonthlyLimitUSD,
 		DailyWindowStart:   sub.DailyWindowStart,
 		WeeklyWindowStart:  sub.WeeklyWindowStart,
 		MonthlyWindowStart: sub.MonthlyWindowStart,

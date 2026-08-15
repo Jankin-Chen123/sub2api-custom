@@ -156,6 +156,27 @@
             </span>
           </template>
 
+          <template #cell-affiliate_rebate_status="{ value, row }">
+            <div v-if="row.type === 'balance' && row.value > 0 && row.status === 'used'" class="flex flex-col items-start gap-1">
+              <span
+                :class="[
+                  'badge',
+                  value === 'approved'
+                    ? 'badge-success'
+                    : value === 'excluded'
+                      ? 'badge-gray'
+                      : 'badge-warning'
+                ]"
+              >
+                {{ t('admin.redeem.affiliateReview.status.' + (value || 'pending')) }}
+              </span>
+              <span v-if="value === 'approved' && row.affiliate_rebate_amount != null" class="text-xs text-gray-500 dark:text-dark-400">
+                ${{ Number(row.affiliate_rebate_amount).toFixed(2) }}
+              </span>
+            </div>
+            <span v-else class="text-sm text-gray-400 dark:text-dark-500">-</span>
+          </template>
+
           <template #cell-used_by="{ value, row }">
             <span class="text-sm text-gray-500 dark:text-dark-400">
               {{ row.user?.email || (value ? t('admin.redeem.userPrefix', { id: value }) : '-') }}
@@ -183,6 +204,25 @@
 
           <template #cell-actions="{ row }">
             <div class="flex items-center space-x-2">
+              <template v-if="canReviewAffiliate(row)">
+                <button
+                  type="button"
+                  class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+                  :disabled="affiliateReviewingId === row.id"
+                  @click="openAffiliateReview(row, 'valid')"
+                >
+                  <span class="text-xs font-medium">{{ t('admin.redeem.affiliateReview.approve') }}</span>
+                </button>
+                <button
+                  v-if="row.affiliate_rebate_status !== 'excluded'"
+                  type="button"
+                  class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-700 dark:hover:text-gray-300"
+                  :disabled="affiliateReviewingId === row.id"
+                  @click="openAffiliateReview(row, 'free')"
+                >
+                  <span class="text-xs font-medium">{{ t('admin.redeem.affiliateReview.exclude') }}</span>
+                </button>
+              </template>
               <button
                 v-if="row.status === 'unused'"
                 @click="handleDelete(row)"
@@ -198,7 +238,7 @@
                 </svg>
                 <span class="text-xs">{{ t('common.delete') }}</span>
               </button>
-              <span v-else class="text-gray-400 dark:text-dark-500">-</span>
+              <span v-else-if="!canReviewAffiliate(row)" class="text-gray-400 dark:text-dark-500">-</span>
             </div>
           </template>
         </DataTable>
@@ -258,6 +298,21 @@
       danger
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
+    />
+
+    <ConfirmDialog
+      :show="showAffiliateReviewDialog"
+      :title="t('admin.redeem.affiliateReview.title')"
+      :message="affiliateReviewDecision === 'valid'
+        ? t('admin.redeem.affiliateReview.approveConfirm')
+        : t('admin.redeem.affiliateReview.excludeConfirm')"
+      :confirm-text="affiliateReviewDecision === 'valid'
+        ? t('admin.redeem.affiliateReview.approve')
+        : t('admin.redeem.affiliateReview.exclude')"
+      :cancel-text="t('common.cancel')"
+      :danger="affiliateReviewDecision === 'free'"
+      @confirm="confirmAffiliateReview"
+      @cancel="showAffiliateReviewDialog = false"
     />
 
     <!-- Delete Unused Codes Dialog -->
@@ -725,6 +780,7 @@ const columns = computed<Column[]>(() => [
   { key: 'type', label: t('admin.redeem.columns.type'), sortable: true },
   { key: 'value', label: t('admin.redeem.columns.value'), sortable: true },
   { key: 'status', label: t('admin.redeem.columns.status'), sortable: true },
+  { key: 'affiliate_rebate_status', label: t('admin.redeem.columns.affiliateReview') },
   { key: 'used_by', label: t('admin.redeem.columns.usedBy') },
   { key: 'used_at', label: t('admin.redeem.columns.usedAt'), sortable: true },
   { key: 'expires_at', label: t('admin.redeem.columns.expiresAt'), sortable: true },
@@ -791,6 +847,10 @@ const showDeleteUnusedDialog = ref(false)
 const showBatchUpdateDialog = ref(false)
 const deletingCode = ref<RedeemCode | null>(null)
 const copiedCode = ref<string | null>(null)
+const showAffiliateReviewDialog = ref(false)
+const affiliateReviewingId = ref<number | null>(null)
+const affiliateReviewCode = ref<RedeemCode | null>(null)
+const affiliateReviewDecision = ref<'valid' | 'free'>('valid')
 
 const {
   selectedSet: selectedCodeIds,
@@ -1091,6 +1151,39 @@ const handleExportCodes = async () => {
 const handleDelete = (code: RedeemCode) => {
   deletingCode.value = code
   showDeleteDialog.value = true
+}
+
+const canReviewAffiliate = (code: RedeemCode) =>
+  code.status === 'used' &&
+  code.type === 'balance' &&
+  code.value > 0 &&
+  code.affiliate_rebate_status !== 'approved'
+
+const openAffiliateReview = (code: RedeemCode, decision: 'valid' | 'free') => {
+  affiliateReviewCode.value = code
+  affiliateReviewDecision.value = decision
+  showAffiliateReviewDialog.value = true
+}
+
+const confirmAffiliateReview = async () => {
+  const code = affiliateReviewCode.value
+  if (!code) return
+  affiliateReviewingId.value = code.id
+  try {
+    await adminAPI.redeem.reviewAffiliate(code.id, affiliateReviewDecision.value)
+    appStore.showSuccess(
+      affiliateReviewDecision.value === 'valid'
+        ? t('admin.redeem.affiliateReview.approveSuccess')
+        : t('admin.redeem.affiliateReview.excludeSuccess'),
+    )
+    showAffiliateReviewDialog.value = false
+    affiliateReviewCode.value = null
+    await loadCodes()
+  } catch (error: any) {
+    appStore.showError(error.response?.data?.detail || t('admin.redeem.affiliateReview.failed'))
+  } finally {
+    affiliateReviewingId.value = null
+  }
 }
 
 const confirmDelete = async () => {

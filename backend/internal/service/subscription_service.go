@@ -10,6 +10,9 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -26,20 +29,23 @@ var MaxExpiresAt = time.Date(2099, 12, 31, 23, 59, 59, 0, time.UTC)
 const MaxValidityDays = 36500
 
 var (
-	ErrSubscriptionNotFound        = infraerrors.NotFound("SUBSCRIPTION_NOT_FOUND", "subscription not found")
-	ErrSubscriptionExpired         = infraerrors.Forbidden("SUBSCRIPTION_EXPIRED", "subscription has expired")
-	ErrSubscriptionSuspended       = infraerrors.Forbidden("SUBSCRIPTION_SUSPENDED", "subscription is suspended")
-	ErrSubscriptionAlreadyExists   = infraerrors.Conflict("SUBSCRIPTION_ALREADY_EXISTS", "subscription already exists for this user and group")
-	ErrSubscriptionAssignConflict  = infraerrors.Conflict("SUBSCRIPTION_ASSIGN_CONFLICT", "subscription exists but request conflicts with existing assignment semantics")
-	ErrSubscriptionNotRevoked      = infraerrors.Conflict("SUBSCRIPTION_NOT_REVOKED", "subscription is not revoked")
-	ErrSubscriptionRestoreConflict = infraerrors.Conflict("SUBSCRIPTION_RESTORE_CONFLICT", "subscription already exists for this user and group")
-	ErrGroupNotSubscriptionType    = infraerrors.BadRequest("GROUP_NOT_SUBSCRIPTION_TYPE", "group is not a subscription type")
-	ErrInvalidInput                = infraerrors.BadRequest("INVALID_INPUT", "at least one of resetDaily, resetWeekly, or resetMonthly must be true")
-	ErrDailyLimitExceeded          = infraerrors.TooManyRequests("DAILY_LIMIT_EXCEEDED", "daily usage limit exceeded")
-	ErrWeeklyLimitExceeded         = infraerrors.TooManyRequests("WEEKLY_LIMIT_EXCEEDED", "weekly usage limit exceeded")
-	ErrMonthlyLimitExceeded        = infraerrors.TooManyRequests("MONTHLY_LIMIT_EXCEEDED", "monthly usage limit exceeded")
-	ErrSubscriptionNilInput        = infraerrors.BadRequest("SUBSCRIPTION_NIL_INPUT", "subscription input cannot be nil")
-	ErrAdjustWouldExpire           = infraerrors.BadRequest("ADJUST_WOULD_EXPIRE", "adjustment would result in expired subscription (remaining days must be > 0)")
+	ErrSubscriptionNotFound            = infraerrors.NotFound("SUBSCRIPTION_NOT_FOUND", "subscription not found")
+	ErrSubscriptionExpired             = infraerrors.Forbidden("SUBSCRIPTION_EXPIRED", "subscription has expired")
+	ErrSubscriptionSuspended           = infraerrors.Forbidden("SUBSCRIPTION_SUSPENDED", "subscription is suspended")
+	ErrSubscriptionAlreadyExists       = infraerrors.Conflict("SUBSCRIPTION_ALREADY_EXISTS", "subscription already exists for this user and group")
+	ErrSubscriptionPlanNotFound        = infraerrors.NotFound("SUBSCRIPTION_PLAN_NOT_FOUND", "subscription plan is not available")
+	ErrSubscriptionBalanceInsufficient = infraerrors.BadRequest("SUBSCRIPTION_BALANCE_INSUFFICIENT", "insufficient balance to purchase this subscription")
+	ErrSubscriptionNotPending          = infraerrors.Conflict("SUBSCRIPTION_NOT_PENDING", "subscription card is not waiting for activation")
+	ErrSubscriptionAssignConflict      = infraerrors.Conflict("SUBSCRIPTION_ASSIGN_CONFLICT", "subscription exists but request conflicts with existing assignment semantics")
+	ErrSubscriptionNotRevoked          = infraerrors.Conflict("SUBSCRIPTION_NOT_REVOKED", "subscription is not revoked")
+	ErrSubscriptionRestoreConflict     = infraerrors.Conflict("SUBSCRIPTION_RESTORE_CONFLICT", "subscription already exists for this user and group")
+	ErrGroupNotSubscriptionType        = infraerrors.BadRequest("GROUP_NOT_SUBSCRIPTION_TYPE", "group is not a subscription type")
+	ErrInvalidInput                    = infraerrors.BadRequest("INVALID_INPUT", "at least one of resetDaily, resetWeekly, or resetMonthly must be true")
+	ErrDailyLimitExceeded              = infraerrors.TooManyRequests("DAILY_LIMIT_EXCEEDED", "daily usage limit exceeded")
+	ErrWeeklyLimitExceeded             = infraerrors.TooManyRequests("WEEKLY_LIMIT_EXCEEDED", "weekly usage limit exceeded")
+	ErrMonthlyLimitExceeded            = infraerrors.TooManyRequests("MONTHLY_LIMIT_EXCEEDED", "monthly usage limit exceeded")
+	ErrSubscriptionNilInput            = infraerrors.BadRequest("SUBSCRIPTION_NIL_INPUT", "subscription input cannot be nil")
+	ErrAdjustWouldExpire               = infraerrors.BadRequest("ADJUST_WOULD_EXPIRE", "adjustment would result in expired subscription (remaining days must be > 0)")
 )
 
 // SubscriptionService 订阅服务
@@ -57,6 +63,27 @@ type SubscriptionService struct {
 
 	maintenanceQueue *SubscriptionMaintenanceQueue
 	now              func() time.Time
+}
+
+// SubscriptionPlanOffer is the user-facing representation of a plan that can
+// be purchased with balance.
+type SubscriptionPlanOffer struct {
+	ID              int64    `json:"id"`
+	GroupID         int64    `json:"group_id"`
+	GroupPlatform   string   `json:"group_platform"`
+	GroupName       string   `json:"group_name"`
+	RateMultiplier  float64  `json:"rate_multiplier"`
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	Price           float64  `json:"price"`
+	OriginalPrice   *float64 `json:"original_price,omitempty"`
+	Currency        string   `json:"currency,omitempty"`
+	ValidityDays    int      `json:"validity_days"`
+	ValidityUnit    string   `json:"validity_unit"`
+	Features        []string `json:"features"`
+	DailyLimitUSD   *float64 `json:"daily_limit_usd,omitempty"`
+	WeeklyLimitUSD  *float64 `json:"weekly_limit_usd,omitempty"`
+	MonthlyLimitUSD *float64 `json:"monthly_limit_usd,omitempty"`
 }
 
 // NewSubscriptionService 创建订阅服务
@@ -171,6 +198,182 @@ func (s *SubscriptionService) StartSubCacheInvalidationSubscriber(ctx context.Co
 	}); err != nil {
 		log.Printf("Warning: failed to start subscription cache invalidation subscriber: %v", err)
 	}
+}
+
+// ListPurchasablePlans returns only plans whose group is active and usable as
+// a subscription group. Group defaults are resolved here so the UI displays
+// the exact quota that will be snapshotted at purchase time.
+func (s *SubscriptionService) ListPurchasablePlans(ctx context.Context) ([]SubscriptionPlanOffer, error) {
+	if s.entClient == nil {
+		return nil, infraerrors.InternalServer("SUBSCRIPTION_SERVICE_UNAVAILABLE", "subscription service is unavailable")
+	}
+	plans, err := s.entClient.SubscriptionPlan.Query().
+		Where(subscriptionplan.ForSaleEQ(true)).
+		Order(subscriptionplan.BySortOrder()).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	offers := make([]SubscriptionPlanOffer, 0, len(plans))
+	for _, plan := range plans {
+		group, groupErr := s.entClient.Group.Get(ctx, plan.GroupID)
+		if groupErr != nil || group.Status != StatusActive || group.SubscriptionType != SubscriptionTypeSubscription {
+			continue
+		}
+		offers = append(offers, SubscriptionPlanOffer{
+			ID: int64(plan.ID), GroupID: plan.GroupID, GroupPlatform: group.Platform,
+			GroupName: group.Name, RateMultiplier: group.RateMultiplier, Name: plan.Name,
+			Description: plan.Description, Price: plan.Price, OriginalPrice: plan.OriginalPrice,
+			Currency: plan.Currency, ValidityDays: planValidityDaysForDisplay(plan.ValidityDays, plan.ValidityUnit),
+			ValidityUnit: "day", Features: parseSubscriptionPlanFeatures(plan.Features),
+			DailyLimitUSD:   ResolvePlanLimit(plan.DailyLimitUsd, group.DailyLimitUsd),
+			WeeklyLimitUSD:  ResolvePlanLimit(plan.WeeklyLimitUsd, group.WeeklyLimitUsd),
+			MonthlyLimitUSD: ResolvePlanLimit(plan.MonthlyLimitUsd, group.MonthlyLimitUsd),
+		})
+	}
+	return offers, nil
+}
+
+func parseSubscriptionPlanFeatures(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return []string{}
+	}
+	features := make([]string, 0)
+	for _, line := range strings.Split(raw, "\n") {
+		if value := strings.TrimSpace(line); value != "" {
+			features = append(features, value)
+		}
+	}
+	return features
+}
+
+func planValidityDaysForDisplay(value int, unit string) int {
+	if value <= 0 {
+		value = 30
+	}
+	multiplier := 1
+	switch strings.ToLower(strings.TrimSpace(unit)) {
+	case "week", "weeks":
+		multiplier = 7
+	case "month", "months":
+		multiplier = 30
+	}
+	if value > MaxValidityDays/multiplier {
+		return MaxValidityDays
+	}
+	return value * multiplier
+}
+
+// PurchaseSubscription atomically deducts balance and creates a pending card.
+// The card has no active validity window until the user explicitly activates it.
+func (s *SubscriptionService) PurchaseSubscription(ctx context.Context, userID, planID int64) (*UserSubscription, error) {
+	if s.entClient == nil {
+		return nil, infraerrors.InternalServer("SUBSCRIPTION_SERVICE_UNAVAILABLE", "subscription service is unavailable")
+	}
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin subscription purchase transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	plan, err := tx.SubscriptionPlan.Query().
+		Where(subscriptionplan.IDEQ(planID), subscriptionplan.ForSaleEQ(true)).
+		Only(txCtx)
+	if err != nil {
+		return nil, ErrSubscriptionPlanNotFound
+	}
+	group, err := tx.Group.Get(txCtx, plan.GroupID)
+	if err != nil {
+		return nil, ErrSubscriptionPlanNotFound
+	}
+	if group.Status != StatusActive || group.SubscriptionType != SubscriptionTypeSubscription || plan.Price <= 0 {
+		return nil, ErrSubscriptionPlanNotFound
+	}
+	exists, err := tx.UserSubscription.Query().
+		Where(usersubscription.UserIDEQ(userID), usersubscription.GroupIDEQ(plan.GroupID)).
+		Exist(txCtx)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, ErrSubscriptionAlreadyExists
+	}
+	updated, err := tx.User.Update().
+		Where(user.IDEQ(userID), user.BalanceGTE(plan.Price)).
+		AddBalance(-plan.Price).
+		Save(txCtx)
+	if err != nil {
+		return nil, err
+	}
+	if updated == 0 {
+		return nil, ErrSubscriptionBalanceInsufficient
+	}
+	now := s.now()
+	days := planValidityDaysForDisplay(plan.ValidityDays, plan.ValidityUnit)
+	sub := &UserSubscription{
+		UserID: userID, GroupID: plan.GroupID, StartsAt: now, ExpiresAt: now,
+		ValidityDays: days, Status: SubscriptionStatusPending, AssignedAt: now,
+		DailyLimitUSD:   ResolvePlanLimit(plan.DailyLimitUsd, group.DailyLimitUsd),
+		WeeklyLimitUSD:  ResolvePlanLimit(plan.WeeklyLimitUsd, group.WeeklyLimitUsd),
+		MonthlyLimitUSD: ResolvePlanLimit(plan.MonthlyLimitUsd, group.MonthlyLimitUsd),
+		Notes:           "purchased plan: " + plan.Name,
+	}
+	if err := s.userSubRepo.Create(txCtx, sub); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit subscription purchase transaction: %w", err)
+	}
+	if s.billingCacheService != nil {
+		_ = s.billingCacheService.InvalidateUserBalance(ctx, userID)
+	}
+	return s.userSubRepo.GetByID(ctx, sub.ID)
+}
+
+// ActivatePurchasedSubscription starts the validity period of a pending card.
+func (s *SubscriptionService) ActivatePurchasedSubscription(ctx context.Context, userID, subscriptionID int64) (*UserSubscription, error) {
+	if s.entClient == nil {
+		return nil, infraerrors.InternalServer("SUBSCRIPTION_SERVICE_UNAVAILABLE", "subscription service is unavailable")
+	}
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin subscription activation transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	sub, err := s.userSubRepo.GetByIDForUpdate(txCtx, subscriptionID)
+	if err != nil || sub.UserID != userID {
+		return nil, ErrSubscriptionNotFound
+	}
+	if sub.Status != SubscriptionStatusPending {
+		return nil, ErrSubscriptionNotPending
+	}
+	now := s.now()
+	days := sub.ValidityDays
+	if days <= 0 {
+		days = 30
+	}
+	if days > MaxValidityDays {
+		days = MaxValidityDays
+	}
+	expiresAt := now.AddDate(0, 0, days)
+	if expiresAt.After(MaxExpiresAt) {
+		expiresAt = MaxExpiresAt
+	}
+	sub.StartsAt, sub.ExpiresAt, sub.ValidityDays = now, expiresAt, days
+	sub.Status = SubscriptionStatusActive
+	sub.DailyWindowStart, sub.WeeklyWindowStart, sub.MonthlyWindowStart = nil, nil, nil
+	sub.DailyUsageUSD, sub.WeeklyUsageUSD, sub.MonthlyUsageUSD = 0, 0, 0
+	if err := s.userSubRepo.Update(txCtx, sub); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit subscription activation transaction: %w", err)
+	}
+	if err := s.invalidateSubscriptionCaches(sub.UserID, sub.GroupID); err != nil {
+		return nil, err
+	}
+	return s.userSubRepo.GetByID(ctx, subscriptionID)
 }
 
 func (s *SubscriptionService) invalidateSubscriptionCaches(userID, groupID int64) error {
@@ -424,15 +627,16 @@ func (s *SubscriptionService) createSubscription(ctx context.Context, input *Ass
 	}
 
 	sub := &UserSubscription{
-		UserID:     input.UserID,
-		GroupID:    input.GroupID,
-		StartsAt:   now,
-		ExpiresAt:  expiresAt,
-		Status:     SubscriptionStatusActive,
-		AssignedAt: now,
-		Notes:      input.Notes,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		UserID:       input.UserID,
+		GroupID:      input.GroupID,
+		StartsAt:     now,
+		ExpiresAt:    expiresAt,
+		ValidityDays: validityDays,
+		Status:       SubscriptionStatusActive,
+		AssignedAt:   now,
+		Notes:        input.Notes,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 	// 只有当 AssignedBy > 0 时才设置（0 表示系统分配，如兑换码）
 	if input.AssignedBy > 0 {
@@ -1127,8 +1331,9 @@ func (s *SubscriptionService) calculateProgress(sub *UserSubscription, group *Gr
 	}
 
 	// 日进度
-	if group.HasDailyLimit() && sub.DailyWindowStart != nil {
-		limit := *group.DailyLimitUSD
+	dailyLimit := sub.EffectiveDailyLimit(group)
+	if dailyLimit != nil && *dailyLimit > 0 && sub.DailyWindowStart != nil {
+		limit := *dailyLimit
 		resetsAt := sub.DailyWindowStart.Add(24 * time.Hour)
 		if dailyResetTime := sub.DailyResetTime(); dailyResetTime != nil {
 			resetsAt = *dailyResetTime
@@ -1154,8 +1359,9 @@ func (s *SubscriptionService) calculateProgress(sub *UserSubscription, group *Gr
 	}
 
 	// 周进度
-	if group.HasWeeklyLimit() && sub.WeeklyWindowStart != nil {
-		limit := *group.WeeklyLimitUSD
+	weeklyLimit := sub.EffectiveWeeklyLimit(group)
+	if weeklyLimit != nil && *weeklyLimit > 0 && sub.WeeklyWindowStart != nil {
+		limit := *weeklyLimit
 		resetsAt := sub.WeeklyWindowStart.Add(7 * 24 * time.Hour)
 		progress.Weekly = &UsageWindowProgress{
 			LimitUSD:        limit,
@@ -1178,8 +1384,9 @@ func (s *SubscriptionService) calculateProgress(sub *UserSubscription, group *Gr
 	}
 
 	// 月进度
-	if group.HasMonthlyLimit() && sub.MonthlyWindowStart != nil {
-		limit := *group.MonthlyLimitUSD
+	monthlyLimit := sub.EffectiveMonthlyLimit(group)
+	if monthlyLimit != nil && *monthlyLimit > 0 && sub.MonthlyWindowStart != nil {
+		limit := *monthlyLimit
 		resetsAt := sub.MonthlyWindowStart.Add(30 * 24 * time.Hour)
 		progress.Monthly = &UsageWindowProgress{
 			LimitUSD:        limit,

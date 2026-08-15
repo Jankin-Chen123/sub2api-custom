@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -28,6 +30,10 @@ type SubscriptionSummaryItem struct {
 type SubscriptionProgressInfo struct {
 	Subscription *dto.UserSubscription         `json:"subscription"`
 	Progress     *service.SubscriptionProgress `json:"progress"`
+}
+
+type purchaseSubscriptionRequest struct {
+	PlanID int64 `json:"plan_id" binding:"required"`
 }
 
 // SubscriptionHandler handles user subscription operations
@@ -62,6 +68,63 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 		out = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]))
 	}
 	response.Success(c, out)
+}
+
+// ListPlans handles listing plans the current user can buy with balance.
+// GET /api/v1/subscriptions/plans
+func (h *SubscriptionHandler) ListPlans(c *gin.Context) {
+	if _, ok := middleware2.GetAuthSubjectFromContext(c); !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+	plans, err := h.subscriptionService.ListPurchasablePlans(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, plans)
+}
+
+// Purchase creates a pending subscription card and deducts the user's balance.
+// POST /api/v1/subscriptions/purchase
+func (h *SubscriptionHandler) Purchase(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+	var req purchaseSubscriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.PlanID <= 0 {
+		response.BadRequest(c, "plan_id is required")
+		return
+	}
+	sub, err := h.subscriptionService.PurchaseSubscription(c.Request.Context(), subject.UserID, req.PlanID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Created(c, dto.UserSubscriptionFromService(sub))
+}
+
+// Activate starts the validity period of a purchased subscription card.
+// POST /api/v1/subscriptions/:id/activate
+func (h *SubscriptionHandler) Activate(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid subscription ID")
+		return
+	}
+	sub, err := h.subscriptionService.ActivatePurchasedSubscription(c.Request.Context(), subject.UserID, id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.UserSubscriptionFromService(sub))
 }
 
 // GetActive handles getting current user's active subscriptions
@@ -151,14 +214,14 @@ func (h *SubscriptionHandler) GetSummary(c *gin.Context) {
 		// Add group info if preloaded
 		if sub.Group != nil {
 			item.GroupName = sub.Group.Name
-			if sub.Group.DailyLimitUSD != nil {
-				item.DailyLimitUSD = *sub.Group.DailyLimitUSD
+			if limit := sub.EffectiveDailyLimit(sub.Group); limit != nil {
+				item.DailyLimitUSD = *limit
 			}
-			if sub.Group.WeeklyLimitUSD != nil {
-				item.WeeklyLimitUSD = *sub.Group.WeeklyLimitUSD
+			if limit := sub.EffectiveWeeklyLimit(sub.Group); limit != nil {
+				item.WeeklyLimitUSD = *limit
 			}
-			if sub.Group.MonthlyLimitUSD != nil {
-				item.MonthlyLimitUSD = *sub.Group.MonthlyLimitUSD
+			if limit := sub.EffectiveMonthlyLimit(sub.Group); limit != nil {
+				item.MonthlyLimitUSD = *limit
 			}
 		}
 

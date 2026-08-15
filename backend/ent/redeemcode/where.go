@@ -75,6 +75,21 @@ func Status(v string) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldEQ(FieldStatus, v))
 }
 
+// AffiliateRebateStatus applies equality check predicate on the "affiliate_rebate_status" field. It's identical to AffiliateRebateStatusEQ.
+func AffiliateRebateStatus(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateAmount applies equality check predicate on the "affiliate_rebate_amount" field. It's identical to AffiliateRebateAmountEQ.
+func AffiliateRebateAmount(v float64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldAffiliateRebateAmount, v))
+}
+
+// AffiliateRebateReviewedAt applies equality check predicate on the "affiliate_rebate_reviewed_at" field. It's identical to AffiliateRebateReviewedAtEQ.
+func AffiliateRebateReviewedAt(v time.Time) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldAffiliateRebateReviewedAt, v))
+}
+
 // UsedBy applies equality check predicate on the "used_by" field. It's identical to UsedByEQ.
 func UsedBy(v int64) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldEQ(FieldUsedBy, v))
@@ -343,6 +358,171 @@ func StatusEqualFold(v string) predicate.RedeemCode {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// AffiliateRebateStatusEQ applies the EQ predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusEQ(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateStatusNEQ applies the NEQ predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusNEQ(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNEQ(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateStatusIn applies the In predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusIn(vs ...string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIn(FieldAffiliateRebateStatus, vs...))
+}
+
+// AffiliateRebateStatusNotIn applies the NotIn predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusNotIn(vs ...string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotIn(FieldAffiliateRebateStatus, vs...))
+}
+
+// AffiliateRebateStatusGT applies the GT predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusGT(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGT(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateStatusGTE applies the GTE predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusGTE(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGTE(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateStatusLT applies the LT predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusLT(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLT(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateStatusLTE applies the LTE predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusLTE(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLTE(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateStatusContains applies the Contains predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusContains(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldContains(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateStatusHasPrefix applies the HasPrefix predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusHasPrefix(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldHasPrefix(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateStatusHasSuffix applies the HasSuffix predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusHasSuffix(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldHasSuffix(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateStatusEqualFold applies the EqualFold predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusEqualFold(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEqualFold(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateStatusContainsFold applies the ContainsFold predicate on the "affiliate_rebate_status" field.
+func AffiliateRebateStatusContainsFold(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldContainsFold(FieldAffiliateRebateStatus, v))
+}
+
+// AffiliateRebateAmountEQ applies the EQ predicate on the "affiliate_rebate_amount" field.
+func AffiliateRebateAmountEQ(v float64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldAffiliateRebateAmount, v))
+}
+
+// AffiliateRebateAmountNEQ applies the NEQ predicate on the "affiliate_rebate_amount" field.
+func AffiliateRebateAmountNEQ(v float64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNEQ(FieldAffiliateRebateAmount, v))
+}
+
+// AffiliateRebateAmountIn applies the In predicate on the "affiliate_rebate_amount" field.
+func AffiliateRebateAmountIn(vs ...float64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIn(FieldAffiliateRebateAmount, vs...))
+}
+
+// AffiliateRebateAmountNotIn applies the NotIn predicate on the "affiliate_rebate_amount" field.
+func AffiliateRebateAmountNotIn(vs ...float64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotIn(FieldAffiliateRebateAmount, vs...))
+}
+
+// AffiliateRebateAmountGT applies the GT predicate on the "affiliate_rebate_amount" field.
+func AffiliateRebateAmountGT(v float64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGT(FieldAffiliateRebateAmount, v))
+}
+
+// AffiliateRebateAmountGTE applies the GTE predicate on the "affiliate_rebate_amount" field.
+func AffiliateRebateAmountGTE(v float64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGTE(FieldAffiliateRebateAmount, v))
+}
+
+// AffiliateRebateAmountLT applies the LT predicate on the "affiliate_rebate_amount" field.
+func AffiliateRebateAmountLT(v float64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLT(FieldAffiliateRebateAmount, v))
+}
+
+// AffiliateRebateAmountLTE applies the LTE predicate on the "affiliate_rebate_amount" field.
+func AffiliateRebateAmountLTE(v float64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLTE(FieldAffiliateRebateAmount, v))
+}
+
+// AffiliateRebateAmountIsNil applies the IsNil predicate on the "affiliate_rebate_amount" field.
+func AffiliateRebateAmountIsNil() predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIsNull(FieldAffiliateRebateAmount))
+}
+
+// AffiliateRebateAmountNotNil applies the NotNil predicate on the "affiliate_rebate_amount" field.
+func AffiliateRebateAmountNotNil() predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotNull(FieldAffiliateRebateAmount))
+}
+
+// AffiliateRebateReviewedAtEQ applies the EQ predicate on the "affiliate_rebate_reviewed_at" field.
+func AffiliateRebateReviewedAtEQ(v time.Time) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldAffiliateRebateReviewedAt, v))
+}
+
+// AffiliateRebateReviewedAtNEQ applies the NEQ predicate on the "affiliate_rebate_reviewed_at" field.
+func AffiliateRebateReviewedAtNEQ(v time.Time) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNEQ(FieldAffiliateRebateReviewedAt, v))
+}
+
+// AffiliateRebateReviewedAtIn applies the In predicate on the "affiliate_rebate_reviewed_at" field.
+func AffiliateRebateReviewedAtIn(vs ...time.Time) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIn(FieldAffiliateRebateReviewedAt, vs...))
+}
+
+// AffiliateRebateReviewedAtNotIn applies the NotIn predicate on the "affiliate_rebate_reviewed_at" field.
+func AffiliateRebateReviewedAtNotIn(vs ...time.Time) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotIn(FieldAffiliateRebateReviewedAt, vs...))
+}
+
+// AffiliateRebateReviewedAtGT applies the GT predicate on the "affiliate_rebate_reviewed_at" field.
+func AffiliateRebateReviewedAtGT(v time.Time) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGT(FieldAffiliateRebateReviewedAt, v))
+}
+
+// AffiliateRebateReviewedAtGTE applies the GTE predicate on the "affiliate_rebate_reviewed_at" field.
+func AffiliateRebateReviewedAtGTE(v time.Time) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGTE(FieldAffiliateRebateReviewedAt, v))
+}
+
+// AffiliateRebateReviewedAtLT applies the LT predicate on the "affiliate_rebate_reviewed_at" field.
+func AffiliateRebateReviewedAtLT(v time.Time) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLT(FieldAffiliateRebateReviewedAt, v))
+}
+
+// AffiliateRebateReviewedAtLTE applies the LTE predicate on the "affiliate_rebate_reviewed_at" field.
+func AffiliateRebateReviewedAtLTE(v time.Time) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLTE(FieldAffiliateRebateReviewedAt, v))
+}
+
+// AffiliateRebateReviewedAtIsNil applies the IsNil predicate on the "affiliate_rebate_reviewed_at" field.
+func AffiliateRebateReviewedAtIsNil() predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIsNull(FieldAffiliateRebateReviewedAt))
+}
+
+// AffiliateRebateReviewedAtNotNil applies the NotNil predicate on the "affiliate_rebate_reviewed_at" field.
+func AffiliateRebateReviewedAtNotNil() predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotNull(FieldAffiliateRebateReviewedAt))
 }
 
 // UsedByEQ applies the EQ predicate on the "used_by" field.

@@ -23,11 +23,18 @@ func NewRedeemCodeRepository(client *dbent.Client) service.RedeemCodeRepository 
 }
 
 func (r *redeemCodeRepository) Create(ctx context.Context, code *service.RedeemCode) error {
+	affiliateRebateStatus := code.AffiliateRebateStatus
+	if affiliateRebateStatus == "" {
+		affiliateRebateStatus = service.AffiliateRebateStatusNotApplicable
+	}
 	created, err := r.client.RedeemCode.Create().
 		SetCode(code.Code).
 		SetType(code.Type).
 		SetValue(code.Value).
 		SetStatus(code.Status).
+		SetAffiliateRebateStatus(affiliateRebateStatus).
+		SetNillableAffiliateRebateAmount(code.AffiliateRebateAmount).
+		SetNillableAffiliateRebateReviewedAt(code.AffiliateRebateReviewedAt).
 		SetNotes(code.Notes).
 		SetValidityDays(code.ValidityDays).
 		SetNillableExpiresAt(code.ExpiresAt).
@@ -50,11 +57,18 @@ func (r *redeemCodeRepository) CreateBatch(ctx context.Context, codes []service.
 	builders := make([]*dbent.RedeemCodeCreate, 0, len(codes))
 	for i := range codes {
 		c := &codes[i]
+		affiliateRebateStatus := c.AffiliateRebateStatus
+		if affiliateRebateStatus == "" {
+			affiliateRebateStatus = service.AffiliateRebateStatusNotApplicable
+		}
 		b := r.client.RedeemCode.Create().
 			SetCode(c.Code).
 			SetType(c.Type).
 			SetValue(c.Value).
 			SetStatus(c.Status).
+			SetAffiliateRebateStatus(affiliateRebateStatus).
+			SetNillableAffiliateRebateAmount(c.AffiliateRebateAmount).
+			SetNillableAffiliateRebateReviewedAt(c.AffiliateRebateReviewedAt).
 			SetNotes(c.Notes).
 			SetValidityDays(c.ValidityDays).
 			SetNillableExpiresAt(c.ExpiresAt).
@@ -203,6 +217,9 @@ func (r *redeemCodeRepository) Update(ctx context.Context, code *service.RedeemC
 		SetStatus(code.Status).
 		SetNotes(code.Notes).
 		SetValidityDays(code.ValidityDays)
+	if code.AffiliateRebateStatus != "" {
+		up.SetAffiliateRebateStatus(code.AffiliateRebateStatus)
+	}
 
 	if code.UsedBy != nil {
 		up.SetUsedBy(*code.UsedBy)
@@ -223,6 +240,16 @@ func (r *redeemCodeRepository) Update(ctx context.Context, code *service.RedeemC
 		up.SetExpiresAt(*code.ExpiresAt)
 	} else {
 		up.ClearExpiresAt()
+	}
+	if code.AffiliateRebateAmount != nil {
+		up.SetAffiliateRebateAmount(*code.AffiliateRebateAmount)
+	} else {
+		up.ClearAffiliateRebateAmount()
+	}
+	if code.AffiliateRebateReviewedAt != nil {
+		up.SetAffiliateRebateReviewedAt(*code.AffiliateRebateReviewedAt)
+	} else {
+		up.ClearAffiliateRebateReviewedAt()
 	}
 
 	updated, err := up.Save(ctx)
@@ -324,12 +351,29 @@ func (r *redeemCodeRepository) batchUpdate(ctx context.Context, client *dbent.Cl
 func (r *redeemCodeRepository) Use(ctx context.Context, id, userID int64) error {
 	now := time.Now()
 	client := clientFromContext(ctx, r.client)
-	affected, err := client.RedeemCode.Update().
-		Where(redeemcode.IDEQ(id), redeemcode.StatusEQ(service.StatusUnused)).
-		SetStatus(service.StatusUsed).
-		SetUsedBy(userID).
-		SetUsedAt(now).
-		Save(ctx)
+	result, err := client.ExecContext(ctx, `
+UPDATE redeem_codes
+SET status = $1,
+    used_by = $2,
+    used_at = $3,
+    affiliate_rebate_status = CASE
+        WHEN type = $4 AND value > 0 THEN $5
+        ELSE $6
+    END
+WHERE id = $7 AND status = $8`,
+		service.StatusUsed,
+		userID,
+		now,
+		service.RedeemTypeBalance,
+		service.AffiliateRebateStatusPending,
+		service.AffiliateRebateStatusNotApplicable,
+		id,
+		service.StatusUnused,
+	)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
@@ -337,6 +381,45 @@ func (r *redeemCodeRepository) Use(ctx context.Context, id, userID int64) error 
 		return service.ErrRedeemCodeUsed
 	}
 	return nil
+}
+
+// UpdateAffiliateReview persists the administrator's decision. It is kept as
+// an optional repository capability so lightweight service test doubles do not
+// need to know about the production-only review workflow.
+func (r *redeemCodeRepository) UpdateAffiliateReview(ctx context.Context, id int64, status string, amount *float64, reviewedAt time.Time) error {
+	client := clientFromContext(ctx, r.client)
+	up := client.RedeemCode.UpdateOneID(id).
+		SetAffiliateRebateStatus(status).
+		SetAffiliateRebateReviewedAt(reviewedAt)
+	if amount == nil {
+		up.ClearAffiliateRebateAmount()
+	} else {
+		up.SetAffiliateRebateAmount(*amount)
+	}
+	if _, err := up.Save(ctx); err != nil {
+		if dbent.IsNotFound(err) {
+			return service.ErrRedeemCodeNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+// GetByIDForUpdate returns a redeem code while holding its row lock. This
+// prevents an approve/exclude decision from racing with another admin action.
+func (r *redeemCodeRepository) GetByIDForUpdate(ctx context.Context, id int64) (*service.RedeemCode, error) {
+	client := clientFromContext(ctx, r.client)
+	m, err := client.RedeemCode.Query().
+		Where(redeemcode.IDEQ(id)).
+		ForUpdate().
+		Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, service.ErrRedeemCodeNotFound
+		}
+		return nil, err
+	}
+	return redeemCodeEntityToService(m), nil
 }
 
 func (r *redeemCodeRepository) ListByUser(ctx context.Context, userID int64, limit int) ([]service.RedeemCode, error) {
@@ -413,18 +496,21 @@ func redeemCodeEntityToService(m *dbent.RedeemCode) *service.RedeemCode {
 		return nil
 	}
 	out := &service.RedeemCode{
-		ID:           m.ID,
-		Code:         m.Code,
-		Type:         m.Type,
-		Value:        m.Value,
-		Status:       m.Status,
-		UsedBy:       m.UsedBy,
-		UsedAt:       m.UsedAt,
-		Notes:        derefString(m.Notes),
-		CreatedAt:    m.CreatedAt,
-		ExpiresAt:    m.ExpiresAt,
-		GroupID:      m.GroupID,
-		ValidityDays: m.ValidityDays,
+		ID:                        m.ID,
+		Code:                      m.Code,
+		Type:                      m.Type,
+		Value:                     m.Value,
+		Status:                    m.Status,
+		AffiliateRebateStatus:     m.AffiliateRebateStatus,
+		AffiliateRebateAmount:     m.AffiliateRebateAmount,
+		AffiliateRebateReviewedAt: m.AffiliateRebateReviewedAt,
+		UsedBy:                    m.UsedBy,
+		UsedAt:                    m.UsedAt,
+		Notes:                     derefString(m.Notes),
+		CreatedAt:                 m.CreatedAt,
+		ExpiresAt:                 m.ExpiresAt,
+		GroupID:                   m.GroupID,
+		ValidityDays:              m.ValidityDays,
 	}
 	if m.Edges.User != nil {
 		out.User = userEntityToService(m.Edges.User)

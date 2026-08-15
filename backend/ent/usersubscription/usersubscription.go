@@ -29,8 +29,16 @@ const (
 	FieldStartsAt = "starts_at"
 	// FieldExpiresAt holds the string denoting the expires_at field in the database.
 	FieldExpiresAt = "expires_at"
+	// FieldValidityDays holds the string denoting the validity_days field in the database.
+	FieldValidityDays = "validity_days"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldDailyLimitUsd holds the string denoting the daily_limit_usd field in the database.
+	FieldDailyLimitUsd = "daily_limit_usd"
+	// FieldWeeklyLimitUsd holds the string denoting the weekly_limit_usd field in the database.
+	FieldWeeklyLimitUsd = "weekly_limit_usd"
+	// FieldMonthlyLimitUsd holds the string denoting the monthly_limit_usd field in the database.
+	FieldMonthlyLimitUsd = "monthly_limit_usd"
 	// FieldDailyWindowStart holds the string denoting the daily_window_start field in the database.
 	FieldDailyWindowStart = "daily_window_start"
 	// FieldWeeklyWindowStart holds the string denoting the weekly_window_start field in the database.
@@ -99,7 +107,11 @@ var Columns = []string{
 	FieldGroupID,
 	FieldStartsAt,
 	FieldExpiresAt,
+	FieldValidityDays,
 	FieldStatus,
+	FieldDailyLimitUsd,
+	FieldWeeklyLimitUsd,
+	FieldMonthlyLimitUsd,
 	FieldDailyWindowStart,
 	FieldWeeklyWindowStart,
 	FieldMonthlyWindowStart,
@@ -135,6 +147,8 @@ var (
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
+	// DefaultValidityDays holds the default value on creation for the "validity_days" field.
+	DefaultValidityDays int
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -192,9 +206,29 @@ func ByExpiresAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldExpiresAt, opts...).ToFunc()
 }
 
+// ByValidityDays orders the results by the validity_days field.
+func ByValidityDays(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldValidityDays, opts...).ToFunc()
+}
+
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByDailyLimitUsd orders the results by the daily_limit_usd field.
+func ByDailyLimitUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDailyLimitUsd, opts...).ToFunc()
+}
+
+// ByWeeklyLimitUsd orders the results by the weekly_limit_usd field.
+func ByWeeklyLimitUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWeeklyLimitUsd, opts...).ToFunc()
+}
+
+// ByMonthlyLimitUsd orders the results by the monthly_limit_usd field.
+func ByMonthlyLimitUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMonthlyLimitUsd, opts...).ToFunc()
 }
 
 // ByDailyWindowStart orders the results by the daily_window_start field.

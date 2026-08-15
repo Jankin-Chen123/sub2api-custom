@@ -79,11 +79,15 @@ const (
 
 // Redeem type constants
 const (
-	RedeemTypeBalance          = domain.RedeemTypeBalance
-	RedeemTypeConcurrency      = domain.RedeemTypeConcurrency
-	RedeemTypeSubscription     = domain.RedeemTypeSubscription
-	RedeemTypeInvitation       = domain.RedeemTypeInvitation
-	RedeemTypeAffiliateBalance = "affiliate_balance"
+	RedeemTypeBalance                  = domain.RedeemTypeBalance
+	RedeemTypeConcurrency              = domain.RedeemTypeConcurrency
+	RedeemTypeSubscription             = domain.RedeemTypeSubscription
+	RedeemTypeInvitation               = domain.RedeemTypeInvitation
+	RedeemTypeAffiliateBalance         = "affiliate_balance"
+	AffiliateRebateStatusPending       = domain.AffiliateRebateStatusPending
+	AffiliateRebateStatusApproved      = domain.AffiliateRebateStatusApproved
+	AffiliateRebateStatusExcluded      = domain.AffiliateRebateStatusExcluded
+	AffiliateRebateStatusNotApplicable = domain.AffiliateRebateStatusNotApplicable
 )
 
 // PromoCode status constants
@@ -106,6 +110,7 @@ const (
 
 // Subscription status constants
 const (
+	SubscriptionStatusPending   = domain.SubscriptionStatusPending
 	SubscriptionStatusActive    = domain.SubscriptionStatusActive
 	SubscriptionStatusExpired   = domain.SubscriptionStatusExpired
 	SubscriptionStatusSuspended = domain.SubscriptionStatusSuspended

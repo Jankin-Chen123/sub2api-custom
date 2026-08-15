@@ -5,6 +5,7 @@
 
 import { apiClient } from './client'
 import type { UserSubscription, SubscriptionProgress } from '@/types'
+import type { SubscriptionPlan } from '@/types/payment'
 
 /**
  * Subscription summary for user dashboard
@@ -28,6 +29,28 @@ export interface SubscriptionSummary {
  */
 export async function getMySubscriptions(): Promise<UserSubscription[]> {
   const response = await apiClient.get<UserSubscription[]>('/subscriptions')
+  return response.data
+}
+
+/** Get subscription plans that can be purchased with the user's balance. */
+export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
+  const response = await apiClient.get<SubscriptionPlan[]>('/subscriptions/plans')
+  return response.data
+}
+
+/** Purchase a plan and create a pending subscription card. */
+export async function purchasePlan(planId: number): Promise<UserSubscription> {
+  const response = await apiClient.post<UserSubscription>('/subscriptions/purchase', {
+    plan_id: planId
+  })
+  return response.data
+}
+
+/** Activate a purchased subscription card. */
+export async function activateSubscription(subscriptionId: number): Promise<UserSubscription> {
+  const response = await apiClient.post<UserSubscription>(
+    `/subscriptions/${subscriptionId}/activate`
+  )
   return response.data
 }
 
@@ -69,6 +92,9 @@ export async function getSubscriptionProgress(
 
 export default {
   getMySubscriptions,
+  getAvailablePlans,
+  purchasePlan,
+  activateSubscription,
   getActiveSubscriptions,
   getSubscriptionsProgress,
   getSubscriptionSummary,
