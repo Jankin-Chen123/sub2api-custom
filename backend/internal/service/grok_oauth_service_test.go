@@ -262,7 +262,8 @@ func TestGrokOAuthServiceAuthorizePasswordDisabledByDefault(t *testing.T) {
 	_, err := svc.AuthorizePassword(context.Background(), "user@example.com", "secret", nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "GROK_OAUTH_PASSWORD_AUTH_DISABLED")
-	require.Empty(t, client.loginEmail)`r`n}
+	require.Empty(t, client.loginEmail)
+}
 
 func makeGrokOAuthJWT(claims map[string]any) string {
 	payload, _ := json.Marshal(claims)

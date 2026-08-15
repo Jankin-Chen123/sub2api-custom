@@ -405,7 +405,10 @@ func (s *AffiliateService) accrueInviteRebate(ctx context.Context, inviteeUserID
 
 	var applied bool
 	if sourceRedeemCodeID != nil {
-		redeemRepo := s.repo.(AffiliateRedeemCodeRepository)
+		redeemRepo, ok := s.repo.(AffiliateRedeemCodeRepository)
+		if !ok {
+			return 0, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate redeem review unavailable")
+		}
 		applied, err = redeemRepo.AccrueQuotaForRedeemCode(ctx, *inviteeSummary.InviterID, inviteeUserID, rebate, freezeHours, *sourceRedeemCodeID)
 	} else {
 		applied, err = s.repo.AccrueQuota(ctx, *inviteeSummary.InviterID, inviteeUserID, rebate, freezeHours, sourceOrderID)
