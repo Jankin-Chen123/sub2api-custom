@@ -19,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/platform/liveattestation"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/cespare/xxhash/v2"
@@ -605,9 +606,23 @@ func (s *OpenAIGatewayService) isUpstreamModelRestrictedByChannel(ctx context.Co
 	if s.channelService == nil {
 		return false
 	}
-	if compactForwardModel, ok := openAIForwardModelFromContext(ctx); ok {
-		requestedModel = compactForwardModel.model
-		requireCompact = compactForwardModel.useCompactModelMapping
+	if forwardModel, ok := openAIForwardModelFromContext(ctx); ok {
+		requestedModel = forwardModel.model
+		requireCompact = forwardModel.useCompactModelMapping
+		if account != nil && account.IsOpenAIPassthroughEnabled() {
+			// Responses passthrough sends the channel-mapped model directly;
+			// legacy compact passthrough applies only the compact mapping.
+			// When Responses is known unsupported, the raw Chat fallback follows
+			// the ordinary account mapping and never applies compact mapping.
+			if openai_compat.ResolveResponsesSupport(account.Extra) != openai_compat.ResponsesSupportNo {
+				if requireCompact {
+					requestedModel = resolveOpenAICompactForwardModel(account, requestedModel)
+				}
+			} else {
+				requestedModel = resolveOpenAIForwardModel(account, requestedModel, "")
+			}
+			return requestedModel != "" && s.channelService.IsModelRestricted(ctx, groupID, requestedModel)
+		}
 	}
 	upstreamModel := resolveOpenAIAccountUpstreamModelForRequest(account, requestedModel, requireCompact)
 	if upstreamModel == "" {

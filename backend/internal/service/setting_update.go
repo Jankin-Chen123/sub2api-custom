@@ -764,15 +764,20 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	})
 	// Refresh the scheduling threshold hot-path cache together with the other
 	// settings caches so an admin update takes effect immediately.
-	accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
-	normalizedThresholds, err := validateAndNormalizeAccountSchedulingThresholds(settings.AccountSchedulingThresholds)
-	if err != nil {
-		normalizedThresholds = defaultAccountSchedulingThresholds()
+	// A nil value means the caller omitted this setting from a partial update;
+	// preserve the existing cache instead of replacing it with defaults. An
+	// explicit empty map remains a deliberate reset and is normalized below.
+	if settings.AccountSchedulingThresholds != nil {
+		accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
+		normalizedThresholds, err := validateAndNormalizeAccountSchedulingThresholds(settings.AccountSchedulingThresholds)
+		if err != nil {
+			normalizedThresholds = defaultAccountSchedulingThresholds()
+		}
+		accountSchedulingThresholdsCache.Store(&cachedAccountSchedulingThresholds{
+			thresholds: cloneAccountSchedulingThresholds(normalizedThresholds),
+			expiresAt:  time.Now().Add(accountSchedulingThresholdsCacheTTL).UnixNano(),
+		})
 	}
-	accountSchedulingThresholdsCache.Store(&cachedAccountSchedulingThresholds{
-		thresholds: cloneAccountSchedulingThresholds(normalizedThresholds),
-		expiresAt:  time.Now().Add(accountSchedulingThresholdsCacheTTL).UnixNano(),
-	})
 	// Invalidate the quota auto-pause cache and let the next read trigger a fresh load.
 	// We can't know from here whether ops_advanced_settings was also touched, so be
 	// defensive: store an expired entry — GetOpenAIQuotaAutoPauseSettings will serve

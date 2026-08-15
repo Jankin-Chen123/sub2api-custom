@@ -189,7 +189,17 @@ func applyGrokResolvedSubscriptionTier(usage *UsageInfo, account *Account, billi
 		usage.SubscriptionTierRaw = jwtTier
 		return
 	}
-	signal := strings.TrimSpace(account.GetCredential("subscription_tier"))
+	credentialSignal := strings.TrimSpace(account.GetCredential("subscription_tier"))
+	// When billing has no usable plan, the credential tier is the strongest
+	// available signal. Keep its normalized spelling for both display fields;
+	// CanonicalGrokPlan intentionally lowercases aliases, which would discard
+	// the tier value returned by the credential payload (for example "FREE").
+	if credentialSignal != "" && (billing == nil || strings.TrimSpace(billing.Plan) == "") {
+		usage.SubscriptionTier = credentialSignal
+		usage.SubscriptionTierRaw = credentialSignal
+		return
+	}
+	signal := credentialSignal
 	if signal == "" && snapshot != nil {
 		signal = strings.TrimSpace(snapshot.SubscriptionTier)
 	}
