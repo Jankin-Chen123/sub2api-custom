@@ -114,7 +114,7 @@ func resolveOpenAIMessagesDispatchMappedModel(apiKey *service.APIKey, requestedM
 	// handler's built-in default is only a bootstrap fallback for a Grok group.
 	if apiKey.Group.Platform == service.PlatformGrok {
 		model := strings.ToLower(strings.TrimSpace(requestedModel))
-		if strings.HasPrefix(model, "claude-") && xai.RuntimeModelMappingOptions().EnableCrossClientMap == false {
+		if strings.HasPrefix(model, "claude-") && !xai.RuntimeModelMappingOptions().EnableCrossClientMap {
 			return xai.DefaultTextModel
 		}
 	}

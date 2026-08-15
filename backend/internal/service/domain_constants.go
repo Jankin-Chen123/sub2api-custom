@@ -44,6 +44,9 @@ const (
 	PlatformAntigravity = domain.PlatformAntigravity
 	PlatformGrok        = domain.PlatformGrok
 	PlatformComposite   = domain.PlatformComposite
+	// PlatformKiro is retained for unsupported-platform threshold tests and
+	// legacy account rows. Scheduling thresholds never pause Kiro accounts.
+	PlatformKiro = "kiro"
 )
 
 // AllowedQuotaPlatforms 是允许设置 user × platform quota 的平台列表（单一权威来源）。

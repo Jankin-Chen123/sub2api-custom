@@ -28,6 +28,10 @@ func (s *grokOAuthClientStub) RefreshToken(context.Context, string, string, stri
 	return s.refreshResponse, nil
 }
 
+func (s *grokOAuthClientStub) LoginWithPassword(context.Context, string, string, string) (*GrokPasswordLoginResult, error) {
+	return nil, nil
+}
+
 func (s *grokOAuthClientStub) ConvertSSOToBuild(context.Context, string, string) (*xai.TokenResponse, error) {
 	return s.ssoResponse, nil
 }
@@ -158,7 +162,7 @@ func TestGrokOAuthServiceRefreshAccountTokenIgnoresIDTokenTierWhenAccessTokenHas
 	svc := NewGrokOAuthService(nil, &grokOAuthClientStub{
 		refreshResponse: &xai.TokenResponse{
 			AccessToken: "opaque-access-token",
-			IDToken:      makeGrokOAuthJWT(map[string]any{"tier": 5}),
+			IDToken:     makeGrokOAuthJWT(map[string]any{"tier": 5}),
 			TokenType:   "Bearer",
 			ExpiresIn:   3600,
 		},
