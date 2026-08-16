@@ -133,6 +133,107 @@ func TestNormalizeCodexNativeImageRequestDoesNotAliasOrdinaryClients(t *testing.
 	require.Equal(t, "auto", parsed.Size)
 }
 
+func TestNormalizeDedicatedImageAliasRequestSelectsSmallestCompatibleTier(t *testing.T) {
+	tests := []struct {
+		name      string
+		model     string
+		size      string
+		wantModel string
+		wantSize  string
+	}{
+		{name: "legacy 1K", model: "gpt-image-1", size: "1024x1024", wantModel: service.CangyuanImageModel1K, wantSize: "1024x1024"},
+		{name: "legacy 1.5 2K", model: "gpt-image-1.5", size: "1536x1024", wantModel: service.CangyuanImageModel2K, wantSize: "1536x1024"},
+		{name: "current 4K", model: "gpt-image-2", size: "3840x2160", wantModel: service.CangyuanImageModel4K, wantSize: "3840x2160"},
+		{name: "auto defaults to 1K", model: "gpt-image-2", size: "auto", wantModel: service.CangyuanImageModel1K},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed := &service.OpenAIImagesRequest{
+				Model: tt.model, Prompt: "draw a lighthouse", Size: tt.size, ExplicitSize: tt.size != "", N: 1,
+			}
+
+			require.True(t, normalizeDedicatedImageAliasRequest(parsed))
+			require.Equal(t, tt.wantModel, parsed.Model)
+			require.Equal(t, tt.wantSize, parsed.Size)
+			require.Equal(t, tt.wantSize != "", parsed.ExplicitSize)
+		})
+	}
+}
+
+func TestNormalizeDedicatedImageAliasRequestPreservesIncompatibleRequests(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*service.OpenAIImagesRequest)
+	}{
+		{name: "multiple images", mutate: func(parsed *service.OpenAIImagesRequest) { parsed.N = 2 }},
+		{name: "streaming", mutate: func(parsed *service.OpenAIImagesRequest) { parsed.Stream = true }},
+		{name: "invalid size", mutate: func(parsed *service.OpenAIImagesRequest) { parsed.Size = "not-a-size" }},
+		{name: "oversized", mutate: func(parsed *service.OpenAIImagesRequest) { parsed.Size = "3840x3840" }},
+		{name: "unsupported output option", mutate: func(parsed *service.OpenAIImagesRequest) { parsed.OutputFormat = "webp" }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed := &service.OpenAIImagesRequest{
+				Model: "gpt-image-1", Prompt: "draw a lighthouse", Size: "1024x1024", ExplicitSize: true, N: 1,
+			}
+			tt.mutate(parsed)
+			original := *parsed
+
+			require.False(t, normalizeDedicatedImageAliasRequest(parsed))
+			require.Equal(t, original, *parsed)
+		})
+	}
+}
+
+func TestDedicatedImageDispatchRoutesOrdinaryGPTImageAliasToDedicatedPath(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-1","prompt":"draw a lighthouse","size":"1024x1024"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("User-Agent", "curl/8.7.1")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	h := &DedicatedImageHandler{
+		enabled: true,
+		openAI:  &OpenAIGatewayHandler{gatewayService: &service.OpenAIGatewayService{}},
+	}
+	fallbackCalled := false
+
+	h.Dispatch(c, func(c *gin.Context) {
+		fallbackCalled = true
+		c.Status(http.StatusNoContent)
+	})
+
+	require.False(t, fallbackCalled)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestDedicatedImageDispatchFallsBackForIncompatibleGPTImageAlias(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-1","prompt":"draw a lighthouse","size":"3840x3840"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	h := &DedicatedImageHandler{
+		enabled: true,
+		openAI:  &OpenAIGatewayHandler{gatewayService: &service.OpenAIGatewayService{}},
+	}
+	fallbackCalled := false
+
+	h.Dispatch(c, func(c *gin.Context) {
+		fallbackCalled = true
+		got, err := io.ReadAll(c.Request.Body)
+		require.NoError(t, err)
+		require.Equal(t, body, got)
+		c.Status(http.StatusNoContent)
+		c.Writer.WriteHeaderNow()
+	})
+
+	require.True(t, fallbackCalled)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+}
+
 func TestCodexImageJSONHeartbeatWritesOnlyWhitespaceAndStops(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()

@@ -81,9 +81,9 @@ func (h *DedicatedImageHandler) runtimeEnabled() bool {
 	return h.enabled
 }
 
-// Dispatch sends only the three explicit Cangyuan tier models through the
-// durable dedicated path. Every other request is restored byte-for-byte and
-// delegated to the existing Images implementation.
+// Dispatch sends explicit Cangyuan tier models and compatible GPT image aliases
+// through the durable dedicated path. Every other request is restored
+// byte-for-byte and delegated to the existing Images implementation.
 func (h *DedicatedImageHandler) Dispatch(c *gin.Context, fallback gin.HandlerFunc) {
 	if h == nil || !h.runtimeEnabled() || h.openAI == nil || h.openAI.gatewayService == nil {
 		fallback(c)
@@ -103,7 +103,7 @@ func (h *DedicatedImageHandler) Dispatch(c *gin.Context, fallback gin.HandlerFun
 		return
 	}
 	codexNativeImage := h.normalizeCodexNativeImageRequest(c, parsed)
-	if !isDedicatedCangyuanModel(parsed.Model) {
+	if !isDedicatedCangyuanModel(parsed.Model) && !normalizeDedicatedImageAliasRequest(parsed) {
 		fallback(c)
 		return
 	}
@@ -274,6 +274,53 @@ func (h *DedicatedImageHandler) normalizeCodexNativeImageRequest(c *gin.Context,
 	}
 	parsed.ResponseFormat = "b64_json"
 	return true
+}
+
+// normalizeDedicatedImageAliasRequest routes the standard GPT image aliases to
+// the smallest Cangyuan tier that can faithfully represent the request. The
+// original request is left untouched when Cangyuan cannot support it so the
+// general Images path retains its existing compatibility behavior.
+func normalizeDedicatedImageAliasRequest(parsed *service.OpenAIImagesRequest) bool {
+	if parsed == nil {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(parsed.Model)) {
+	case "gpt-image-1", "gpt-image-1.5", "gpt-image-2":
+	default:
+		return false
+	}
+	if parsed.Stream || parsed.N != 1 || strings.TrimSpace(parsed.Background) != "" ||
+		strings.TrimSpace(parsed.OutputFormat) != "" || strings.TrimSpace(parsed.Moderation) != "" ||
+		strings.TrimSpace(parsed.InputFidelity) != "" || strings.TrimSpace(parsed.Style) != "" ||
+		parsed.OutputCompression != nil || parsed.PartialImages != nil {
+		return false
+	}
+
+	candidate := *parsed
+	if strings.EqualFold(strings.TrimSpace(candidate.Size), "auto") {
+		candidate.Size = ""
+		candidate.ExplicitSize = false
+	}
+	operation := service.CangyuanImageOperationGeneration
+	if candidate.IsEdits() {
+		operation = service.CangyuanImageOperationEdit
+	}
+	for _, model := range []string{
+		service.CangyuanImageModel1K,
+		service.CangyuanImageModel2K,
+		service.CangyuanImageModel4K,
+	} {
+		candidate.Model = model
+		request, err := dedicatedCangyuanRequest(&candidate)
+		if err != nil || service.ValidateCangyuanImageRequest(operation, request) != nil {
+			continue
+		}
+		parsed.Model = candidate.Model
+		parsed.Size = candidate.Size
+		parsed.ExplicitSize = candidate.ExplicitSize
+		return true
+	}
+	return false
 }
 
 // dedicatedImageGroupID keeps the task's scheduling scope stable even when
