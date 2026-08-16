@@ -74,6 +74,8 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_CangyuanJSONAliasesAndAsyn
 		"referenceImages":["data:image/png;base64,QUJD"],
 		"mask":"https://example.com/mask.png",
 		"aspect_ratio":"16:9",
+		"image_size":"4k",
+		"output_resolution":"gpt-image-2-4k",
 		"async":true
 	}`)
 
@@ -87,6 +89,8 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_CangyuanJSONAliasesAndAsyn
 	require.NoError(t, err)
 	require.True(t, parsed.Async)
 	require.Equal(t, "16:9", parsed.AspectRatio)
+	require.Equal(t, "4k", parsed.ImageSize)
+	require.Equal(t, "gpt-image-2-4k", parsed.OutputResolution)
 	require.Equal(t, "https://example.com/mask.png", parsed.MaskImageURL)
 	require.Equal(t, []string{
 		"https://example.com/source.png",
@@ -157,6 +161,8 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T
 	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
 	require.NoError(t, writer.WriteField("prompt", "replace background"))
 	require.NoError(t, writer.WriteField("size", "1536x1024"))
+	require.NoError(t, writer.WriteField("image_size", "2K"))
+	require.NoError(t, writer.WriteField("output_resolution", "gpt-image-2-2k"))
 	part, err := writer.CreateFormFile("image", "source.png")
 	require.NoError(t, err)
 	_, err = part.Write([]byte("fake-image-bytes"))
@@ -179,6 +185,8 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T
 	require.Equal(t, "replace background", parsed.Prompt)
 	require.Equal(t, "1536x1024", parsed.Size)
 	require.Equal(t, "2K", parsed.SizeTier)
+	require.Equal(t, "2K", parsed.ImageSize)
+	require.Equal(t, "gpt-image-2-2k", parsed.OutputResolution)
 	require.Len(t, parsed.Uploads, 1)
 	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
 }

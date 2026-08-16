@@ -81,6 +81,10 @@ func (h *DedicatedImageHandler) runtimeEnabled() bool {
 	return h.enabled
 }
 
+func (h *DedicatedImageHandler) generalFallbackEnabled() bool {
+	return h != nil && h.cfg != nil && h.cfg.DedicatedImageRuntime().FallbackToGeneral
+}
+
 // Dispatch sends explicit Cangyuan tier models and compatible GPT image aliases
 // through the durable dedicated path. Every other request is restored
 // byte-for-byte and delegated to the existing Images implementation.
@@ -103,9 +107,25 @@ func (h *DedicatedImageHandler) Dispatch(c *gin.Context, fallback gin.HandlerFun
 		return
 	}
 	codexNativeImage := h.normalizeCodexNativeImageRequest(c, parsed)
-	if !isDedicatedCangyuanModel(parsed.Model) && !normalizeDedicatedImageAliasRequest(parsed) {
-		fallback(c)
-		return
+	if isDedicatedCangyuanModel(parsed.Model) {
+		if err := normalizeExplicitDedicatedImageRequest(parsed); err != nil {
+			h.writeServiceError(c, err)
+			return
+		}
+	} else {
+		matched, normalizeErr := normalizeDedicatedImageAliasRequest(parsed)
+		if normalizeErr != nil {
+			if h.generalFallbackEnabled() {
+				fallback(c)
+				return
+			}
+			h.writeServiceError(c, normalizeErr)
+			return
+		}
+		if !matched {
+			fallback(c)
+			return
+		}
 	}
 	if parsed.Stream {
 		h.writeError(c, http.StatusBadRequest, "image_stream_not_supported", "dedicated Cangyuan image models do not support streaming responses")
@@ -277,50 +297,191 @@ func (h *DedicatedImageHandler) normalizeCodexNativeImageRequest(c *gin.Context,
 }
 
 // normalizeDedicatedImageAliasRequest routes the standard GPT image aliases to
-// the smallest Cangyuan tier that can faithfully represent the request. The
-// original request is left untouched when Cangyuan cannot support it so the
-// general Images path retains its existing compatibility behavior.
-func normalizeDedicatedImageAliasRequest(parsed *service.OpenAIImagesRequest) bool {
+// the smallest Cangyuan tier that can faithfully represent the request. It
+// reports whether the model is a known alias separately from compatibility so
+// callers can fail closed instead of accidentally selecting a general account.
+func normalizeDedicatedImageAliasRequest(parsed *service.OpenAIImagesRequest) (bool, error) {
 	if parsed == nil {
-		return false
+		return false, nil
 	}
 	switch strings.ToLower(strings.TrimSpace(parsed.Model)) {
 	case "gpt-image-1", "gpt-image-1.5", "gpt-image-2":
 	default:
-		return false
+		return false, nil
 	}
-	if parsed.Stream || parsed.N != 1 || strings.TrimSpace(parsed.Background) != "" ||
-		strings.TrimSpace(parsed.OutputFormat) != "" || strings.TrimSpace(parsed.Moderation) != "" ||
-		strings.TrimSpace(parsed.InputFidelity) != "" || strings.TrimSpace(parsed.Style) != "" ||
-		parsed.OutputCompression != nil || parsed.PartialImages != nil {
-		return false
+	if parsed.Stream {
+		return true, dedicatedImageRequestError("image_stream_not_supported", "dedicated Cangyuan image models do not support streaming responses")
+	}
+	if parsed.N != 1 {
+		return true, dedicatedImageRequestError("image_invalid_count", "dedicated Cangyuan image models require n=1")
+	}
+	if strings.TrimSpace(parsed.Background) != "" || strings.TrimSpace(parsed.OutputFormat) != "" ||
+		strings.TrimSpace(parsed.Moderation) != "" || strings.TrimSpace(parsed.InputFidelity) != "" ||
+		strings.TrimSpace(parsed.Style) != "" || parsed.OutputCompression != nil || parsed.PartialImages != nil {
+		return true, dedicatedImageRequestError("image_option_not_supported", "the request contains image options that the dedicated Cangyuan provider cannot preserve")
 	}
 
 	candidate := *parsed
-	if strings.EqualFold(strings.TrimSpace(candidate.Size), "auto") {
-		candidate.Size = ""
-		candidate.ExplicitSize = false
+	hintedTier, err := normalizeDedicatedImageTierHints(&candidate)
+	if err != nil {
+		return true, err
 	}
 	operation := service.CangyuanImageOperationGeneration
 	if candidate.IsEdits() {
 		operation = service.CangyuanImageOperationEdit
 	}
-	for _, model := range []string{
+	models := []string{
 		service.CangyuanImageModel1K,
 		service.CangyuanImageModel2K,
 		service.CangyuanImageModel4K,
-	} {
+	}
+	if hintedTier != "" {
+		models = []string{dedicatedImageTierModel(hintedTier)}
+	}
+	var validationErr error
+	for _, model := range models {
 		candidate.Model = model
-		request, err := dedicatedCangyuanRequest(&candidate)
-		if err != nil || service.ValidateCangyuanImageRequest(operation, request) != nil {
+		tier := dedicatedImageModelTier(model)
+		candidate.ImageSize = tier
+		candidate.OutputResolution = tier
+		candidate.SizeTier = tier
+		request, requestErr := dedicatedCangyuanRequest(&candidate)
+		if requestErr != nil {
+			validationErr = requestErr
 			continue
 		}
-		parsed.Model = candidate.Model
-		parsed.Size = candidate.Size
-		parsed.ExplicitSize = candidate.ExplicitSize
-		return true
+		if validationErr = service.ValidateCangyuanImageRequest(operation, request); validationErr != nil {
+			continue
+		}
+		*parsed = candidate
+		return true, nil
 	}
-	return false
+	if validationErr == nil {
+		validationErr = dedicatedImageRequestError("image_invalid_size", "the requested image size does not match a supported Cangyuan tier")
+	}
+	return true, validationErr
+}
+
+func normalizeExplicitDedicatedImageRequest(parsed *service.OpenAIImagesRequest) error {
+	if parsed == nil || !isDedicatedCangyuanModel(parsed.Model) {
+		return nil
+	}
+	candidate := *parsed
+	hintedTier, err := normalizeDedicatedImageTierHints(&candidate)
+	if err != nil {
+		return err
+	}
+	modelTier := dedicatedImageModelTier(candidate.Model)
+	if hintedTier != "" && !strings.EqualFold(hintedTier, modelTier) {
+		return dedicatedImageRequestError("image_invalid_size", "the requested image tier conflicts with the selected model")
+	}
+	candidate.ImageSize = modelTier
+	candidate.OutputResolution = modelTier
+	candidate.SizeTier = modelTier
+	*parsed = candidate
+	return nil
+}
+
+func normalizeDedicatedImageTierHints(parsed *service.OpenAIImagesRequest) (string, error) {
+	if parsed == nil {
+		return "", nil
+	}
+	hintedTier := ""
+	setTier := func(field, value string) error {
+		tier, ok := dedicatedImageTierValue(value)
+		if !ok {
+			return dedicatedImageRequestError("image_invalid_size", field+" must be 1K, 2K, 4K, or an explicit WIDTHxHEIGHT size")
+		}
+		if hintedTier != "" && !strings.EqualFold(hintedTier, tier) {
+			return dedicatedImageRequestError("image_invalid_size", "image tier fields conflict with each other")
+		}
+		hintedTier = tier
+		return nil
+	}
+	setDimension := func(field, value string) error {
+		value = strings.TrimSpace(value)
+		if value == "" || strings.EqualFold(value, "auto") {
+			return nil
+		}
+		if strings.TrimSpace(parsed.Size) != "" && !strings.EqualFold(strings.TrimSpace(parsed.Size), "auto") && !strings.EqualFold(strings.TrimSpace(parsed.Size), value) {
+			return dedicatedImageRequestError("image_invalid_size", field+" conflicts with size")
+		}
+		parsed.Size = value
+		parsed.ExplicitSize = true
+		return nil
+	}
+
+	size := strings.TrimSpace(parsed.Size)
+	switch {
+	case size == "", strings.EqualFold(size, "auto"):
+		parsed.Size = ""
+		parsed.ExplicitSize = false
+	case isDedicatedImageTierValue(size):
+		if err := setTier("size", size); err != nil {
+			return "", err
+		}
+		parsed.Size = ""
+		parsed.ExplicitSize = false
+	}
+	for _, field := range []struct {
+		name  string
+		value string
+	}{
+		{name: "image_size", value: parsed.ImageSize},
+		{name: "output_resolution", value: parsed.OutputResolution},
+	} {
+		value := strings.TrimSpace(field.value)
+		if value == "" || strings.EqualFold(value, "auto") {
+			continue
+		}
+		if isDedicatedImageTierValue(value) {
+			if err := setTier(field.name, value); err != nil {
+				return "", err
+			}
+			continue
+		}
+		if err := setDimension(field.name, value); err != nil {
+			return "", err
+		}
+	}
+	parsed.ImageSize = ""
+	parsed.OutputResolution = ""
+	return hintedTier, nil
+}
+
+func dedicatedImageTierValue(value string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1k", service.CangyuanImageModel1K:
+		return "1K", true
+	case "2k", service.CangyuanImageModel2K:
+		return "2K", true
+	case "4k", service.CangyuanImageModel4K:
+		return "4K", true
+	default:
+		return "", false
+	}
+}
+
+func isDedicatedImageTierValue(value string) bool {
+	_, ok := dedicatedImageTierValue(value)
+	return ok
+}
+
+func dedicatedImageTierModel(tier string) string {
+	switch strings.ToUpper(strings.TrimSpace(tier)) {
+	case "1K":
+		return service.CangyuanImageModel1K
+	case "2K":
+		return service.CangyuanImageModel2K
+	case "4K":
+		return service.CangyuanImageModel4K
+	default:
+		return ""
+	}
+}
+
+func dedicatedImageRequestError(code, message string) error {
+	return &service.CangyuanAdapterError{Code: code, HTTPStatus: http.StatusBadRequest, Err: errors.New(message)}
 }
 
 // dedicatedImageGroupID keeps the task's scheduling scope stable even when
@@ -551,11 +712,20 @@ func dedicatedCangyuanRequest(parsed *service.OpenAIImagesRequest) (service.Cang
 	if parsed == nil {
 		return service.CangyuanImageRequest{}, fmt.Errorf("image request is missing")
 	}
+	tier := dedicatedImageModelTier(parsed.Model)
+	imageSize := strings.TrimSpace(parsed.ImageSize)
+	if imageSize == "" {
+		imageSize = tier
+	}
+	outputResolution := strings.TrimSpace(parsed.OutputResolution)
+	if outputResolution == "" {
+		outputResolution = tier
+	}
 	request := service.CangyuanImageRequest{
 		Model: parsed.Model, Prompt: parsed.Prompt, Size: parsed.Size, N: parsed.N,
 		AspectRatio: parsed.AspectRatio,
 		Quality:     parsed.Quality, ResponseFormat: parsed.ResponseFormat, Async: true,
-		ImageSize: dedicatedImageModelTier(parsed.Model), OutputResolution: dedicatedImageModelTier(parsed.Model), Multipart: parsed.Multipart,
+		ImageSize: imageSize, OutputResolution: outputResolution, Multipart: parsed.Multipart,
 		Images: append([]string(nil), parsed.InputImageURLs...), Mask: parsed.MaskImageURL,
 	}
 	for _, upload := range parsed.Uploads {

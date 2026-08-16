@@ -133,7 +133,7 @@ if stage == image_execution:
 
 过滤之后继续用现有 priority、并发和调度算法。用途过滤必须发生在所有重试和候选重建之前，防止普通请求从旁路进入 image-only。
 
-`fallback_to_general` 不是通用 OpenAI Images 回退。候选普通账号必须同时满足：OpenAI API Key 类型、HTTPS `base_url`、非空 `api_key`，并且 `model_mapping` 至少有一个目标是 `gpt-image-2-1k`、`gpt-image-2-2k` 或 `gpt-image-2-4k`。任务提交时仍会再次校验请求模型和映射；不兼容配置会终态失败，不会无限重试。
+`fallback_to_general` 同时控制专线任务兜底与标准图片别名的入口兼容行为。对已经进入持久任务的请求，候选普通账号必须同时满足：OpenAI API Key 类型、HTTPS `base_url`、非空 `api_key`，并且 `model_mapping` 至少有一个目标是 `gpt-image-2-1k`、`gpt-image-2-2k` 或 `gpt-image-2-4k`。任务提交时仍会再次校验请求模型和映射；不兼容配置会终态失败，不会无限重试。对 `gpt-image-1`、`gpt-image-1.5`、`gpt-image-2` 这类已识别但沧元无法完整表达的 Images 请求，关闭回落时入口直接返回明确的 4xx；显式开启后才保留旧通用 Images 路由。生产环境建议保持关闭，避免不支持生图的普通账号产生连续 403/502。
 
 ### 任务粘性
 

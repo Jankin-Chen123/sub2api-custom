@@ -76,6 +76,8 @@ type OpenAIImagesRequest struct {
 	AspectRatio        string
 	ExplicitSize       bool
 	SizeTier           string
+	ImageSize          string
+	OutputResolution   string
 	ResponseFormat     string
 	Quality            string
 	Background         string
@@ -264,6 +266,8 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		req.ExplicitSize = req.Size != ""
 	}
 	req.AspectRatio = strings.TrimSpace(gjson.GetBytes(body, "aspect_ratio").String())
+	req.ImageSize = strings.TrimSpace(gjson.GetBytes(body, "image_size").String())
+	req.OutputResolution = strings.TrimSpace(gjson.GetBytes(body, "output_resolution").String())
 	req.ResponseFormat = strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "response_format").String()))
 	req.Quality = strings.TrimSpace(gjson.GetBytes(body, "quality").String())
 	req.Background = strings.TrimSpace(gjson.GetBytes(body, "background").String())
@@ -420,6 +424,12 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 			req.Async = parsed
 		case "aspect_ratio":
 			req.AspectRatio = value
+		case "image_size":
+			req.ImageSize = value
+			req.HasNativeOptions = value != ""
+		case "output_resolution":
+			req.OutputResolution = value
+			req.HasNativeOptions = value != ""
 		case "n":
 			n, err := strconv.Atoi(value)
 			if err != nil || n <= 0 {
@@ -608,6 +618,8 @@ func hasOpenAINativeImageOptions(exists func(path string) bool) bool {
 		"moderation",
 		"input_fidelity",
 		"partial_images",
+		"image_size",
+		"output_resolution",
 	} {
 		if exists(path) {
 			return true

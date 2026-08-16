@@ -35,7 +35,7 @@ export default {
         codexBridgeEnabled: '启用 Codex 生图桥接',
         codexBridgeEnabledHint: '普通账号负责理解聊天上下文，实际图片执行交给生图专用账号；上游 Base64 结果直接适配 Codex，不写入图片存储桶。',
         fallbackToGeneral: '专用账号不可用时允许普通账号兜底',
-        fallbackToGeneralHint: '仅会选择显式配置了苍原 HTTPS API Key 和 GPT Image 2 模型映射的普通账号，不会使用任意普通账号。',
+        fallbackToGeneralHint: '开启后，专线任务可使用显式配置了苍原适配的普通账号；专线无法保留的标准图片参数也会进入旧通用 Images 路由。关闭时直接返回明确的 4xx，避免通用账号池连续 403/502。',
       },
       imageWorkbenchAnnouncements: {
         title: '生图工作台公告栏',

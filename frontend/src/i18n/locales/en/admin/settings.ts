@@ -35,7 +35,7 @@ export default {
         codexBridgeEnabled: 'Enable Codex image bridge',
         codexBridgeEnabledHint: 'A general account plans from chat context while an image-only account executes; upstream Base64 is adapted directly for Codex without writing the image bucket.',
         fallbackToGeneral: 'Allow compatible general-account fallback',
-        fallbackToGeneralHint: 'Only general accounts with an explicit Cangyuan HTTPS API key and GPT Image 2 model mapping qualify; arbitrary general accounts are never used.',
+        fallbackToGeneralHint: 'When enabled, dedicated jobs may use explicitly configured Cangyuan-compatible general accounts, and unsupported standard image options may use the legacy Images route. When disabled, those options fail with a clear 4xx instead of triggering repeated general-pool 403/502 responses.',
       },
       imageWorkbenchAnnouncements: {
         title: 'Image Workbench Announcements',

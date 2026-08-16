@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -138,6 +139,7 @@ func TestNormalizeDedicatedImageAliasRequestSelectsSmallestCompatibleTier(t *tes
 		name      string
 		model     string
 		size      string
+		imageSize string
 		wantModel string
 		wantSize  string
 	}{
@@ -145,17 +147,24 @@ func TestNormalizeDedicatedImageAliasRequestSelectsSmallestCompatibleTier(t *tes
 		{name: "legacy 1.5 2K", model: "gpt-image-1.5", size: "1536x1024", wantModel: service.CangyuanImageModel2K, wantSize: "1536x1024"},
 		{name: "current 4K", model: "gpt-image-2", size: "3840x2160", wantModel: service.CangyuanImageModel4K, wantSize: "3840x2160"},
 		{name: "auto defaults to 1K", model: "gpt-image-2", size: "auto", wantModel: service.CangyuanImageModel1K},
+		{name: "tier size alias", model: "gpt-image-2", size: "2K", wantModel: service.CangyuanImageModel2K},
+		{name: "image size tier hint", model: "gpt-image-2", imageSize: "4k", wantModel: service.CangyuanImageModel4K},
+		{name: "image size dimension hint", model: "gpt-image-2", imageSize: "1536x1024", wantModel: service.CangyuanImageModel2K, wantSize: "1536x1024"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			parsed := &service.OpenAIImagesRequest{
-				Model: tt.model, Prompt: "draw a lighthouse", Size: tt.size, ExplicitSize: tt.size != "", N: 1,
+				Model: tt.model, Prompt: "draw a lighthouse", Size: tt.size, ImageSize: tt.imageSize, ExplicitSize: tt.size != "", N: 1,
 			}
 
-			require.True(t, normalizeDedicatedImageAliasRequest(parsed))
+			matched, err := normalizeDedicatedImageAliasRequest(parsed)
+			require.NoError(t, err)
+			require.True(t, matched)
 			require.Equal(t, tt.wantModel, parsed.Model)
 			require.Equal(t, tt.wantSize, parsed.Size)
 			require.Equal(t, tt.wantSize != "", parsed.ExplicitSize)
+			require.Equal(t, dedicatedImageModelTier(tt.wantModel), parsed.ImageSize)
+			require.Equal(t, dedicatedImageModelTier(tt.wantModel), parsed.OutputResolution)
 		})
 	}
 }
@@ -179,15 +188,29 @@ func TestNormalizeDedicatedImageAliasRequestPreservesIncompatibleRequests(t *tes
 			tt.mutate(parsed)
 			original := *parsed
 
-			require.False(t, normalizeDedicatedImageAliasRequest(parsed))
+			matched, err := normalizeDedicatedImageAliasRequest(parsed)
+			require.True(t, matched)
+			require.Error(t, err)
 			require.Equal(t, original, *parsed)
 		})
 	}
 }
 
+func TestNormalizeExplicitDedicatedImageRequestAcceptsTierAliasesAndRejectsConflicts(t *testing.T) {
+	parsed := &service.OpenAIImagesRequest{Model: service.CangyuanImageModel2K, Prompt: "draw", Size: "2k", ExplicitSize: true, N: 1}
+	require.NoError(t, normalizeExplicitDedicatedImageRequest(parsed))
+	require.Empty(t, parsed.Size)
+	require.False(t, parsed.ExplicitSize)
+	require.Equal(t, "2K", parsed.ImageSize)
+	require.Equal(t, "2K", parsed.OutputResolution)
+
+	conflicting := &service.OpenAIImagesRequest{Model: service.CangyuanImageModel1K, Prompt: "draw", ImageSize: "2K", N: 1}
+	require.Error(t, normalizeExplicitDedicatedImageRequest(conflicting))
+}
+
 func TestDedicatedImageDispatchRoutesOrdinaryGPTImageAliasToDedicatedPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	body := []byte(`{"model":"gpt-image-1","prompt":"draw a lighthouse","size":"1024x1024"}`)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a lighthouse","aspect_ratio":"16:9","image_size":"2K"}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
 	req.Header.Set("User-Agent", "curl/8.7.1")
 	rec := httptest.NewRecorder()
@@ -208,7 +231,7 @@ func TestDedicatedImageDispatchRoutesOrdinaryGPTImageAliasToDedicatedPath(t *tes
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-func TestDedicatedImageDispatchFallsBackForIncompatibleGPTImageAlias(t *testing.T) {
+func TestDedicatedImageDispatchRejectsIncompatibleGPTImageAliasWhenFallbackDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"model":"gpt-image-1","prompt":"draw a lighthouse","size":"3840x3840"}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
@@ -218,6 +241,28 @@ func TestDedicatedImageDispatchFallsBackForIncompatibleGPTImageAlias(t *testing.
 	h := &DedicatedImageHandler{
 		enabled: true,
 		openAI:  &OpenAIGatewayHandler{gatewayService: &service.OpenAIGatewayService{}},
+	}
+	fallbackCalled := false
+
+	h.Dispatch(c, func(c *gin.Context) {
+		fallbackCalled = true
+	})
+
+	require.False(t, fallbackCalled)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "image_invalid_size")
+}
+
+func TestDedicatedImageDispatchFallsBackForIncompatibleAliasWhenExplicitlyEnabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-1","prompt":"draw a lighthouse","size":"3840x3840"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	h := &DedicatedImageHandler{
+		cfg:    &config.Config{DedicatedImage: config.DedicatedImageConfig{Enabled: true, FallbackToGeneral: true}},
+		openAI: &OpenAIGatewayHandler{gatewayService: &service.OpenAIGatewayService{}},
 	}
 	fallbackCalled := false
 
