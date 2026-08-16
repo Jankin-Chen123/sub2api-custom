@@ -108,6 +108,13 @@ export default {
           durationDaysDesc: '被邀请用户注册后多少天内的充值产生返利。0 = 永久有效。',
           perInviteeCap: '单人返利上限',
           perInviteeCapDesc: '每个被邀请用户最多产生的返利总额。0 = 无上限。',
+          autoValidAmounts: '自动计入返利的兑换码面值',
+          autoExcludedAmounts: '自动排除返利的兑换码面值',
+          amountsPlaceholder: '例如：10, 20, 30',
+          autoValidAmountsDesc: '兑换成功后，命中这些正余额面值的记录会自动计入返利。留空表示不自动计入。',
+          autoExcludedAmountsDesc: '兑换成功后，命中这些正余额面值的记录会自动标记为免费赠送，不产生返利。留空表示不自动排除。',
+          invalidAutoAmounts: '兑换码面值必须是大于 0 且最多两位小数的数字，并用逗号分隔。',
+          conflictingAutoAmounts: '同一个兑换码面值不能同时设置为自动有效和自动排除。',
           customUsers: {
             title: '专属用户配置',
             description: '为指定用户设置专属邀请码或专属返利比例。仅展示已设置过专属配置的用户。',

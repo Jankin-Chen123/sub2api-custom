@@ -108,6 +108,13 @@ export default {
           durationDaysDesc: 'Rebate relationship expires after this many days since invitee registration. 0 = permanent.',
           perInviteeCap: 'Per-Invitee Rebate Cap',
           perInviteeCapDesc: 'Maximum total rebate from a single invitee. 0 = no limit.',
+          autoValidAmounts: 'Auto-approve rebate amounts',
+          autoExcludedAmounts: 'Auto-exclude rebate amounts',
+          amountsPlaceholder: 'Example: 10, 20, 30',
+          autoValidAmountsDesc: 'Used redemptions with these positive balance amounts are automatically included in affiliate rebates. Leave blank for manual review.',
+          autoExcludedAmountsDesc: 'Used redemptions with these positive balance amounts are automatically marked as free gifts and generate no rebate. Leave blank for manual review.',
+          invalidAutoAmounts: 'Amounts must be positive numbers with at most two decimal places, separated by commas.',
+          conflictingAutoAmounts: 'The same amount cannot be configured as both auto-approved and auto-excluded.',
           customUsers: {
             title: 'Per-User Overrides',
             description: 'Set a custom invite code or exclusive rebate rate for specific users. Lists only users that have an override applied.',

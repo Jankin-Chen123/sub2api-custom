@@ -63,6 +63,11 @@ type ReviewAffiliateRedeemRequest struct {
 	Decision string `json:"decision" binding:"required,oneof=valid free"`
 }
 
+type ReviewAffiliateRedeemsRequest struct {
+	IDs      []int64 `json:"ids" binding:"required,min=1,max=1000"`
+	Decision string  `json:"decision" binding:"required,oneof=valid free"`
+}
+
 func resolveRedeemCodeExpiresAt(expiresAt *time.Time, expiresInDays *int) (*time.Time, error) {
 	if expiresAt != nil && expiresInDays != nil {
 		return nil, infraerrors.BadRequest("REDEEM_CODE_EXPIRY_CONFLICT", "expires_at and expires_in_days cannot both be set")
@@ -366,6 +371,27 @@ func (h *RedeemHandler) ReviewAffiliateRedeem(c *gin.Context) {
 		return
 	}
 	response.Success(c, dto.RedeemCodeFromServiceAdmin(code))
+}
+
+// ReviewAffiliateRedeems reviews multiple used positive balance redeem codes.
+// POST /api/v1/admin/redeem-codes/batch-affiliate-review
+func (h *RedeemHandler) ReviewAffiliateRedeems(c *gin.Context) {
+	if h.redeemService == nil {
+		response.InternalError(c, "redeem service not configured")
+		return
+	}
+	var req ReviewAffiliateRedeemsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	result, err := h.redeemService.ReviewAffiliateRedeems(c.Request.Context(), req.IDs, req.Decision)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 func redeemBatchUpdateFieldsFromDTO(in dto.BatchUpdateRedeemCodeFields) service.RedeemCodeBatchUpdateFields {

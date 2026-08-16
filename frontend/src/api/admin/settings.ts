@@ -418,6 +418,8 @@ export interface SystemSettings {
   affiliate_rebate_duration_days: number;
   affiliate_rebate_per_invitee_cap: number;
   affiliate_admin_recharge_enabled: boolean;
+  affiliate_redeem_auto_valid_amounts: number[];
+  affiliate_redeem_auto_excluded_amounts: number[];
   default_concurrency: number;
   image_generation_queue_enabled: boolean;
   image_generation_max_active_jobs: number;
@@ -770,6 +772,8 @@ export interface UpdateSettingsRequest {
   affiliate_rebate_duration_days?: number;
   affiliate_rebate_per_invitee_cap?: number;
   affiliate_admin_recharge_enabled?: boolean;
+  affiliate_redeem_auto_valid_amounts?: number[];
+  affiliate_redeem_auto_excluded_amounts?: number[];
   default_concurrency?: number;
   image_generation_queue_enabled?: boolean;
   image_generation_max_active_jobs?: number;

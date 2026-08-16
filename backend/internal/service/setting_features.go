@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
 // IsRegistrationEnabled 检查是否开放注册
@@ -159,6 +162,85 @@ func (s *SettingService) GetAffiliateRebatePerInviteeCap(ctx context.Context) fl
 		return AffiliateRebatePerInviteeCapDefault
 	}
 	return cap
+}
+
+// NormalizeAffiliateRedeemAutoAmounts validates and canonicalizes the face
+// values used by automatic redeem-code affiliate review.
+func NormalizeAffiliateRedeemAutoAmounts(values []float64) ([]float64, error) {
+	seen := make(map[float64]struct{}, len(values))
+	result := make([]float64, 0, len(values))
+	for _, value := range values {
+		if math.IsNaN(value) || math.IsInf(value, 0) || value <= 0 {
+			return nil, infraerrors.BadRequest("AFFILIATE_REDEEM_AUTO_AMOUNT_INVALID", "automatic redeem amounts must be positive finite numbers")
+		}
+		rounded := math.Round(value*100) / 100
+		if math.Abs(value-rounded) > 1e-9 {
+			return nil, infraerrors.BadRequest("AFFILIATE_REDEEM_AUTO_AMOUNT_PRECISION_INVALID", "automatic redeem amounts support at most two decimal places")
+		}
+		if _, exists := seen[rounded]; exists {
+			continue
+		}
+		seen[rounded] = struct{}{}
+		result = append(result, rounded)
+	}
+	sort.Float64s(result)
+	return result, nil
+}
+
+// ValidateAffiliateRedeemAutoAmounts rejects a face value configured for both
+// automatic approval decisions, which would otherwise be ambiguous.
+func ValidateAffiliateRedeemAutoAmounts(valid, excluded []float64) error {
+	validSet := make(map[float64]struct{}, len(valid))
+	for _, value := range valid {
+		validSet[value] = struct{}{}
+	}
+	for _, value := range excluded {
+		if _, exists := validSet[value]; exists {
+			return infraerrors.BadRequest("AFFILIATE_REDEEM_AUTO_AMOUNT_CONFLICT", fmt.Sprintf("redeem amount %.2f cannot be both automatically valid and excluded", value))
+		}
+	}
+	return nil
+}
+
+func parseAffiliateRedeemAutoAmountsSetting(raw string) []float64 {
+	var values []float64
+	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &values); err != nil {
+		return []float64{}
+	}
+	normalized, err := NormalizeAffiliateRedeemAutoAmounts(values)
+	if err != nil {
+		return []float64{}
+	}
+	return normalized
+}
+
+// GetAffiliateRedeemAutoReviewDecision returns "valid", "excluded", or an
+// empty string when the amount has no automatic rule.
+func (s *SettingService) GetAffiliateRedeemAutoReviewDecision(ctx context.Context, amount float64) string {
+	if s == nil || s.settingRepo == nil || amount <= 0 || math.IsNaN(amount) || math.IsInf(amount, 0) {
+		return ""
+	}
+	values, err := s.settingRepo.GetMultiple(ctx, []string{
+		SettingKeyAffiliateRedeemAutoValidAmounts,
+		SettingKeyAffiliateRedeemAutoExcludedAmounts,
+	})
+	if err != nil {
+		return ""
+	}
+	valid := parseAffiliateRedeemAutoAmountsSetting(values[SettingKeyAffiliateRedeemAutoValidAmounts])
+	excluded := parseAffiliateRedeemAutoAmountsSetting(values[SettingKeyAffiliateRedeemAutoExcludedAmounts])
+	amount = math.Round(amount*100) / 100
+	for _, value := range valid {
+		if value == amount {
+			return "valid"
+		}
+	}
+	for _, value := range excluded {
+		if value == amount {
+			return "excluded"
+		}
+	}
+	return ""
 }
 
 // IsPasswordResetEnabled 检查是否启用密码重置功能

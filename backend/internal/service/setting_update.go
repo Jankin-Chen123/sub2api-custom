@@ -405,6 +405,27 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 	updates[SettingKeyAffiliateRebatePerInviteeCap] = strconv.FormatFloat(settings.AffiliateRebatePerInviteeCap, 'f', 8, 64)
 	updates[SettingKeyAffiliateAdminRechargeEnabled] = strconv.FormatBool(settings.AdminRechargeRebateEnabled)
+	autoValidAmounts, err := NormalizeAffiliateRedeemAutoAmounts(settings.AffiliateRedeemAutoValidAmounts)
+	if err != nil {
+		return nil, err
+	}
+	autoExcludedAmounts, err := NormalizeAffiliateRedeemAutoAmounts(settings.AffiliateRedeemAutoExcludedAmounts)
+	if err != nil {
+		return nil, err
+	}
+	if err := ValidateAffiliateRedeemAutoAmounts(autoValidAmounts, autoExcludedAmounts); err != nil {
+		return nil, err
+	}
+	autoValidJSON, err := json.Marshal(autoValidAmounts)
+	if err != nil {
+		return nil, fmt.Errorf("marshal affiliate auto-valid amounts: %w", err)
+	}
+	autoExcludedJSON, err := json.Marshal(autoExcludedAmounts)
+	if err != nil {
+		return nil, fmt.Errorf("marshal affiliate auto-excluded amounts: %w", err)
+	}
+	updates[SettingKeyAffiliateRedeemAutoValidAmounts] = string(autoValidJSON)
+	updates[SettingKeyAffiliateRedeemAutoExcludedAmounts] = string(autoExcludedJSON)
 	updates[SettingKeyDefaultUserRPMLimit] = strconv.Itoa(settings.DefaultUserRPMLimit)
 	defaultSubsJSON, err := json.Marshal(settings.DefaultSubscriptions)
 	if err != nil {

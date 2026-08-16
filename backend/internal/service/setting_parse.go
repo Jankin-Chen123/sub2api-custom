@@ -183,6 +183,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAffiliateRebateFreezeHours:                strconv.Itoa(AffiliateRebateFreezeHoursDefault),
 		SettingKeyAffiliateRebateDurationDays:               strconv.Itoa(AffiliateRebateDurationDaysDefault),
 		SettingKeyAffiliateRebatePerInviteeCap:              strconv.FormatFloat(AffiliateRebatePerInviteeCapDefault, 'f', 2, 64),
+		SettingKeyAffiliateRedeemAutoValidAmounts:           "[]",
+		SettingKeyAffiliateRedeemAutoExcludedAmounts:        "[]",
 		SettingKeyDefaultUserRPMLimit:                       "0",
 		SettingKeyDefaultSubscriptions:                      "[]",
 		SettingKeyAuthSourceDefaultEmailBalance:             "0",
@@ -494,6 +496,8 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		result.AffiliateRebatePerInviteeCap = perInviteeCap
 	}
 	result.AdminRechargeRebateEnabled = settings[SettingKeyAffiliateAdminRechargeEnabled] == "true"
+	result.AffiliateRedeemAutoValidAmounts = parseAffiliateRedeemAutoAmountsSetting(settings[SettingKeyAffiliateRedeemAutoValidAmounts])
+	result.AffiliateRedeemAutoExcludedAmounts = parseAffiliateRedeemAutoAmountsSetting(settings[SettingKeyAffiliateRedeemAutoExcludedAmounts])
 	result.DefaultSubscriptions = parseDefaultSubscriptions(settings[SettingKeyDefaultSubscriptions])
 
 	// 敏感信息直接返回，方便测试连接时使用

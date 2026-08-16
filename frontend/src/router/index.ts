@@ -721,7 +721,7 @@ const routes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Subscription Plans',
       titleKey: 'nav.paymentPlans',
-      requiresPayment: true
+      requiresPayment: false
     }
   },
 

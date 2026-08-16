@@ -163,6 +163,18 @@ export async function reviewAffiliate(
   return data
 }
 
+export async function batchReviewAffiliate(
+  ids: number[],
+  decision: AffiliateReviewDecision,
+): Promise<{ processed: number; skipped: number; total_rebate: number }> {
+  const { data } = await apiClient.post<{
+    processed: number
+    skipped: number
+    total_rebate: number
+  }>('/admin/redeem-codes/batch-affiliate-review', { ids, decision })
+  return data
+}
+
 /**
  * Get redeem code statistics
  * @returns Statistics about redeem codes
@@ -214,6 +226,7 @@ export const redeemAPI = {
   batchUpdate,
   expire,
   reviewAffiliate,
+  batchReviewAffiliate,
   getStats,
   exportCodes
 }

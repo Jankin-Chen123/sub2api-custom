@@ -3,10 +3,19 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import RedeemView from '../RedeemView.vue'
 
-const { listRedeemCodes, batchUpdateRedeemCodes, getAllGroups, showSuccess, showError, showInfo } =
+const {
+  listRedeemCodes,
+  batchUpdateRedeemCodes,
+  batchReviewAffiliateRedeemCodes,
+  getAllGroups,
+  showSuccess,
+  showError,
+  showInfo
+} =
   vi.hoisted(() => ({
     listRedeemCodes: vi.fn(),
     batchUpdateRedeemCodes: vi.fn(),
+    batchReviewAffiliateRedeemCodes: vi.fn(),
     getAllGroups: vi.fn(),
     showSuccess: vi.fn(),
     showError: vi.fn(),
@@ -21,6 +30,8 @@ vi.mock('@/api/admin', () => ({
       delete: vi.fn(),
       batchDelete: vi.fn(),
       batchUpdate: batchUpdateRedeemCodes,
+      reviewAffiliate: vi.fn(),
+      batchReviewAffiliate: batchReviewAffiliateRedeemCodes,
       exportCodes: vi.fn()
     },
     groups: {
@@ -99,6 +110,17 @@ const SelectStub = {
   `
 }
 
+const ConfirmDialogStub = {
+  props: ['show', 'title', 'message', 'confirmText', 'cancelText', 'danger'],
+  emits: ['confirm', 'cancel'],
+  template: `
+    <div v-if="show" data-test="confirm-dialog">
+      <button data-test="confirm-dialog-confirm" @click="$emit('confirm')">confirm</button>
+      <button data-test="confirm-dialog-cancel" @click="$emit('cancel')">cancel</button>
+    </div>
+  `
+}
+
 describe('admin RedeemView batch update', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -106,6 +128,7 @@ describe('admin RedeemView batch update', () => {
 
     listRedeemCodes.mockReset()
     batchUpdateRedeemCodes.mockReset()
+    batchReviewAffiliateRedeemCodes.mockReset()
     getAllGroups.mockReset()
     showSuccess.mockReset()
     showError.mockReset()
@@ -142,6 +165,7 @@ describe('admin RedeemView batch update', () => {
       pages: 1
     })
     batchUpdateRedeemCodes.mockResolvedValue({ updated: 1, message: 'ok' })
+    batchReviewAffiliateRedeemCodes.mockResolvedValue({ processed: 1, skipped: 1, total_rebate: 2 })
     getAllGroups.mockResolvedValue([])
   })
 
@@ -156,7 +180,7 @@ describe('admin RedeemView batch update', () => {
           },
           DataTable: DataTableStub,
           Pagination: true,
-          ConfirmDialog: true,
+          ConfirmDialog: ConfirmDialogStub,
           Select: SelectStub,
           GroupBadge: true,
           GroupOptionItem: true,
@@ -183,5 +207,37 @@ describe('admin RedeemView batch update', () => {
       notes: 'maintenance'
     })
     expect(showSuccess).toHaveBeenCalledWith('admin.redeem.batchUpdateSuccess')
+  })
+
+  it('reviews all selected redeem codes in one batch request', async () => {
+    const wrapper = mount(RedeemView, {
+      attachTo: document.body,
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: ConfirmDialogStub,
+          Select: SelectStub,
+          GroupBadge: true,
+          GroupOptionItem: true,
+          Icon: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await wrapper.findAll('[data-test="select-code"]')[0].setValue(true)
+    await wrapper.findAll('[data-test="select-code"]')[1].setValue(true)
+    await wrapper.get('[data-test="batch-affiliate-approve"]').trigger('click')
+    await wrapper.get('[data-test="confirm-dialog-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(batchReviewAffiliateRedeemCodes).toHaveBeenCalledWith([1, 2], 'valid')
+    expect(showSuccess).toHaveBeenCalledWith('admin.redeem.batchAffiliateReviewSuccess')
   })
 })

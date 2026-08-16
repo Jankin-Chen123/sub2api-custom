@@ -7516,6 +7516,36 @@
                 </p>
               </div>
 
+              <div class="border-t border-gray-100 pt-5 dark:border-dark-700">
+                <label class="input-label">
+                  {{ t('admin.settings.features.affiliate.autoValidAmounts') }}
+                </label>
+                <input
+                  v-model="form.affiliate_redeem_auto_valid_amounts"
+                  type="text"
+                  class="input"
+                  :placeholder="t('admin.settings.features.affiliate.amountsPlaceholder')"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.affiliate.autoValidAmountsDesc') }}
+                </p>
+              </div>
+
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.affiliate.autoExcludedAmounts') }}
+                </label>
+                <input
+                  v-model="form.affiliate_redeem_auto_excluded_amounts"
+                  type="text"
+                  class="input"
+                  :placeholder="t('admin.settings.features.affiliate.amountsPlaceholder')"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.affiliate.autoExcludedAmountsDesc') }}
+                </p>
+              </div>
+
               <!-- 专属用户管理 -->
               <div class="border-t border-gray-100 pt-6 dark:border-dark-700">
                 <div class="mb-3 flex items-center justify-between">
@@ -9595,6 +9625,8 @@ type SettingsForm = Omit<
   | "wechat_connect_open_enabled"
   | "wechat_connect_mp_enabled"
   | "wechat_connect_mobile_enabled"
+  | "affiliate_redeem_auto_valid_amounts"
+  | "affiliate_redeem_auto_excluded_amounts"
 > & {
   /** Form always binds a concrete boolean (SystemSettings marks this optional). */
   channel_monitor_hide_throughput: boolean;
@@ -9617,6 +9649,8 @@ type SettingsForm = Omit<
   github_oauth_client_secret: string;
   google_oauth_client_secret: string;
   force_email_on_third_party_signup: boolean;
+  affiliate_redeem_auto_valid_amounts: string;
+  affiliate_redeem_auto_excluded_amounts: string;
   openai_low_upstream_rate_priority_enabled: boolean;
   openai_oauth_scheduling_rate_multiplier: number;
   openai_advanced_scheduler_enabled: boolean;
@@ -9669,6 +9703,8 @@ const form = reactive<SettingsForm>({
   affiliate_rebate_duration_days: 0,
   affiliate_rebate_per_invitee_cap: 0,
   affiliate_admin_recharge_enabled: false,
+  affiliate_redeem_auto_valid_amounts: "",
+  affiliate_redeem_auto_excluded_amounts: "",
   default_concurrency: 1,
   image_generation_queue_enabled: true,
   image_generation_max_active_jobs: 1,
@@ -10899,6 +10935,12 @@ async function loadSettings() {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    form.affiliate_redeem_auto_valid_amounts = formatAffiliateRedeemAutoAmounts(
+      settings.affiliate_redeem_auto_valid_amounts,
+    );
+    form.affiliate_redeem_auto_excluded_amounts = formatAffiliateRedeemAutoAmounts(
+      settings.affiliate_redeem_auto_excluded_amounts,
+    );
     syncCaptchaProviderSelection();
     if (!form.claude_oauth_system_prompt_blocks?.trim()) {
       form.claude_oauth_system_prompt_blocks =
@@ -11274,6 +11316,20 @@ async function saveSettings() {
     form.claude_oauth_system_prompt_blocks =
       claudeOAuthSystemPromptBlocksJSON;
 
+    const affiliateRedeemAutoValidAmounts = parseAffiliateRedeemAutoAmounts(
+      form.affiliate_redeem_auto_valid_amounts,
+    );
+    if (affiliateRedeemAutoValidAmounts === undefined) return;
+    const affiliateRedeemAutoExcludedAmounts = parseAffiliateRedeemAutoAmounts(
+      form.affiliate_redeem_auto_excluded_amounts,
+    );
+    if (affiliateRedeemAutoExcludedAmounts === undefined) return;
+    const validAmountSet = new Set(affiliateRedeemAutoValidAmounts);
+    if (affiliateRedeemAutoExcludedAmounts.some((amount) => validAmountSet.has(amount))) {
+      appStore.showError(t("admin.settings.features.affiliate.conflictingAutoAmounts"));
+      return;
+    }
+
     const payload: UpdateSettingsRequest = {
       registration_enabled: form.registration_enabled,
       email_verify_enabled: form.email_verify_enabled,
@@ -11308,6 +11364,8 @@ async function saveSettings() {
       affiliate_rebate_duration_days: Math.max(0, Math.min(3650, Math.floor(Number(form.affiliate_rebate_duration_days) || 0))),
       affiliate_rebate_per_invitee_cap: Math.max(0, Number(form.affiliate_rebate_per_invitee_cap) || 0),
       affiliate_admin_recharge_enabled: form.affiliate_admin_recharge_enabled,
+      affiliate_redeem_auto_valid_amounts: affiliateRedeemAutoValidAmounts,
+      affiliate_redeem_auto_excluded_amounts: affiliateRedeemAutoExcludedAmounts,
       default_concurrency: form.default_concurrency,
       image_generation_queue_enabled: form.image_generation_queue_enabled,
       image_generation_max_active_jobs: Math.max(1, Math.floor(Number(form.image_generation_max_active_jobs) || 1)),
@@ -12818,6 +12876,31 @@ function parseRebateRate(raw: unknown): number | null | undefined {
     return undefined;
   }
   return parsed;
+}
+
+function formatAffiliateRedeemAutoAmounts(values: unknown): string {
+  if (!Array.isArray(values)) return "";
+  return values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .map((value) => value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1"))
+    .join(", ");
+}
+
+function parseAffiliateRedeemAutoAmounts(raw: unknown): number[] | undefined {
+  const input = String(raw ?? "").replace(/[，；;]/g, ",");
+  if (!input.trim()) return [];
+  const values: number[] = [];
+  for (const token of input.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean)) {
+    const value = Number(token);
+    const rounded = Math.round(value * 100) / 100;
+    if (!Number.isFinite(value) || value <= 0 || Math.abs(value - rounded) > 1e-9) {
+      appStore.showError(t("admin.settings.features.affiliate.invalidAutoAmounts"));
+      return undefined;
+    }
+    if (!values.includes(rounded)) values.push(rounded);
+  }
+  return values.sort((a, b) => a - b);
 }
 
 async function loadAffiliateUsers() {

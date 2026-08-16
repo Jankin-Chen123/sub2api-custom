@@ -235,6 +235,15 @@ func (s *AffiliateService) IsEnabled(ctx context.Context) bool {
 	return s.settingService.IsAffiliateEnabled(ctx)
 }
 
+// GetRedeemAutoReviewDecision exposes the setting-backed automatic review rule
+// to the redeem workflow without coupling it to SettingService internals.
+func (s *AffiliateService) GetRedeemAutoReviewDecision(ctx context.Context, amount float64) string {
+	if s == nil || s.settingService == nil {
+		return ""
+	}
+	return s.settingService.GetAffiliateRedeemAutoReviewDecision(ctx, amount)
+}
+
 func (s *AffiliateService) EnsureUserAffiliate(ctx context.Context, userID int64) (*AffiliateSummary, error) {
 	if userID <= 0 {
 		return nil, infraerrors.BadRequest("INVALID_USER", "invalid user")

@@ -48,6 +48,22 @@
               <Icon name="edit" size="md" class="mr-2" />
               {{ t('admin.redeem.batchUpdate') }}
             </button>
+            <button
+              data-test="batch-affiliate-approve"
+              @click="openBatchAffiliateReview('valid')"
+              :disabled="selectedCount === 0 || batchAffiliateReviewing"
+              class="btn btn-secondary"
+            >
+              {{ t('admin.redeem.batchAffiliateApprove') }}
+            </button>
+            <button
+              data-test="batch-affiliate-exclude"
+              @click="openBatchAffiliateReview('free')"
+              :disabled="selectedCount === 0 || batchAffiliateReviewing"
+              class="btn btn-secondary"
+            >
+              {{ t('admin.redeem.batchAffiliateExclude') }}
+            </button>
             <button @click="showGenerateDialog = true" class="btn btn-primary">
               {{ t('admin.redeem.generateCodes') }}
             </button>
@@ -313,6 +329,21 @@
       :danger="affiliateReviewDecision === 'free'"
       @confirm="confirmAffiliateReview"
       @cancel="showAffiliateReviewDialog = false"
+    />
+
+    <ConfirmDialog
+      :show="showBatchAffiliateReviewDialog"
+      :title="t('admin.redeem.batchAffiliateReviewTitle')"
+      :message="batchAffiliateReviewDecision === 'valid'
+        ? t('admin.redeem.batchAffiliateApproveConfirm')
+        : t('admin.redeem.batchAffiliateExcludeConfirm')"
+      :confirm-text="batchAffiliateReviewDecision === 'valid'
+        ? t('admin.redeem.batchAffiliateApprove')
+        : t('admin.redeem.batchAffiliateExclude')"
+      :cancel-text="t('common.cancel')"
+      :danger="batchAffiliateReviewDecision === 'free'"
+      @confirm="confirmBatchAffiliateReview"
+      @cancel="showBatchAffiliateReviewDialog = false"
     />
 
     <!-- Delete Unused Codes Dialog -->
@@ -848,9 +879,12 @@ const showBatchUpdateDialog = ref(false)
 const deletingCode = ref<RedeemCode | null>(null)
 const copiedCode = ref<string | null>(null)
 const showAffiliateReviewDialog = ref(false)
+const showBatchAffiliateReviewDialog = ref(false)
 const affiliateReviewingId = ref<number | null>(null)
+const batchAffiliateReviewing = ref(false)
 const affiliateReviewCode = ref<RedeemCode | null>(null)
 const affiliateReviewDecision = ref<'valid' | 'free'>('valid')
+const batchAffiliateReviewDecision = ref<'valid' | 'free'>('valid')
 
 const {
   selectedSet: selectedCodeIds,
@@ -1183,6 +1217,44 @@ const confirmAffiliateReview = async () => {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.affiliateReview.failed'))
   } finally {
     affiliateReviewingId.value = null
+  }
+}
+
+const openBatchAffiliateReview = (decision: 'valid' | 'free') => {
+  if (selectedCount.value === 0) {
+    appStore.showInfo(t('admin.redeem.selectCodesFirst'))
+    return
+  }
+  batchAffiliateReviewDecision.value = decision
+  showBatchAffiliateReviewDialog.value = true
+}
+
+const confirmBatchAffiliateReview = async () => {
+  const ids = Array.from(selectedCodeIds.value)
+  if (ids.length === 0) {
+    showBatchAffiliateReviewDialog.value = false
+    appStore.showInfo(t('admin.redeem.selectCodesFirst'))
+    return
+  }
+  batchAffiliateReviewing.value = true
+  try {
+    const result = await adminAPI.redeem.batchReviewAffiliate(
+      ids,
+      batchAffiliateReviewDecision.value,
+    )
+    appStore.showSuccess(
+      t('admin.redeem.batchAffiliateReviewSuccess', {
+        processed: result.processed,
+        skipped: result.skipped,
+      }),
+    )
+    showBatchAffiliateReviewDialog.value = false
+    clearSelectedCodes()
+    await loadCodes()
+  } catch (error: any) {
+    appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToBatchAffiliateReview'))
+  } finally {
+    batchAffiliateReviewing.value = false
   }
 }
 

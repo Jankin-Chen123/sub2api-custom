@@ -348,6 +348,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:                            settings.AffiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:                           settings.AffiliateRebatePerInviteeCap,
 		AdminRechargeRebateEnabled:                             settings.AdminRechargeRebateEnabled,
+		AffiliateRedeemAutoValidAmounts:                        settings.AffiliateRedeemAutoValidAmounts,
+		AffiliateRedeemAutoExcludedAmounts:                     settings.AffiliateRedeemAutoExcludedAmounts,
 		DefaultUserRPMLimit:                                    settings.DefaultUserRPMLimit,
 		DefaultSubscriptions:                                   defaultSubscriptions,
 		EnableModelFallback:                                    settings.EnableModelFallback,

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -135,6 +136,12 @@ type RedeemCodeBatchUpdateInput struct {
 
 type RedeemCodeBatchUpdateResult struct {
 	Updated int64 `json:"updated"`
+}
+
+type RedeemAffiliateBatchReviewResult struct {
+	Processed   int     `json:"processed"`
+	Skipped     int     `json:"skipped"`
+	TotalRebate float64 `json:"total_rebate"`
 }
 
 // RedeemService 兑换码服务
@@ -518,6 +525,35 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 		return nil, unsupportedRedeemTypeError(redeemCode.Type)
 	}
 
+	// Automatic affiliate review runs inside the redemption transaction so a
+	// valid paid code cannot credit the user without its matching rebate.
+	if redeemCode.Type == RedeemTypeBalance && redeemCode.Value > 0 && s.affiliateService != nil {
+		decision := s.affiliateService.GetRedeemAutoReviewDecision(txCtx, redeemCode.Value)
+		if decision != "" {
+			reviewRepo, ok := s.redeemRepo.(RedeemAffiliateReviewRepository)
+			if !ok {
+				return nil, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "redeem affiliate review unavailable")
+			}
+			switch decision {
+			case "valid":
+				if !s.affiliateService.IsEnabled(txCtx) {
+					break
+				}
+				rebate, err := s.affiliateService.AccrueInviteRebateForRedeemCode(txCtx, userID, redeemCode.ID, redeemCode.Value)
+				if err != nil {
+					return nil, fmt.Errorf("accrue automatic redeem affiliate rebate: %w", err)
+				}
+				if err := reviewRepo.UpdateAffiliateReview(txCtx, redeemCode.ID, AffiliateRebateStatusApproved, &rebate, time.Now().UTC()); err != nil {
+					return nil, fmt.Errorf("mark automatic redeem affiliate review approved: %w", err)
+				}
+			case "excluded":
+				if err := reviewRepo.UpdateAffiliateReview(txCtx, redeemCode.ID, AffiliateRebateStatusExcluded, nil, time.Now().UTC()); err != nil {
+					return nil, fmt.Errorf("mark automatic redeem affiliate review excluded: %w", err)
+				}
+			}
+		}
+	}
+
 	// 提交事务
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit transaction: %w", err)
@@ -666,6 +702,99 @@ func (s *RedeemService) ReviewAffiliateRedeem(ctx context.Context, id int64, dec
 		return nil, fmt.Errorf("commit affiliate review transaction: %w", err)
 	}
 	return s.redeemRepo.GetByID(ctx, id)
+}
+
+// ReviewAffiliateRedeems applies one affiliate-review decision to a batch of
+// selected codes. Non-eligible records are skipped so a mixed selection from
+// the admin table does not prevent eligible records from being processed.
+func (s *RedeemService) ReviewAffiliateRedeems(ctx context.Context, ids []int64, decision string) (*RedeemAffiliateBatchReviewResult, error) {
+	reviewRepo, ok := s.redeemRepo.(RedeemAffiliateReviewRepository)
+	if !ok || s.entClient == nil {
+		return nil, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "redeem affiliate review unavailable")
+	}
+
+	decision = strings.ToLower(strings.TrimSpace(decision))
+	if decision != "valid" && decision != "free" {
+		return nil, infraerrors.BadRequest("REDEEM_AFFILIATE_DECISION_INVALID", "decision must be valid or free")
+	}
+	if len(ids) == 0 {
+		return nil, infraerrors.BadRequest("REDEEM_AFFILIATE_BATCH_EMPTY", "ids are required")
+	}
+	if len(ids) > 1000 {
+		return nil, infraerrors.BadRequest("REDEEM_AFFILIATE_BATCH_TOO_LARGE", "cannot review more than 1000 redeem codes at once")
+	}
+
+	uniqueIDs := make([]int64, 0, len(ids))
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return nil, infraerrors.BadRequest("REDEEM_AFFILIATE_INVALID_ID", "ids must be positive")
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniqueIDs = append(uniqueIDs, id)
+	}
+	sort.Slice(uniqueIDs, func(i, j int) bool { return uniqueIDs[i] < uniqueIDs[j] })
+
+	if decision == "valid" && (s.affiliateService == nil || !s.affiliateService.IsEnabled(ctx)) {
+		return nil, infraerrors.Conflict("AFFILIATE_DISABLED", "affiliate rebate is disabled")
+	}
+
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin affiliate batch review transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	result := &RedeemAffiliateBatchReviewResult{}
+
+	for _, id := range uniqueIDs {
+		code, err := reviewRepo.GetByIDForUpdate(txCtx, id)
+		if err != nil {
+			if errors.Is(err, ErrRedeemCodeNotFound) {
+				result.Skipped++
+				continue
+			}
+			return nil, err
+		}
+		if code.Status != StatusUsed || code.UsedBy == nil || code.Type != RedeemTypeBalance || code.Value <= 0 {
+			result.Skipped++
+			continue
+		}
+
+		if decision == "free" {
+			if code.AffiliateRebateStatus == AffiliateRebateStatusApproved {
+				result.Skipped++
+				continue
+			}
+			if err := reviewRepo.UpdateAffiliateReview(txCtx, id, AffiliateRebateStatusExcluded, nil, time.Now().UTC()); err != nil {
+				return nil, err
+			}
+			result.Processed++
+			continue
+		}
+
+		if code.AffiliateRebateStatus == AffiliateRebateStatusApproved {
+			result.Skipped++
+			continue
+		}
+		rebate, err := s.affiliateService.AccrueInviteRebateForRedeemCode(txCtx, *code.UsedBy, code.ID, code.Value)
+		if err != nil {
+			return nil, fmt.Errorf("accrue redeem affiliate rebate: %w", err)
+		}
+		if err := reviewRepo.UpdateAffiliateReview(txCtx, id, AffiliateRebateStatusApproved, &rebate, time.Now().UTC()); err != nil {
+			return nil, err
+		}
+		result.Processed++
+		result.TotalRebate += rebate
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit affiliate batch review transaction: %w", err)
+	}
+	return result, nil
 }
 
 // GetByID 根据ID获取兑换码

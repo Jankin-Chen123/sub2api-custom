@@ -190,6 +190,8 @@ type UpdateSettingsRequest struct {
 	AffiliateRebateDurationDays               *int                              `json:"affiliate_rebate_duration_days"`
 	AffiliateRebatePerInviteeCap              *float64                          `json:"affiliate_rebate_per_invitee_cap"`
 	AdminRechargeRebateEnabled                *bool                             `json:"affiliate_admin_recharge_enabled"`
+	AffiliateRedeemAutoValidAmounts           *[]float64                        `json:"affiliate_redeem_auto_valid_amounts"`
+	AffiliateRedeemAutoExcludedAmounts        *[]float64                        `json:"affiliate_redeem_auto_excluded_amounts"`
 	DefaultUserRPMLimit                       int                               `json:"default_user_rpm_limit"`
 	DefaultSubscriptions                      []dto.DefaultSubscriptionSetting  `json:"default_subscriptions"`
 	AuthSourceDefaultEmailBalance             *float64                          `json:"auth_source_default_email_balance"`
@@ -605,6 +607,28 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	adminRechargeRebateEnabled := previousSettings.AdminRechargeRebateEnabled
 	if req.AdminRechargeRebateEnabled != nil {
 		adminRechargeRebateEnabled = *req.AdminRechargeRebateEnabled
+	}
+	affiliateRedeemAutoValidAmounts := append([]float64(nil), previousSettings.AffiliateRedeemAutoValidAmounts...)
+	if req.AffiliateRedeemAutoValidAmounts != nil {
+		var normalizeErr error
+		affiliateRedeemAutoValidAmounts, normalizeErr = service.NormalizeAffiliateRedeemAutoAmounts(*req.AffiliateRedeemAutoValidAmounts)
+		if normalizeErr != nil {
+			response.ErrorFrom(c, normalizeErr)
+			return
+		}
+	}
+	affiliateRedeemAutoExcludedAmounts := append([]float64(nil), previousSettings.AffiliateRedeemAutoExcludedAmounts...)
+	if req.AffiliateRedeemAutoExcludedAmounts != nil {
+		var normalizeErr error
+		affiliateRedeemAutoExcludedAmounts, normalizeErr = service.NormalizeAffiliateRedeemAutoAmounts(*req.AffiliateRedeemAutoExcludedAmounts)
+		if normalizeErr != nil {
+			response.ErrorFrom(c, normalizeErr)
+			return
+		}
+	}
+	if err := service.ValidateAffiliateRedeemAutoAmounts(affiliateRedeemAutoValidAmounts, affiliateRedeemAutoExcludedAmounts); err != nil {
+		response.ErrorFrom(c, err)
+		return
 	}
 	// 通用表格配置：兼容旧客户端未传字段时保留当前值。
 	if req.TableDefaultPageSize <= 0 {
@@ -1654,6 +1678,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:               affiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:              affiliateRebatePerInviteeCap,
 		AdminRechargeRebateEnabled:                adminRechargeRebateEnabled,
+		AffiliateRedeemAutoValidAmounts:           affiliateRedeemAutoValidAmounts,
+		AffiliateRedeemAutoExcludedAmounts:        affiliateRedeemAutoExcludedAmounts,
 		DefaultUserRPMLimit:                       req.DefaultUserRPMLimit,
 		DefaultSubscriptions:                      defaultSubscriptions,
 		EnableModelFallback:                       req.EnableModelFallback,
@@ -2260,6 +2286,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:                            updatedSettings.AffiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:                           updatedSettings.AffiliateRebatePerInviteeCap,
 		AdminRechargeRebateEnabled:                             updatedSettings.AdminRechargeRebateEnabled,
+		AffiliateRedeemAutoValidAmounts:                        updatedSettings.AffiliateRedeemAutoValidAmounts,
+		AffiliateRedeemAutoExcludedAmounts:                     updatedSettings.AffiliateRedeemAutoExcludedAmounts,
 		DefaultUserRPMLimit:                                    updatedSettings.DefaultUserRPMLimit,
 		DefaultSubscriptions:                                   updatedDefaultSubscriptions,
 		EnableModelFallback:                                    updatedSettings.EnableModelFallback,
