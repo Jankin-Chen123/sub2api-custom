@@ -453,9 +453,11 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ChannelMonitorMode:                   settings.ChannelMonitorMode,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 		ChannelMonitorHideThroughput:         settings.ChannelMonitorHideThroughput,
-		GrokDefaultTextModel:                 settings.GrokDefaultTextModel,
-		GrokCrossClientModelMapEnabled:       settings.GrokCrossClientModelMapEnabled,
-		GrokDefaultBaseURLMode:               settings.GrokDefaultBaseURLMode,
+		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
+
+		GrokDefaultTextModel:           settings.GrokDefaultTextModel,
+		GrokCrossClientModelMapEnabled: settings.GrokCrossClientModelMapEnabled,
+		GrokDefaultBaseURLMode:         settings.GrokDefaultBaseURLMode,
 
 		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
 
