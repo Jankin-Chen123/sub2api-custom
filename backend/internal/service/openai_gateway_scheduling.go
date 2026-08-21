@@ -759,7 +759,7 @@ func resolveOpenAIAccountUpstreamModelForRequest(account *Account, requestedMode
 	if requireCompact {
 		return resolveOpenAICompactForwardModel(account, upstreamModel)
 	}
-	return upstreamModel
+	return normalizeOpenAIModelForUpstream(account, upstreamModel)
 }
 
 // ResolveOpenAIAccountUpstreamModelForRequest exposes the scheduler's exact
