@@ -605,6 +605,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				dedicatedImageBridgeEnabled,
 				bridgePayloadRaw,
 			)
+			toolOutputCoverage := AnalyzeToolCallOutputContextCoverageBytes(currentBridgePayload.payloadRaw)
+			needsBridgeReplay := currentBridgePayload.previousResponseID != "" ||
+				(toolOutputCoverage.HasFunctionCallOutput && !toolOutputCoverage.ContextCoversAllCallIDs)
 			if dedicatedImageBridgeEnabled && shouldRejectCodexDedicatedImageReplayInResponsesLite(bridgePayloadRaw) {
 				return NewOpenAIWSClientCloseError(
 					coderws.StatusPolicyViolation,
@@ -612,7 +615,6 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					nil,
 				)
 			}
-			needsBridgeReplay := currentBridgePayload.previousResponseID != "" || openAIWSRawPayloadHasToolCallOutput(currentBridgePayload.payloadRaw)
 			var turnReplayInput []json.RawMessage
 			var turnReplayInputExists bool
 			if !useDedicatedImageBridge {
