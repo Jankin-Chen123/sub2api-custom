@@ -363,7 +363,10 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 		if buildErr != nil {
 			return nil, buildErr
 		}
-		if account.Platform != PlatformGrok && isOpenAIResponsesLiteWebSocketPayload(payload) {
+		if account.Platform != PlatformGrok &&
+			!isOpenAIFullResponsesForcedForRequest(c) &&
+			isOpenAIResponsesLiteWebSocketPayload(payload) &&
+			openAIResponsesLiteFullProtocolReason(payload) == "" {
 			upstreamReq.Header.Set(responsesLiteHeader, "true")
 		}
 		return upstreamReq, nil

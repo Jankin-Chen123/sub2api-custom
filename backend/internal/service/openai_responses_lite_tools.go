@@ -3,9 +3,16 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
+
+const openAIResponsesForceFullContextKey = "openai_responses_force_full"
 
 // normalizeOpenAIResponsesLiteTools applies the Responses Lite request
 // contract: reasoning must cover all turns, and private namespace declarations
@@ -213,4 +220,93 @@ func normalizeOpenAIResponsesLiteToolsPayload(body []byte) ([]byte, bool, error)
 		return body, false, fmt.Errorf("encode responses Lite request body: %w", err)
 	}
 	return rebuilt, true, nil
+}
+
+// openAIResponsesLiteFullProtocolReason returns the capability that cannot be
+// represented by Responses Lite. The public Responses contract allows these
+// capabilities, so callers must preserve the request and use the full protocol
+// instead of silently weakening it for a Lite-only upstream.
+func openAIResponsesLiteFullProtocolReason(body []byte) string {
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return ""
+	}
+	if gjson.GetBytes(body, "parallel_tool_calls").Type == gjson.True {
+		return "parallel_tool_calls"
+	}
+
+	tools := gjson.GetBytes(body, "tools")
+	if !tools.IsArray() {
+		return ""
+	}
+	for _, tool := range tools.Array() {
+		if !tool.IsObject() {
+			continue
+		}
+		switch toolType := strings.TrimSpace(tool.Get("type").String()); toolType {
+		case "", "function", "custom", "tool_search", "namespace":
+			// These are either supported by Lite or malformed. Keep malformed
+			// declarations intact so the upstream can return its normal validation.
+		default:
+			return "tool type " + toolType
+		}
+	}
+	return ""
+}
+
+func forceOpenAIFullResponsesForRequest(c *gin.Context) {
+	if c != nil {
+		c.Set(openAIResponsesForceFullContextKey, true)
+	}
+}
+
+func isOpenAIFullResponsesForcedForRequest(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	forced, exists := c.Get(openAIResponsesForceFullContextKey)
+	value, ok := forced.(bool)
+	return exists && ok && value
+}
+
+// isOpenAIResponsesLiteTransportRejection matches only a validation response
+// that explicitly names the private Lite transport. It is safe to retry these
+// responses once without the Lite marker because the upstream rejected the
+// protocol before starting model execution.
+func isOpenAIResponsesLiteTransportRejection(statusCode int, body []byte) bool {
+	if statusCode != http.StatusBadRequest || len(body) == 0 {
+		return false
+	}
+
+	candidates := [][]byte{body}
+	for _, path := range []string{"detail", "error.message", "message"} {
+		nested := strings.TrimSpace(gjson.GetBytes(body, path).String())
+		if nested != "" && gjson.Valid(nested) {
+			candidates = append(candidates, []byte(nested))
+		}
+	}
+	for _, candidate := range candidates {
+		if !strings.EqualFold(strings.TrimSpace(extractUpstreamErrorCode(candidate)), "unsupported_value") {
+			continue
+		}
+		message := strings.ToLower(strings.TrimSpace(extractUpstreamErrorMessage(candidate)))
+		if strings.Contains(message, strings.ToLower(responsesLiteHeader)) {
+			return true
+		}
+	}
+	return false
+}
+
+// disableOpenAIResponsesLiteWebSocketPayloadWhenFullProtocolRequired removes
+// only the private Lite transport marker. All user-facing request fields,
+// including parallel_tool_calls and tool declarations, remain unchanged.
+func disableOpenAIResponsesLiteWebSocketPayloadWhenFullProtocolRequired(body []byte) ([]byte, string, bool, error) {
+	reason := openAIResponsesLiteFullProtocolReason(body)
+	if reason == "" || !isOpenAIResponsesLiteWebSocketPayload(body) {
+		return body, reason, false, nil
+	}
+	normalized, err := sjson.DeleteBytes(body, "client_metadata."+responsesLiteWSMetadataKey)
+	if err != nil {
+		return body, reason, false, fmt.Errorf("remove Responses Lite websocket marker: %w", err)
+	}
+	return normalized, reason, true, nil
 }

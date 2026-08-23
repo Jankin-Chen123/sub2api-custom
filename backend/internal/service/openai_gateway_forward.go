@@ -73,7 +73,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			body = reasoningBody
 		}
 	}
-	if account.IsOpenAIOAuthLike() && isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) {
+	liteFullProtocolReason := openAIResponsesLiteFullProtocolReason(body)
+	responsesLiteRequested := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) &&
+		!isOpenAIFullResponsesForcedForRequest(c)
+	responsesLiteEnabled := responsesLiteRequested && liteFullProtocolReason == ""
+	if account.IsOpenAIOAuthLike() && responsesLiteEnabled {
 		liteBody, changed, liteErr := normalizeOpenAIResponsesLiteToolsPayload(body)
 		if liteErr != nil {
 			setOpsUpstreamError(c, http.StatusBadRequest, liteErr.Error(), "")
@@ -85,6 +89,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		if changed {
 			body = liteBody
 		}
+	}
+	if liteFullProtocolReason != "" && responsesLiteRequested {
+		logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Using full Responses protocol for Lite-tagged request because it requires %s", liteFullProtocolReason)
 	}
 	wsDecision := s.getOpenAIWSProtocolResolver().Resolve(account)
 	// 仅允许 WS 入站请求走 WS 上游，避免出现 HTTP -> WS 协议混用。
@@ -293,7 +300,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		imageGenerationAllowed = GroupAllowsImageGeneration(apiKey.Group)
 	}
 	codexImageGenerationBridgeEnabled := isCodexCLI &&
-		!isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) &&
+		!responsesLiteEnabled &&
 		!isCodexDedicatedImagePlannerContext(c) &&
 		imageGenerationAllowed &&
 		codexImageGenerationExplicitToolPolicy != codexImageGenerationExplicitToolPolicyStrip &&
@@ -897,6 +904,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	httpInvalidEncryptedContentRetryTried := false
+	httpResponsesLiteFallbackRetried := false
 	compactModelFallbackRetried := false
 	agentTaskRecoveryTried := false
 	rejectedFieldRetryState := openAIResponsesRejectedFieldRetryStateForRequest(c, body)
@@ -965,6 +973,14 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 			upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
 			upstreamCode := extractUpstreamErrorCode(respBody)
+			if !httpResponsesLiteFallbackRetried &&
+				isOpenAIResponsesLiteHeader(upstreamReq.Header.Get(responsesLiteHeader)) &&
+				isOpenAIResponsesLiteTransportRejection(resp.StatusCode, respBody) {
+				httpResponsesLiteFallbackRetried = true
+				forceOpenAIFullResponsesForRequest(c)
+				logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Retrying request once with full Responses after upstream rejected Responses Lite (account: %s)", account.Name)
+				continue
+			}
 			if !agentTaskRecoveryTried && s.isAgentIdentityAccount(ctx, account) && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, respBody) {
 				agentTaskRecoveryTried = true
 				expectedTaskID := account.GetCredential("task_id")
@@ -1332,6 +1348,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
+	if isOpenAIFullResponsesForcedForRequest(c) || openAIResponsesLiteFullProtocolReason(body) != "" {
+		req.Header.Del(responsesLiteHeader)
+	}
 	setOpenAICodexRoutingHintFromBody(req.Header, account, body)
 	logOpenAIRoutingDiagnosticsFromBody(ctx, account, "http", req.Header, body, "not_applicable")
 

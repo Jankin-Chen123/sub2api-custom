@@ -232,6 +232,69 @@ func TestNormalizeOpenAIResponsesLiteToolsPayload_PreservesResponseCreateShape(t
 	require.Equal(t, "namespace", gjson.GetBytes(updated, "tool_choice.type").String())
 }
 
+func TestOpenAIResponsesLiteFullProtocolReason(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{name: "ordinary lite function", body: `{"tools":[{"type":"function","name":"lookup"}]}`, want: ""},
+		{name: "parallel tool calls", body: `{"parallel_tool_calls":true,"tools":[{"type":"function","name":"lookup"}]}`, want: "parallel_tool_calls"},
+		{name: "hosted web search", body: `{"tools":[{"type":"web_search"}]}`, want: "tool type web_search"},
+		{name: "hosted image generation", body: `{"tools":[{"type":"image_generation"}]}`, want: "tool type image_generation"},
+		{name: "namespace remains lite compatible", body: `{"tools":[{"type":"namespace","name":"collaboration"}]}`, want: ""},
+		{name: "invalid json", body: `{`, want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, openAIResponsesLiteFullProtocolReason([]byte(tt.body)))
+		})
+	}
+}
+
+func TestOpenAIResponsesLiteTransportRejection(t *testing.T) {
+	direct := []byte(`{"error":{"code":"unsupported_value","message":"X-OpenAI-Internal-Codex-Responses-Lite requires service_tier to be auto.","param":"service_tier","type":"invalid_request_error"}}`)
+	require.True(t, isOpenAIResponsesLiteTransportRejection(http.StatusBadRequest, direct))
+
+	nested := []byte(`{"detail":"{\"error\":{\"code\":\"unsupported_value\",\"message\":\"X-OpenAI-Internal-Codex-Responses-Lite requires a full request.\"}}"}`)
+	require.True(t, isOpenAIResponsesLiteTransportRejection(http.StatusBadRequest, nested))
+
+	require.False(t, isOpenAIResponsesLiteTransportRejection(http.StatusUnprocessableEntity, direct))
+	require.False(t, isOpenAIResponsesLiteTransportRejection(http.StatusBadRequest, []byte(`{"error":{"code":"unsupported_value","message":"service_tier is unsupported"}}`)))
+}
+
+func TestDisableOpenAIResponsesLiteWebSocketPayloadWhenFullProtocolRequired(t *testing.T) {
+	payload := []byte(`{
+		"type":"response.create",
+		"parallel_tool_calls":true,
+		"client_metadata":{
+			"ws_request_header_x_openai_internal_codex_responses_lite":"true",
+			"request_source":"codex"
+		},
+		"tools":[{"type":"function","name":"shell"}]
+	}`)
+
+	normalized, reason, changed, err := disableOpenAIResponsesLiteWebSocketPayloadWhenFullProtocolRequired(payload)
+
+	require.NoError(t, err)
+	require.Equal(t, "parallel_tool_calls", reason)
+	require.True(t, changed)
+	require.True(t, gjson.GetBytes(normalized, "parallel_tool_calls").Bool())
+	require.Equal(t, "shell", gjson.GetBytes(normalized, "tools.0.name").String())
+	require.Equal(t, "codex", gjson.GetBytes(normalized, "client_metadata.request_source").String())
+	require.False(t, isOpenAIResponsesLiteWebSocketPayload(normalized))
+
+	unchanged, reason, changed, err := disableOpenAIResponsesLiteWebSocketPayloadWhenFullProtocolRequired([]byte(`{
+		"client_metadata":{"ws_request_header_x_openai_internal_codex_responses_lite":"true"},
+		"tools":[{"type":"function","name":"shell"}]
+	}`))
+	require.NoError(t, err)
+	require.Empty(t, reason)
+	require.False(t, changed)
+	require.True(t, isOpenAIResponsesLiteWebSocketPayload(unchanged))
+}
+
 func TestApplyCodexOAuthTransform_PreservesLiteNamespaceToolChoice(t *testing.T) {
 	reqBody := map[string]any{
 		"model": "gpt-5.6-terra",
@@ -306,6 +369,136 @@ func TestOpenAIGatewayServiceForward_NormalizesResponsesLiteToolsForOAuth(t *tes
 			require.Equal(t, "collaboration", gjson.GetBytes(upstream.lastBody, `input.#(type=="additional_tools").tools.0.name`).String())
 			require.Equal(t, "namespace", gjson.GetBytes(upstream.lastBody, "tool_choice.type").String())
 			require.Equal(t, "collaboration", gjson.GetBytes(upstream.lastBody, "tool_choice.name").String())
+		})
+	}
+}
+
+func TestOpenAIGatewayServiceForward_UsesFullResponsesForLiteIncompatibleRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	for _, passthrough := range []bool{false, true} {
+		name := "managed"
+		if passthrough {
+			name = "passthrough"
+		}
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
+			c.Request.Header.Set("User-Agent", "codex_cli_rs/0.144.1")
+			c.Request.Header.Set(responsesLiteHeader, "true")
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body: io.NopCloser(strings.NewReader(
+					"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_parallel\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}\n\n" +
+						"data: [DONE]\n\n",
+				)),
+			}}
+			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+			account := &Account{
+				ID: 502, Name: "full-responses", Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+				Concurrency: 1, Status: StatusActive, Schedulable: true, RateMultiplier: f64p(1),
+				Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-account"},
+				Extra:       map[string]any{"openai_passthrough": passthrough},
+			}
+			body := []byte(`{
+				"model":"gpt-5.6-terra","stream":true,"instructions":"test",
+				"parallel_tool_calls":true,
+				"tools":[{"type":"function","name":"shell","parameters":{"type":"object"}}],
+				"input":[{"type":"message","role":"user","content":"hello"}]
+			}`)
+
+			result, err := svc.Forward(context.Background(), c, account, body)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.Empty(t, upstream.lastReq.Header.Get(responsesLiteHeader))
+			require.True(t, gjson.GetBytes(upstream.lastBody, "parallel_tool_calls").Bool())
+			require.Equal(t, "shell", gjson.GetBytes(upstream.lastBody, "tools.0.name").String())
+		})
+	}
+}
+
+func TestOpenAIBuildUpstreamRequest_FullResponsesOverridesLiteHeaderOverride(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
+	c.Request.Header.Set(responsesLiteHeader, "true")
+
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			credKeyHeaderOverrideEnabled: true,
+			credKeyHeaderOverrides: map[string]any{
+				responsesLiteHeader: "true",
+			},
+		},
+	}
+	body := []byte(`{"model":"gpt-5.6-codex","parallel_tool_calls":true,"tools":[{"type":"function","name":"shell"}]}`)
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+
+	managed, err := svc.buildUpstreamRequest(context.Background(), c, account, body, "upstream-key", false, "", false)
+	require.NoError(t, err)
+	require.Empty(t, managed.Header.Get(responsesLiteHeader))
+
+	passthrough, err := svc.buildUpstreamRequestOpenAIPassthrough(context.Background(), c, account, body, "upstream-key")
+	require.NoError(t, err)
+	require.Empty(t, passthrough.Header.Get(responsesLiteHeader))
+}
+
+func TestOpenAIGatewayServiceForward_RetriesLiteTransportRejectionWithFullResponses(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	for _, passthrough := range []bool{false, true} {
+		name := "managed"
+		if passthrough {
+			name = "passthrough"
+		}
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
+			c.Request.Header.Set("User-Agent", "codex_cli_rs/0.145.0")
+			c.Request.Header.Set(responsesLiteHeader, "true")
+
+			upstream := &httpUpstreamRecorder{responses: []*http.Response{
+				{
+					StatusCode: http.StatusBadRequest,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body: io.NopCloser(strings.NewReader(
+						`{"error":{"code":"unsupported_value","message":"X-OpenAI-Internal-Codex-Responses-Lite requires service_tier to be auto.","param":"service_tier","type":"invalid_request_error"}}`,
+					)),
+				},
+				{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body: io.NopCloser(strings.NewReader(
+						`{"id":"resp_full_retry","object":"response","status":"completed","model":"gpt-5.4","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`,
+					)),
+				},
+			}}
+			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+			account := &Account{
+				ID: 503, Name: "lite-retry", Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+				Concurrency: 1, Status: StatusActive, Schedulable: true, RateMultiplier: f64p(1),
+				Credentials: map[string]any{"api_key": "upstream-key"},
+				Extra:       map[string]any{"openai_passthrough": passthrough},
+			}
+			body := []byte(`{"model":"gpt-5.4","stream":false,"service_tier":"default","tools":[{"type":"function","name":"shell","parameters":{"type":"object"}}],"input":"hello"}`)
+
+			result, err := svc.Forward(context.Background(), c, account, body)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.Len(t, upstream.requests, 2)
+			require.Equal(t, "true", upstream.requests[0].Header.Get(responsesLiteHeader))
+			require.Empty(t, upstream.requests[1].Header.Get(responsesLiteHeader))
+			require.JSONEq(t, string(upstream.bodies[0]), string(upstream.bodies[1]))
+			require.Equal(t, "default", gjson.GetBytes(upstream.bodies[1], "service_tier").String())
+			require.True(t, isOpenAIFullResponsesForcedForRequest(c))
 		})
 	}
 }

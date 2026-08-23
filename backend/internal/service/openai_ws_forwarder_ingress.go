@@ -322,6 +322,20 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			normalized = next
 		}
+		if account.IsOpenAIOAuthLike() {
+			fullPayload, fullReason, changed, fullErr := disableOpenAIResponsesLiteWebSocketPayloadWhenFullProtocolRequired(normalized)
+			if fullErr != nil {
+				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(
+					coderws.StatusPolicyViolation,
+					fullErr.Error(),
+					fullErr,
+				)
+			}
+			if changed {
+				normalized = fullPayload
+				logOpenAIWSModeInfo("ingress_ws_full_responses_for_lite_payload account_id=%d turn=%d reason=%s", account.ID, turn, fullReason)
+			}
+		}
 		if account.IsOpenAIOAuthLike() && isOpenAIResponsesLiteWebSocketPayload(normalized) {
 			litePayload, _, liteErr := normalizeOpenAIResponsesLiteToolsPayload(normalized)
 			if liteErr != nil {

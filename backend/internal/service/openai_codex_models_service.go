@@ -561,16 +561,10 @@ func codexModelsManifestBodyETag(body []byte) string {
 	return fmt.Sprintf(`"%x"`, sum)
 }
 
-var apiKeyCodexModelsWithoutResponsesLite = map[string]struct{}{
-	"gpt-5.6-sol":   {},
-	"gpt-5.6-terra": {},
-	"gpt-5.6-luna":  {},
-}
-
-// adjustAPIKeyCodexModelsManifest prevents Codex from selecting Responses
-// Lite for custom API key providers. Those clients do not install web.run in
-// Lite mode, so the affected model manifests must advertise the full Responses
-// path. Return the original body when no targeted true value is present.
+// adjustAPIKeyCodexModelsManifest prevents Codex from selecting the private
+// Responses Lite transport for an API-key upstream. Chained and custom API
+// providers expose the public Responses contract, not a stable Lite contract,
+// so advertising Lite creates avoidable capability mismatches for end users.
 func adjustAPIKeyCodexModelsManifest(body []byte) ([]byte, error) {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(body, &envelope); err != nil {
@@ -587,13 +581,6 @@ func adjustAPIKeyCodexModelsManifest(body []byte) ([]byte, error) {
 		if err := json.Unmarshal(rawModel, &model); err != nil || model == nil {
 			continue
 		}
-		var slug string
-		if err := json.Unmarshal(model["slug"], &slug); err != nil {
-			continue
-		}
-		if _, targeted := apiKeyCodexModelsWithoutResponsesLite[slug]; !targeted {
-			continue
-		}
 		var useResponsesLite bool
 		if err := json.Unmarshal(model["use_responses_lite"], &useResponsesLite); err != nil || !useResponsesLite {
 			continue
@@ -601,7 +588,7 @@ func adjustAPIKeyCodexModelsManifest(body []byte) ([]byte, error) {
 		model["use_responses_lite"] = json.RawMessage("false")
 		adjusted, err := json.Marshal(model)
 		if err != nil {
-			return nil, fmt.Errorf("encode model %q: %w", slug, err)
+			return nil, fmt.Errorf("encode model at index %d: %w", i, err)
 		}
 		models[i] = adjusted
 		changed = true

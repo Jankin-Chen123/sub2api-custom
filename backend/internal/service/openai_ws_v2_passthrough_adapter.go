@@ -679,6 +679,16 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if err := validateOpenAIWSBearerToken(account, token); err != nil {
 		return err
 	}
+	if account.IsOpenAIOAuthLike() {
+		fullFirstMessage, fullReason, changed, fullErr := disableOpenAIResponsesLiteWebSocketPayloadWhenFullProtocolRequired(firstClientMessage)
+		if fullErr != nil {
+			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, fullErr.Error(), fullErr)
+		}
+		if changed {
+			firstClientMessage = fullFirstMessage
+			logOpenAIWSV2Passthrough("relay_full_responses_for_lite_payload account_id=%d reason=%s", account.ID, fullReason)
+		}
+	}
 	if account.IsOpenAIOAuthLike() && isOpenAIResponsesLiteWebSocketPayload(firstClientMessage) {
 		liteFirstMessage, _, liteErr := normalizeOpenAIResponsesLiteToolsPayload(firstClientMessage)
 		if liteErr != nil {
@@ -996,6 +1006,16 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				}
 			}
 			if isResponseCreate {
+				if account.IsOpenAIOAuthLike() {
+					fullPayload, fullReason, changed, fullErr := disableOpenAIResponsesLiteWebSocketPayloadWhenFullProtocolRequired(payload)
+					if fullErr != nil {
+						return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, fullErr.Error(), fullErr)
+					}
+					if changed {
+						payload = fullPayload
+						logOpenAIWSV2Passthrough("relay_full_responses_for_lite_payload account_id=%d reason=%s", account.ID, fullReason)
+					}
+				}
 				if account.IsOpenAIOAuthLike() && isOpenAIResponsesLiteWebSocketPayload(payload) {
 					litePayload, _, liteErr := normalizeOpenAIResponsesLiteToolsPayload(payload)
 					if liteErr != nil {

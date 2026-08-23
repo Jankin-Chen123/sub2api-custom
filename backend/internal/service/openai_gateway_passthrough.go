@@ -323,6 +323,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	}
 
 	agentTaskRecoveryTried := false
+	responsesLiteFallbackRetried := false
 	compactModelFallbackRetried := false
 	rejectedFieldRetryState := openAIResponsesRejectedFieldRetryStateForRequest(c, body)
 	var resp *http.Response
@@ -358,6 +359,14 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			probeBody := s.readUpstreamErrorBody(resp)
 			_ = resp.Body.Close()
 			resp.Body = io.NopCloser(bytes.NewReader(probeBody))
+			if !responsesLiteFallbackRetried &&
+				isOpenAIResponsesLiteHeader(upstreamReq.Header.Get(responsesLiteHeader)) &&
+				isOpenAIResponsesLiteTransportRejection(resp.StatusCode, probeBody) {
+				responsesLiteFallbackRetried = true
+				forceOpenAIFullResponsesForRequest(c)
+				logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Retrying passthrough request once with full Responses after upstream rejected Responses Lite (account: %s)", account.Name)
+				continue
+			}
 			if retryBody, reason, changed, retryErr := normalizeOpenAIResponsesRejectedFieldRetryBody(resp.StatusCode, body, probeBody); retryErr != nil {
 				return nil, fmt.Errorf("normalize passthrough rejected Responses field retry body: %w", retryErr)
 			} else if changed && rejectedFieldRetryState.Allow(retryBody) {
@@ -683,6 +692,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
+	if isOpenAIFullResponsesForcedForRequest(c) || openAIResponsesLiteFullProtocolReason(body) != "" {
+		req.Header.Del(responsesLiteHeader)
+	}
 	setOpenAICodexRoutingHintFromBody(req.Header, account, body)
 	logOpenAIRoutingDiagnosticsFromBody(ctx, account, "http_passthrough", req.Header, body, "not_applicable")
 
