@@ -480,6 +480,9 @@ const startTest = async () => {
     if (isOpenAIAccount.value) {
       requestBody.mode = testMode.value
     }
+    if (props.account?.platform === 'grok') {
+      requestBody.mode = 'text'
+    }
 
     // Use the configured API base; EventSource does not support POST.
     const url = buildApiUrl(`/admin/accounts/${props.account.id}/test`)
