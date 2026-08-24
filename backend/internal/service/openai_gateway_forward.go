@@ -79,7 +79,14 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	liteFullProtocolReason := openAIResponsesLiteFullProtocolReason(body)
 	responsesLiteRequested := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) &&
 		!isOpenAIFullResponsesForcedForRequest(c)
-	responsesLiteEnabled := responsesLiteRequested && liteFullProtocolReason == ""
+	// A namespace request can be represented by Lite after moving the
+	// namespace declaration into input.additional_tools and forcing
+	// parallel_tool_calls=false. Plain parallel tool calls, however, must stay
+	// on the full Responses protocol so their client-visible semantics are not
+	// silently weakened.
+	responsesLiteEnabled := responsesLiteRequested &&
+		(liteFullProtocolReason == "" ||
+			(liteFullProtocolReason == "parallel_tool_calls" && openAIResponsesLiteHasNamespaceTool(body)))
 	if account.IsOpenAIOAuthLike() && responsesLiteEnabled {
 		liteBody, changed, liteErr := normalizeOpenAIResponsesLiteToolsPayload(body)
 		if liteErr != nil {
@@ -98,7 +105,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			body = liteBody
 		}
 	}
-	if liteFullProtocolReason != "" && responsesLiteRequested {
+	if liteFullProtocolReason != "" && responsesLiteRequested && !responsesLiteEnabled {
 		logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Using full Responses protocol for Lite-tagged request because it requires %s", liteFullProtocolReason)
 	}
 	wsDecision := s.getOpenAIWSProtocolResolver().Resolve(account)

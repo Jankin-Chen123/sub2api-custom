@@ -283,27 +283,37 @@ func openAIResponsesLiteFullProtocolReason(body []byte) string {
 	if len(body) == 0 || !gjson.ValidBytes(body) {
 		return ""
 	}
+	tools := gjson.GetBytes(body, "tools")
+	if tools.IsArray() {
+		for _, tool := range tools.Array() {
+			if !tool.IsObject() {
+				continue
+			}
+			switch toolType := strings.TrimSpace(tool.Get("type").String()); toolType {
+			case "", "function", "custom", "tool_search", "namespace":
+				// These are either supported by Lite or malformed. Keep malformed
+				// declarations intact so the upstream can return its normal validation.
+			default:
+				return "tool type " + toolType
+			}
+		}
+	}
 	if gjson.GetBytes(body, "parallel_tool_calls").Type == gjson.True {
 		return "parallel_tool_calls"
 	}
-
-	tools := gjson.GetBytes(body, "tools")
-	if !tools.IsArray() {
-		return ""
-	}
-	for _, tool := range tools.Array() {
-		if !tool.IsObject() {
-			continue
-		}
-		switch toolType := strings.TrimSpace(tool.Get("type").String()); toolType {
-		case "", "function", "custom", "tool_search", "namespace":
-			// These are either supported by Lite or malformed. Keep malformed
-			// declarations intact so the upstream can return its normal validation.
-		default:
-			return "tool type " + toolType
-		}
-	}
 	return ""
+}
+
+func openAIResponsesLiteHasNamespaceTool(body []byte) bool {
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return false
+	}
+	for _, tool := range gjson.GetBytes(body, "tools").Array() {
+		if tool.IsObject() && strings.TrimSpace(tool.Get("type").String()) == "namespace" {
+			return true
+		}
+	}
+	return false
 }
 
 func forceOpenAIFullResponsesForRequest(c *gin.Context) {

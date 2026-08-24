@@ -649,7 +649,7 @@ type PublicSettingsInjectionPayload struct {
 	GrokDefaultTextModel           string `json:"grok_default_text_model"`
 	GrokCrossClientModelMapEnabled bool   `json:"grok_cross_client_model_map_enabled"`
 	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
-	PluginManagementEnabled    bool `json:"plugin_management_enabled"`
+	PluginManagementEnabled        bool   `json:"plugin_management_enabled"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
