@@ -82,6 +82,12 @@ type ChannelMonitorService struct {
 	// 之后构造，构造参数注入会破坏既有依赖顺序）。nil 时 fail-closed：
 	// 配额模式的检测产出「未配置」错误快照，Create/Update 关联账号直接报错。
 	quotaFetcher *ChannelMonitorQuotaFetcher
+	// accountProbe is optional so legacy/unit-test constructions keep the
+	// original single group-level probe and external endpoint compatibility.
+	accountProbe ChannelMonitorAccountProbe
+	// accountProbeResults is intentionally separate from the aggregate history
+	// repository to prevent one model round from creating duplicate trend rows.
+	accountProbeResults ChannelMonitorAccountProbeResultRepository
 }
 
 const maxChannelMonitorNameRunes = 100
@@ -104,6 +110,22 @@ func (s *ChannelMonitorService) SetRuntimeReader(r channelMonitorRuntimeReader) 
 		return
 	}
 	s.settings = r
+}
+
+// SetAccountProbe injects the local account-directed V1 probe. When unset,
+// RunCheck preserves the original single group-level request behavior.
+func (s *ChannelMonitorService) SetAccountProbe(probe ChannelMonitorAccountProbe) {
+	if s != nil {
+		s.accountProbe = probe
+	}
+}
+
+// SetAccountProbeResultRepository injects the optional account-observation
+// persistence sink. Failures are logged and never change the aggregate result.
+func (s *ChannelMonitorService) SetAccountProbeResultRepository(repo ChannelMonitorAccountProbeResultRepository) {
+	if s != nil {
+		s.accountProbeResults = repo
+	}
 }
 
 func (s *ChannelMonitorService) probeRuntime(ctx context.Context) ChannelMonitorRuntime {
@@ -620,15 +642,17 @@ func (s *ChannelMonitorService) RunCheck(ctx context.Context, id int64) ([]*Chec
 	}
 
 	var results []*CheckResult
+	var accountRows []*ChannelMonitorAccountProbeResult
 	switch checkMode {
 	case MonitorCheckModeQuota:
 		results = s.runQuotaOnlyCheck(ctx, m)
 	case MonitorCheckModeQuotaProbe:
-		results = s.runChecksConcurrent(ctx, m)
+		results, accountRows = s.runChecksConcurrentWithAccountRows(ctx, m)
 		attachQuotaSnapshot(results, s.fetchQuotaSnapshot(ctx, m))
 	default:
-		results = s.runChecksConcurrent(ctx, m)
+		results, accountRows = s.runChecksConcurrentWithAccountRows(ctx, m)
 	}
+	s.persistAccountProbeResults(ctx, accountRows)
 	s.persistCheckResults(ctx, m, results)
 	return results, nil
 }
@@ -693,11 +717,54 @@ func (s *ChannelMonitorService) persistCheckResults(ctx context.Context, m *Chan
 	}
 }
 
+func (s *ChannelMonitorService) persistAccountProbeResults(ctx context.Context, rows []*ChannelMonitorAccountProbeResult) {
+	if len(rows) == 0 || s.accountProbeResults == nil {
+		return
+	}
+	if healthRepo, ok := s.accountProbeResults.(ChannelMonitorAccountHealthRepository); ok {
+		snapshots, err := healthRepo.ApplyAccountProbeResults(ctx, rows)
+		if err != nil {
+			slog.Error("channel_monitor: persist account probe health failed", "error", err)
+			return
+		}
+		cacheChannelMonitorHealthSnapshots(snapshots)
+		return
+	}
+	if err := s.accountProbeResults.InsertAccountProbeResults(ctx, rows); err != nil {
+		slog.Error("channel_monitor: insert account probe results failed", "error", err)
+	}
+}
+
+// ListAccountHealthSnapshots exposes the latest internal health view for
+// admin/operations callers without adding account health fields to ordinary
+// user responses. It is unavailable when a legacy repository is injected.
+func (s *ChannelMonitorService) ListAccountHealthSnapshots(
+	ctx context.Context,
+	groupID *int64,
+	provider, model string,
+	limit int,
+) ([]*ChannelMonitorAccountHealthSnapshot, error) {
+	if s == nil || s.accountProbeResults == nil {
+		return nil, fmt.Errorf("channel monitor account health repository is not configured")
+	}
+	healthRepo, ok := s.accountProbeResults.(ChannelMonitorAccountHealthRepository)
+	if !ok {
+		return nil, fmt.Errorf("channel monitor account health repository is not supported")
+	}
+	return healthRepo.ListAccountHealthSnapshots(ctx, groupID, provider, model, limit)
+}
+
 // runChecksConcurrent 对 primary + extra 模型并发执行检测。
 // errgroup 仅用于等待，不传播错误（每个 model 失败都已打包进 CheckResult）。
 func (s *ChannelMonitorService) runChecksConcurrent(ctx context.Context, m *ChannelMonitor) []*CheckResult {
+	results, _ := s.runChecksConcurrentWithAccountRows(ctx, m)
+	return results
+}
+
+func (s *ChannelMonitorService) runChecksConcurrentWithAccountRows(ctx context.Context, m *ChannelMonitor) ([]*CheckResult, []*ChannelMonitorAccountProbeResult) {
 	models := append([]string{m.PrimaryModel}, m.ExtraModels...)
 	results := make([]*CheckResult, len(models))
+	accountRows := make([][]*ChannelMonitorAccountProbeResult, len(models))
 
 	// ping 共享一次，所有模型记录同一个 ping 延迟。
 	pingMs := pingEndpointOrigin(ctx, m.Endpoint)
@@ -715,16 +782,54 @@ func (s *ChannelMonitorService) runChecksConcurrent(ctx context.Context, m *Chan
 	for i, model := range models {
 		i, model := i, model
 		eg.Go(func() error {
-			r := runCheckForModel(ctx, m.Provider, m.Endpoint, m.APIKey, model, opts)
+			challenge := generateChallenge()
+			var r *CheckResult
+			var rows []*ChannelMonitorAccountProbeResult
+			if s.accountProbe != nil {
+				run, handled, err := s.accountProbe.Probe(ctx, ChannelMonitorAccountProbeRequest{
+					Monitor:   m,
+					Model:     model,
+					Challenge: challenge,
+					Options:   opts,
+				})
+				if handled {
+					if err != nil {
+						r = &CheckResult{
+							Model:     model,
+							Status:    MonitorStatusError,
+							CheckedAt: time.Now(),
+							Message:   truncateMessage(sanitizeErrorMessage(err.Error())),
+						}
+					} else if run == nil || run.Aggregate == nil {
+						r = &CheckResult{
+							Model:     model,
+							Status:    MonitorStatusError,
+							CheckedAt: time.Now(),
+							Message:   "account probe returned no aggregate",
+						}
+					} else {
+						r = run.Aggregate
+						rows = run.Results
+					}
+				}
+			}
+			if r == nil {
+				r = runCheckForModelWithChallenge(ctx, m.Provider, m.Endpoint, m.APIKey, model, opts, challenge)
+			}
 			r.PingLatencyMs = pingMs
 			mu.Lock()
 			results[i] = r
+			accountRows[i] = rows
 			mu.Unlock()
 			return nil
 		})
 	}
 	_ = eg.Wait()
-	return results
+	flatRows := make([]*ChannelMonitorAccountProbeResult, 0)
+	for _, rows := range accountRows {
+		flatRows = append(flatRows, rows...)
+	}
+	return results, flatRows
 }
 
 // ---------- 调度器协作 ----------

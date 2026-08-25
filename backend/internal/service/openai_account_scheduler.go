@@ -564,6 +564,10 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		clearBinding()
 		return nil, false, nil
 	}
+	if shouldBypassChannelMonitorSticky(ctx, channelMonitorHealthMode(ctx, s.service.settingService), req.GroupID, account.ID, req.Platform, req.RequestedModel) {
+		clearBinding()
+		return nil, false, nil
+	}
 	escapeCfg := s.service.openAIStickyEscapeConfig()
 	if reason, errorRate, ttft, shouldEscape := s.shouldEscapeStickyAccount(accountID, escapeCfg); shouldEscape {
 		slog.Info("sticky_escape_triggered",
@@ -1037,6 +1041,7 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAIAccountLoadPlan(
 			}
 		}
 	}
+	s.applyChannelMonitorHealthToOpenAICandidates(ctx, req, candidates)
 	plan.candidates = candidates
 
 	plan.topK = s.service.openAIWSLBTopKForRequest(ctx)
@@ -1049,6 +1054,79 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAIAccountLoadPlan(
 
 	plan.selectionOrder = s.buildOpenAISelectionOrder(req, plan)
 	return plan
+}
+
+// applyChannelMonitorHealthToOpenAICandidates adds a bounded health influence
+// to the advanced OpenAI scheduler. The existing score remains authoritative
+// across priority tiers; health only nudges candidates that share the same
+// static Priority. Shadow mode performs the same snapshot lookups and emits
+// low-cardinality decision counters without changing candidate scores.
+func (s *defaultOpenAIAccountScheduler) applyChannelMonitorHealthToOpenAICandidates(
+	ctx context.Context,
+	req OpenAIAccountScheduleRequest,
+	candidates []openAIAccountCandidateScore,
+) {
+	if len(candidates) == 0 || s == nil || s.service == nil {
+		return
+	}
+	mode := channelMonitorHealthMode(ctx, s.service.settingService)
+	if mode == ChannelMonitorHealthGateOff || req.GroupID == nil {
+		return
+	}
+
+	tierMin := make(map[int]float64)
+	tierMax := make(map[int]float64)
+	for _, candidate := range candidates {
+		if candidate.account == nil {
+			continue
+		}
+		snapshot := channelMonitorHealthSnapshotForSelection(ctx, mode, req.GroupID, candidate.account.ID, req.Platform, req.RequestedModel)
+		rank := channelMonitorHealthRank(channelMonitorHealthStateForSelection(ctx, mode, req.GroupID, candidate.account.ID, req.Platform, req.RequestedModel))
+		if snapshot != nil && channelMonitorHealthHighConfidenceUnhealthy(snapshot) {
+			rank = -1
+		}
+		if mode == ChannelMonitorHealthGateEnabled {
+			monitorHealthStats.EnabledDecisions.Add(1)
+			if rank < 0 {
+				monitorHealthStats.UnhealthyFallback.Add(1)
+			}
+		}
+		if _, ok := tierMin[candidate.priority]; !ok || candidate.score < tierMin[candidate.priority] {
+			tierMin[candidate.priority] = candidate.score
+		}
+		if _, ok := tierMax[candidate.priority]; !ok || candidate.score > tierMax[candidate.priority] {
+			tierMax[candidate.priority] = candidate.score
+		}
+		if mode == ChannelMonitorHealthGateShadow {
+			monitorHealthStats.ShadowDecisions.Add(1)
+			if rank != channelMonitorHealthRank(ChannelMonitorHealthStateUnknown) {
+				monitorHealthStats.ShadowDifferent.Add(1)
+			}
+		}
+	}
+	if mode != ChannelMonitorHealthGateEnabled {
+		return
+	}
+
+	for i := range candidates {
+		candidate := &candidates[i]
+		if candidate.account == nil {
+			continue
+		}
+		tierRange := tierMax[candidate.priority] - tierMin[candidate.priority]
+		influence := tierRange * channelMonitorHealthOpenAIScoreInfluence
+		if influence < channelMonitorHealthOpenAIMinScoreInfluence {
+			influence = channelMonitorHealthOpenAIMinScoreInfluence
+		}
+		snapshot := channelMonitorHealthSnapshotForSelection(ctx, mode, req.GroupID, candidate.account.ID, req.Platform, req.RequestedModel)
+		rank := channelMonitorHealthRank(channelMonitorHealthStateForSelection(ctx, mode, req.GroupID, candidate.account.ID, req.Platform, req.RequestedModel))
+		if snapshot != nil && channelMonitorHealthHighConfidenceUnhealthy(snapshot) {
+			rank = -1
+		}
+		// Unknown is the neutral baseline. Healthy gets a bounded positive
+		// nudge; degraded/unhealthy receive progressively larger penalties.
+		candidate.score += float64(rank-2) / 3.0 * influence
+	}
 }
 
 func (s *defaultOpenAIAccountScheduler) buildOpenAISelectionOrder(

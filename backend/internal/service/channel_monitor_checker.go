@@ -57,13 +57,24 @@ type CheckOptions struct {
 //
 // opts 承载模板 / 监控快照带来的自定义配置。nil 等同于 "off + 无 extra headers"。
 func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model string, opts *CheckOptions) *CheckResult {
+	return runCheckForModelWithChallenge(ctx, provider, endpoint, apiKey, model, opts, generateChallenge())
+}
+
+// runCheckForModelWithChallenge keeps the original single-request checker
+// intact while allowing a local account-directed round to reuse the exact
+// challenge and status/threshold semantics for every account.
+func runCheckForModelWithChallenge(
+	ctx context.Context,
+	provider, endpoint, apiKey, model string,
+	opts *CheckOptions,
+	challenge monitorChallenge,
+) *CheckResult {
 	res := &CheckResult{
 		Model:     model,
 		Status:    MonitorStatusError,
 		CheckedAt: time.Now(),
 	}
 
-	challenge := generateChallenge()
 	mode := bodyOverrideMode(opts)
 
 	start := time.Now()
@@ -71,7 +82,19 @@ func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model str
 	latency := time.Since(start)
 	latencyMs := int(latency / time.Millisecond)
 	res.LatencyMs = &latencyMs
+	return classifyMonitorProviderResponse(res, respText, rawBody, statusCode, err, latency, challenge, mode)
+}
 
+func classifyMonitorProviderResponse(
+	res *CheckResult,
+	respText, rawBody string,
+	statusCode int,
+	err error,
+	latency time.Duration,
+	challenge monitorChallenge,
+	mode string,
+) *CheckResult {
+	latencyMs := int(latency / time.Millisecond)
 	if err != nil {
 		res.Status = MonitorStatusError
 		res.Message = truncateMessage(sanitizeErrorMessage(err.Error()))

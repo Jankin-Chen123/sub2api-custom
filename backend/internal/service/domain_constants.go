@@ -489,6 +489,11 @@ const (
 	// "v1" active probes, "v2" passive aggregation. Default "v1" (opt-in to v2).
 	SettingKeyChannelMonitorMode = "channel_monitor_mode"
 
+	// SettingKeyChannelMonitorHealthMode controls whether Phase-B account health
+	// snapshots affect real-user account selection. It is intentionally separate
+	// from the V1/V2 monitor implementation switch and defaults to off.
+	SettingKeyChannelMonitorHealthMode = "channel_monitor_health_mode"
+
 	// ChannelMonitorModeV1/V2 are the only accepted mode values.
 	ChannelMonitorModeV1 = "v1"
 	ChannelMonitorModeV2 = "v2"

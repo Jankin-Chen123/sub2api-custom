@@ -1180,6 +1180,14 @@ func (r *accountRepository) ListByGroup(ctx context.Context, groupID int64) ([]s
 	return accounts, nil
 }
 
+// ListAllByGroup is used by local channel-monitor coverage. Unlike the normal
+// scheduling list it includes disabled/error account rows so the monitor can
+// persist an explicit skipped result without ever routing ordinary traffic to
+// those accounts. Deleted rows remain excluded by queryAccountsByGroup.
+func (r *accountRepository) ListAllByGroup(ctx context.Context, groupID int64) ([]service.Account, error) {
+	return r.queryAccountsByGroup(ctx, groupID, accountGroupQueryOptions{})
+}
+
 func (r *accountRepository) ListActive(ctx context.Context) ([]service.Account, error) {
 	accounts, err := r.client.Account.Query().
 		Where(dbaccount.StatusEQ(service.StatusActive)).

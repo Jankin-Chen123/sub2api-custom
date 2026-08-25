@@ -1094,6 +1094,7 @@ var ProviderSet = wire.NewSet(
 	ProvidePaymentService,
 	ProvidePaymentOrderExpiryService,
 	ProvideBalanceNotifyService,
+	ProvideChannelMonitorAccountProbe,
 	ProvideChannelMonitorService,
 	ProvideChannelMonitorRunner,
 	NewChannelMonitorQuotaFetcher,
@@ -1145,10 +1146,30 @@ func ProvideChannelMonitorService(
 	repo ChannelMonitorRepository,
 	encryptor SecretEncryptor,
 	settingService *SettingService,
+	accountProbe ChannelMonitorAccountProbe,
 ) *ChannelMonitorService {
 	svc := NewChannelMonitorService(repo, encryptor)
 	svc.SetRuntimeReader(settingService)
+	svc.SetAccountProbe(accountProbe)
+	if accountResults, ok := repo.(ChannelMonitorAccountProbeResultRepository); ok {
+		svc.SetAccountProbeResultRepository(accountResults)
+	}
 	return svc
+}
+
+// ProvideChannelMonitorAccountProbe wires the local-only V1 account probe.
+// The endpoint/key/group checks in the implementation fail closed, so an
+// external endpoint or a key that cannot be hydrated locally falls back to
+// the original group-level checker.
+func ProvideChannelMonitorAccountProbe(
+	apiKeyRepo APIKeyRepository,
+	accountRepo AccountRepository,
+	settingRepo SettingRepository,
+	gateway *GatewayService,
+	openAIGateway *OpenAIGatewayService,
+	geminiGateway *GeminiMessagesCompatService,
+) ChannelMonitorAccountProbe {
+	return newChannelMonitorAccountProbe(apiKeyRepo, accountRepo, settingRepo, gateway, openAIGateway, geminiGateway)
 }
 
 // ProvideChannelMonitorRunner 创建并启动渠道监控调度器。

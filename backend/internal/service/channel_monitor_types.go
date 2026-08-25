@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -142,6 +143,70 @@ type CheckResult struct {
 	CheckedAt     time.Time
 	// Quota 配额模式附带快照（quota 模式唯一数据；quota_probe 挂在主模型行）。
 	Quota *domain.MonitorQuotaSnapshot
+}
+
+// ChannelMonitorAccountProbeResult is the per-account observation produced by
+// a local V1 probe. It is deliberately separate from CheckResult: the latter
+// remains the one aggregate history row written for each model and scheduler
+// cycle.
+type ChannelMonitorAccountProbeResult struct {
+	MonitorID       int64
+	GroupID         int64
+	AccountID       int64
+	Model           string
+	Provider        string
+	Status          string
+	LatencyMs       *int
+	Message         string
+	CheckedAt       time.Time
+	Skipped         bool
+	SkipReason      string
+	RoundDurationMs int
+}
+
+// ChannelMonitorAccountProbeRequest contains the already validated monitor
+// snapshot and one challenge shared by every account in the model round.
+// The challenge is kept internal to the service package and is never exposed
+// through an HTTP header, query parameter, or upstream request metadata.
+type ChannelMonitorAccountProbeRequest struct {
+	Monitor   *ChannelMonitor
+	GroupID   int64
+	Model     string
+	Challenge monitorChallenge
+	Options   *CheckOptions
+}
+
+// ChannelMonitorAccountProbeRun is returned by an injected account probe. A
+// false handled value means that the configured endpoint/key could not be
+// proven to belong to this instance; callers must use the original group-level
+// probe in that case.
+type ChannelMonitorAccountProbeRun struct {
+	Results   []*ChannelMonitorAccountProbeResult
+	Aggregate *CheckResult
+}
+
+// ChannelMonitorAccountProbe is the narrow seam between V1 orchestration and
+// account-directed forwarding. Keeping it injectable makes aggregation and
+// cancellation tests independent of real credentials and network services.
+type ChannelMonitorAccountProbe interface {
+	Probe(ctx context.Context, request ChannelMonitorAccountProbeRequest) (*ChannelMonitorAccountProbeRun, bool, error)
+}
+
+// ChannelMonitorAccountProbeResultRepository persists account observations
+// independently from channel_monitor_histories. It is intentionally optional
+// so existing repository test doubles and alternate deployments remain source
+// compatible while the production repository records the new rows.
+type ChannelMonitorAccountProbeResultRepository interface {
+	InsertAccountProbeResults(ctx context.Context, rows []*ChannelMonitorAccountProbeResult) error
+}
+
+// ChannelMonitorAccountHealthRepository is the optional Phase-B persistence
+// extension. Production repositories atomically persist the raw observations
+// and advance the latest snapshot; older/test repositories may implement only
+// ChannelMonitorAccountProbeResultRepository and continue to record rows.
+type ChannelMonitorAccountHealthRepository interface {
+	ApplyAccountProbeResults(ctx context.Context, rows []*ChannelMonitorAccountProbeResult) ([]*ChannelMonitorAccountHealthSnapshot, error)
+	ListAccountHealthSnapshots(ctx context.Context, groupID *int64, provider, model string, limit int) ([]*ChannelMonitorAccountHealthSnapshot, error)
 }
 
 // UserMonitorView 用户只读视图：监控概览（含主模型最近状态 + 7d 可用率 + 附加模型最近状态）。

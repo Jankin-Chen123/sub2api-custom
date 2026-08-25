@@ -281,6 +281,9 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
 // HandleUpstreamError 处理上游错误响应，标记账号状态
 // 返回是否应该停止该账号的调度
 func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, requestedModel ...string) (shouldDisable bool) {
+	if isChannelMonitorProbe(ctx) {
+		return false
+	}
 	ctx = withTempUnschedulableModel(ctx, requestedModel)
 	// Team 联动熔断必须先于池模式/自定义错误码/临时不可调度的各类早退；
 	// 同请求内与 fastpath 调用点的重复触发由方法内去重吸收。
@@ -893,6 +896,9 @@ func (s *RateLimitService) GeminiCooldown(ctx context.Context, account *Account)
 
 // handleAuthError 处理认证类错误(401/403)，停止账号调度
 func (s *RateLimitService) handleAuthError(ctx context.Context, account *Account, errorMsg string) {
+	if isChannelMonitorProbe(ctx) {
+		return
+	}
 	s.notifyAccountSchedulingBlocked(account, time.Time{}, "auth_error")
 	if err := s.accountRepo.SetError(ctx, account.ID, errorMsg); err != nil {
 		slog.Warn("account_set_error_failed", "account_id", account.ID, "error", err)
@@ -929,6 +935,9 @@ func buildForbiddenErrorMessage(prefix string, upstreamMsg string, responseBody 
 // Antigravity 平台区分 validation/violation/generic 三种类型，均 SetError 永久禁用；
 // 其他平台保持原有 SetError 行为。
 func (s *RateLimitService) handle403(ctx context.Context, account *Account, upstreamMsg string, responseBody []byte) (shouldDisable bool) {
+	if isChannelMonitorProbe(ctx) {
+		return false
+	}
 	if account.Platform == PlatformAntigravity {
 		return s.handleAntigravity403(ctx, account, upstreamMsg, responseBody)
 	}
@@ -1064,6 +1073,9 @@ func (s *RateLimitService) handleAntigravity403(ctx context.Context, account *Ac
 
 // handleCustomErrorCode 处理自定义错误码，停止账号调度
 func (s *RateLimitService) handleCustomErrorCode(ctx context.Context, account *Account, statusCode int, errorMsg string) {
+	if isChannelMonitorProbe(ctx) {
+		return
+	}
 	msg := "Custom error code " + strconv.Itoa(statusCode) + ": " + errorMsg
 	s.notifyAccountSchedulingBlocked(account, time.Time{}, "custom_error_code")
 	if err := s.accountRepo.SetError(ctx, account.ID, msg); err != nil {
@@ -1076,6 +1088,9 @@ func (s *RateLimitService) handleCustomErrorCode(ctx context.Context, account *A
 // handle429 处理429限流错误
 // 解析响应头获取重置时间，标记账号为限流状态
 func (s *RateLimitService) handle429(ctx context.Context, account *Account, headers http.Header, responseBody []byte) {
+	if isChannelMonitorProbe(ctx) {
+		return
+	}
 	// OpenAI OAuth stays on the same account for the gateway's bounded retry
 	// window. Persisting a rate-limit reset on the first 429 would make the next
 	// retry ineligible and silently turn same-account recovery into a switch.
@@ -1606,6 +1621,9 @@ func pickSooner(a, b *time.Time) *time.Time {
 }
 
 func (s *RateLimitService) persistOpenAICodexSnapshot(ctx context.Context, account *Account, headers http.Header) {
+	if isChannelMonitorProbe(ctx) {
+		return
+	}
 	if s == nil || s.accountRepo == nil || account == nil || headers == nil {
 		return
 	}
@@ -1781,6 +1799,9 @@ func (s *RateLimitService) handle529(ctx context.Context, account *Account) {
 
 // UpdateSessionWindow 从成功响应更新5h窗口状态
 func (s *RateLimitService) UpdateSessionWindow(ctx context.Context, account *Account, headers http.Header) {
+	if isChannelMonitorProbe(ctx) {
+		return
+	}
 	status := headers.Get("anthropic-ratelimit-unified-5h-status")
 	if status == "" {
 		return
@@ -2075,6 +2096,9 @@ func (s *RateLimitService) GetTempUnschedStatus(ctx context.Context, accountID i
 }
 
 func (s *RateLimitService) HandleTempUnschedulable(ctx context.Context, account *Account, statusCode int, responseBody []byte, requestedModel ...string) bool {
+	if isChannelMonitorProbe(ctx) {
+		return false
+	}
 	if account == nil {
 		return false
 	}
@@ -2089,6 +2113,9 @@ func (s *RateLimitService) HandleTempUnschedulable(ctx context.Context, account 
 }
 
 func (s *RateLimitService) HandleOpenAIImageRateLimit(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte) bool {
+	if isChannelMonitorProbe(ctx) {
+		return false
+	}
 	if s == nil || account == nil || s.accountRepo == nil {
 		return false
 	}
@@ -2207,6 +2234,9 @@ const tempUnschedMessageMaxBytes = 2048
 // cooldown expires, instead of re-selecting an account that can never serve
 // the model.
 func (s *RateLimitService) HandleUpstreamModelNotFound(ctx context.Context, account *Account, requestedModel string, statusCode int, responseBody []byte) bool {
+	if isChannelMonitorProbe(ctx) {
+		return false
+	}
 	if s == nil || account == nil || s.accountRepo == nil {
 		return false
 	}
@@ -2481,6 +2511,9 @@ func truncateTempUnschedMessage(body []byte, maxBytes int) string {
 // 根据系统设置决定是否标记账户为临时不可调度或错误状态
 // 返回是否应该停止该账号的调度
 func (s *RateLimitService) HandleStreamTimeout(ctx context.Context, account *Account, model string) bool {
+	if isChannelMonitorProbe(ctx) {
+		return false
+	}
 	if account == nil {
 		return false
 	}

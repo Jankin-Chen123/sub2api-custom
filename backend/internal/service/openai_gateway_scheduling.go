@@ -941,6 +941,10 @@ func (s *OpenAIGatewayService) tryStickySessionHit(ctx context.Context, groupID 
 	if !isOpenAICompatibleAccountEligibleForRequest(ctx, account, platform, requestedModel, false, requiredCapability) {
 		return nil
 	}
+	if shouldBypassChannelMonitorSticky(ctx, channelMonitorHealthMode(ctx, s.settingService), groupID, account.ID, platform, requestedModel) {
+		_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+		return nil
+	}
 	if !parentHealthyForShadow(account, s.parentAccountLookup(ctx)) {
 		_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 		return nil
@@ -1039,8 +1043,30 @@ func (s *OpenAIGatewayService) selectBestAccount(ctx context.Context, groupID *i
 		if rateCmp := rateOrder.compare(a, b); rateCmp != 0 {
 			return rateCmp < 0
 		}
-		return s.isBetterAccount(a, b)
+		return s.isBetterAccount(ctx, groupID, platform, requestedModel, a, b)
 	})
+	if channelMonitorHealthMode(ctx, s.settingService) == ChannelMonitorHealthGateEnabled {
+		// Keep the legacy hard ordering boundaries (static Priority, compact tier,
+		// and a known upstream-rate tier). Health only weights candidates that
+		// would otherwise be equivalent, so it cannot become a new priority.
+		anchor := eligible[0]
+		pool := make([]*Account, 0, len(eligible))
+		for _, account := range eligible {
+			if account.Priority != anchor.Priority {
+				continue
+			}
+			if requireCompact && compactTiers[account.ID] != compactTiers[anchor.ID] {
+				continue
+			}
+			if rateOrder.compare(account, anchor) != 0 {
+				continue
+			}
+			pool = append(pool, account)
+		}
+		if selected := channelMonitorHealthWeightedAccount(ctx, ChannelMonitorHealthGateEnabled, groupID, pool, platform, requestedModel, false); selected != nil {
+			return selected, compactBlocked, filterStats
+		}
+	}
 	return eligible[0], compactBlocked, filterStats
 }
 
@@ -1049,7 +1075,7 @@ func (s *OpenAIGatewayService) selectBestAccount(ctx context.Context, groupID *i
 //
 // isBetterAccount checks if candidate is better than current.
 // Rules: higher priority (lower value) wins; same priority: never used > least recently used.
-func (s *OpenAIGatewayService) isBetterAccount(candidate, current *Account) bool {
+func (s *OpenAIGatewayService) isBetterAccount(ctx context.Context, groupID *int64, platform, requestedModel string, candidate, current *Account) bool {
 	// 优先级更高（数值更小）
 	// Higher priority (lower value)
 	if candidate.Priority < current.Priority {
@@ -1058,7 +1084,6 @@ func (s *OpenAIGatewayService) isBetterAccount(candidate, current *Account) bool
 	if candidate.Priority > current.Priority {
 		return false
 	}
-
 	// 同优先级，比较最后使用时间
 	// Same priority, compare last used time
 	switch {
@@ -1175,7 +1200,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				if clearSticky {
 					_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 				}
-				if !clearSticky && isOpenAICompatibleAccountEligibleForRequest(ctx, account, platform, requestedModel, false, requiredCapability) {
+				if !clearSticky && !shouldBypassChannelMonitorSticky(ctx, channelMonitorHealthMode(ctx, s.settingService), groupID, account.ID, platform, requestedModel) && isOpenAICompatibleAccountEligibleForRequest(ctx, account, platform, requestedModel, false, requiredCapability) {
 					account = s.recheckSelectedOpenAIAccountFromDB(ctx, account, groupID, platform, requestedModel, requireCompact, requiredCapability)
 					if account == nil {
 						_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
@@ -1298,6 +1323,13 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 			return nil, false, nil
 		}
 
+		healthMode := channelMonitorHealthMode(ctx, s.settingService)
+		if healthMode == ChannelMonitorHealthGateEnabled {
+			// Preserve the scheduler's static-priority boundary before applying
+			// the bounded health/load draw.
+			available = filterByMinPriority(available)
+			available = filterByChannelMonitorHealthLoad(healthMode, available)
+		}
 		sort.SliceStable(available, func(i, j int) bool {
 			a, b := available[i], available[j]
 			if a.account.Priority != b.account.Priority {
@@ -1325,14 +1357,29 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 		}
 
 		selectionOrder := make([]accountWithLoad, 0, len(available))
+		appendWeightedRateGroups := func(out []accountWithLoad, items []accountWithLoad) []accountWithLoad {
+			if healthMode != ChannelMonitorHealthGateEnabled {
+				return append(out, items...)
+			}
+			for start := 0; start < len(items); {
+				end := start + 1
+				for end < len(items) && items[end].account.Priority == items[start].account.Priority && rateOrder.compare(items[start].account, items[end].account) == 0 {
+					end++
+				}
+				out = append(out, channelMonitorHealthWeightedLoadOrder(ctx, healthMode, groupID, items[start:end], platform, requestedModel, false)...)
+				start = end
+			}
+			return out
+		}
 		if requireCompact {
 			appendTier := func(out []accountWithLoad, tier int) []accountWithLoad {
+				tierCandidates := make([]accountWithLoad, 0, len(available))
 				for _, item := range available {
 					if openAICompactSupportTier(item.account) == tier {
-						out = append(out, item)
+						tierCandidates = append(tierCandidates, item)
 					}
 				}
-				return out
+				return appendWeightedRateGroups(out, tierCandidates)
 			}
 			selectionOrder = appendTier(selectionOrder, 2)
 			selectionOrder = appendTier(selectionOrder, 1)
@@ -1340,7 +1387,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 			// 已升级为 1/2（探测刚跑完，cache 尚未刷新），仍可正常命中。
 			selectionOrder = appendTier(selectionOrder, 0)
 		} else {
-			selectionOrder = append(selectionOrder, available...)
+			selectionOrder = appendWeightedRateGroups(selectionOrder, available)
 		}
 
 		for _, item := range selectionOrder {

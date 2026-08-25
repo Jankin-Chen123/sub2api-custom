@@ -445,26 +445,33 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 
 			if len(routingAvailable) > 0 {
 				// 排序：优先级 > 负载率 > 最后使用时间
-				sort.SliceStable(routingAvailable, func(i, j int) bool {
-					a, b := routingAvailable[i], routingAvailable[j]
-					if a.account.Priority != b.account.Priority {
-						return a.account.Priority < b.account.Priority
-					}
-					if a.loadInfo.LoadRate != b.loadInfo.LoadRate {
-						return a.loadInfo.LoadRate < b.loadInfo.LoadRate
-					}
-					switch {
-					case a.account.LastUsedAt == nil && b.account.LastUsedAt != nil:
-						return true
-					case a.account.LastUsedAt != nil && b.account.LastUsedAt == nil:
-						return false
-					case a.account.LastUsedAt == nil && b.account.LastUsedAt == nil:
-						return false
-					default:
-						return a.account.LastUsedAt.Before(*b.account.LastUsedAt)
-					}
-				})
-				shuffleWithinSortGroups(routingAvailable)
+				healthMode := channelMonitorHealthMode(ctx, s.settingService)
+				if healthMode == ChannelMonitorHealthGateEnabled {
+					routingAvailable = filterByMinPriority(routingAvailable)
+					routingAvailable = filterByChannelMonitorHealthLoad(healthMode, routingAvailable)
+					routingAvailable = channelMonitorHealthWeightedLoadOrder(ctx, healthMode, groupID, routingAvailable, platform, requestedModel, preferOAuth)
+				} else {
+					sort.SliceStable(routingAvailable, func(i, j int) bool {
+						a, b := routingAvailable[i], routingAvailable[j]
+						if a.account.Priority != b.account.Priority {
+							return a.account.Priority < b.account.Priority
+						}
+						if a.loadInfo.LoadRate != b.loadInfo.LoadRate {
+							return a.loadInfo.LoadRate < b.loadInfo.LoadRate
+						}
+						switch {
+						case a.account.LastUsedAt == nil && b.account.LastUsedAt != nil:
+							return true
+						case a.account.LastUsedAt != nil && b.account.LastUsedAt == nil:
+							return false
+						case a.account.LastUsedAt == nil && b.account.LastUsedAt == nil:
+							return false
+						default:
+							return a.account.LastUsedAt.Before(*b.account.LastUsedAt)
+						}
+					})
+					shuffleWithinSortGroups(routingAvailable)
+				}
 
 				// 4. 尝试获取槽位
 				for _, item := range routingAvailable {
@@ -551,7 +558,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 					"rpm_ok", rpmOK,
 				)
 
-				if !clearSticky && platformOK && profitOK && modelSupported && modelSchedulable && quotaOK && windowCostOK && rpmOK && schedulable {
+				if !clearSticky && !shouldBypassChannelMonitorSticky(ctx, channelMonitorHealthMode(ctx, s.settingService), groupID, account.ID, platform, requestedModel) && platformOK && profitOK && modelSupported && modelSchedulable && quotaOK && windowCostOK && rpmOK && schedulable {
 					result, err := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 					if err == nil && result.Acquired {
 						// 会话数量限制检查
@@ -708,7 +715,8 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 		}
 
-		// 分层过滤选择：优先级 →（可选）最早重置 → 负载率 → LRU
+		healthMode := channelMonitorHealthMode(ctx, s.settingService)
+		// 分层过滤选择：优先级 →（可选）最早重置 → 负载率 → LRU/health weighted draw
 		for len(available) > 0 {
 			// 1. 取优先级最小的集合
 			candidates := filterByMinPriority(available)
@@ -716,10 +724,19 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			if cfg.PreferSoonestReset {
 				candidates = filterBySoonestReset(candidates)
 			}
-			// 3. 取负载率最低的集合
-			candidates = filterByMinLoadRate(candidates)
-			// 4. LRU 选择最久未用的账号
-			selected := selectByLRU(candidates, preferOAuth)
+			// 3. 取健康修正后的最低负载集合；off/shadow 保留旧集合。
+			candidates = filterByChannelMonitorHealthLoad(healthMode, candidates)
+			// 4. off/shadow retain the legacy LRU draw; enabled uses a bounded
+			// health/load/LRU weighted draw within the same static priority.
+			var selected *accountWithLoad
+			if healthMode == ChannelMonitorHealthGateEnabled {
+				ordered := channelMonitorHealthWeightedLoadOrder(ctx, healthMode, groupID, candidates, platform, requestedModel, preferOAuth)
+				if len(ordered) > 0 {
+					selected = &ordered[0]
+				}
+			} else {
+				selected = selectByLRU(candidates, preferOAuth)
+			}
 			if selected == nil {
 				break
 			}
@@ -750,7 +767,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	}
 
 	// ============ Layer 3: 兜底排队 ============
-	s.sortCandidatesForFallback(candidates, preferOAuth, cfg.FallbackSelectionMode)
+	s.sortCandidatesForFallback(ctx, groupID, platform, requestedModel, candidates, preferOAuth, cfg.FallbackSelectionMode)
 	for _, acc := range candidates {
 		// 会话数量限制检查（等待计划也需要占用会话配额）
 		if !s.checkAndRegisterSession(ctx, acc, sessionHash) {
@@ -1764,7 +1781,13 @@ func sameLastUsedAt(a, b *time.Time) bool {
 
 // sortCandidatesForFallback 根据配置选择排序策略
 // mode: "last_used"(按最后使用时间) 或 "random"(随机)
-func (s *GatewayService) sortCandidatesForFallback(accounts []*Account, preferOAuth bool, mode string) {
+func (s *GatewayService) sortCandidatesForFallback(ctx context.Context, groupID *int64, platform, requestedModel string, accounts []*Account, preferOAuth bool, mode string) {
+	healthMode := channelMonitorHealthMode(ctx, s.settingService)
+	if healthMode == ChannelMonitorHealthGateEnabled {
+		ordered := channelMonitorHealthWeightedAccountOrder(ctx, healthMode, groupID, accounts, platform, requestedModel, preferOAuth)
+		copy(accounts, ordered)
+		return
+	}
 	if mode == "random" {
 		// 先按优先级排序，然后在同优先级内随机打乱
 		sortAccountsByPriorityOnly(accounts, preferOAuth)
@@ -1846,7 +1869,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
-						if !clearSticky && s.isGatewayAccountProfitEligible(ctx, account) && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+						if !clearSticky && !shouldBypassChannelMonitorSticky(ctx, channelMonitorHealthMode(ctx, s.settingService), groupID, account.ID, platform, requestedModel) && s.isGatewayAccountProfitEligible(ctx, account) && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 							if s.debugModelRoutingEnabled() {
 								logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
 							}
@@ -1880,7 +1903,9 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			}
 		}
 
+		healthMode := channelMonitorHealthMode(ctx, s.settingService)
 		var selected *Account
+		var healthEligible []*Account
 		for i := range accounts {
 			acc := &accounts[i]
 			if _, ok := routingSet[acc.ID]; !ok {
@@ -1899,8 +1924,10 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			}
 			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
 			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-				_ = s.accountRepo.SetError(ctx, acc.ID,
-					fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
+				if !isChannelMonitorProbe(ctx) {
+					_ = s.accountRepo.SetError(ctx, acc.ID,
+						fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
+				}
 				continue
 			}
 			if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
@@ -1917,6 +1944,9 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			}
 			if !s.isAccountSchedulableForRPM(ctx, acc, false) {
 				continue
+			}
+			if healthMode == ChannelMonitorHealthGateEnabled {
+				healthEligible = append(healthEligible, acc)
 			}
 			if selected == nil {
 				selected = acc
@@ -1940,6 +1970,9 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 					}
 				}
 			}
+		}
+		if healthMode == ChannelMonitorHealthGateEnabled {
+			selected = channelMonitorHealthWeightedAccount(ctx, healthMode, groupID, healthEligible, platform, requestedModel, preferOAuth)
 		}
 
 		if selected != nil {
@@ -1968,7 +2001,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
-					if !clearSticky && s.isGatewayAccountProfitEligible(ctx, account) && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
+					if !clearSticky && !shouldBypassChannelMonitorSticky(ctx, channelMonitorHealthMode(ctx, s.settingService), groupID, account.ID, platform, requestedModel) && s.isGatewayAccountProfitEligible(ctx, account) && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
 						return account, nil
 					}
 				}
@@ -1997,7 +2030,9 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	// needsUpstreamCheck 仅在主选择循环中使用；粘性会话命中时跳过此检查，
 	// 因为粘性会话优先保持连接一致性，且 upstream 计费基准极少使用。
 	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
+	healthMode := channelMonitorHealthMode(ctx, s.settingService)
 	var selected *Account
+	var healthEligible []*Account
 	for i := range accounts {
 		acc := &accounts[i]
 		if _, excluded := excludedIDs[acc.ID]; excluded {
@@ -2013,8 +2048,10 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		}
 		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
 		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-			_ = s.accountRepo.SetError(ctx, acc.ID,
-				fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
+			if !isChannelMonitorProbe(ctx) {
+				_ = s.accountRepo.SetError(ctx, acc.ID,
+					fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
+			}
 			continue
 		}
 		if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
@@ -2034,6 +2071,9 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		}
 		if !s.isAccountSchedulableForRPM(ctx, acc, false) {
 			continue
+		}
+		if healthMode == ChannelMonitorHealthGateEnabled {
+			healthEligible = append(healthEligible, acc)
 		}
 		if selected == nil {
 			selected = acc
@@ -2057,6 +2097,9 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 				}
 			}
 		}
+	}
+	if healthMode == ChannelMonitorHealthGateEnabled {
+		selected = channelMonitorHealthWeightedAccount(ctx, healthMode, groupID, healthEligible, platform, requestedModel, preferOAuth)
 	}
 
 	if selected == nil {
@@ -2110,7 +2153,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
-						if !clearSticky && s.isGatewayAccountProfitEligible(ctx, account) && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
+						if !clearSticky && !shouldBypassChannelMonitorSticky(ctx, channelMonitorHealthMode(ctx, s.settingService), groupID, account.ID, nativePlatform, requestedModel) && s.isGatewayAccountProfitEligible(ctx, account) && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
 							if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
 								if s.debugModelRoutingEnabled() {
 									logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy mixed routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
@@ -2142,7 +2185,9 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			}
 		}
 
+		healthMode := channelMonitorHealthMode(ctx, s.settingService)
 		var selected *Account
+		var healthEligible []*Account
 		for i := range accounts {
 			acc := &accounts[i]
 			if _, ok := routingSet[acc.ID]; !ok {
@@ -2161,8 +2206,10 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			}
 			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
 			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-				_ = s.accountRepo.SetError(ctx, acc.ID,
-					fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
+				if !isChannelMonitorProbe(ctx) {
+					_ = s.accountRepo.SetError(ctx, acc.ID,
+						fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
+				}
 				continue
 			}
 			// 过滤：原生平台直接通过，antigravity 需要启用混合调度
@@ -2183,6 +2230,9 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			}
 			if !s.isAccountSchedulableForRPM(ctx, acc, false) {
 				continue
+			}
+			if healthMode == ChannelMonitorHealthGateEnabled {
+				healthEligible = append(healthEligible, acc)
 			}
 			if selected == nil {
 				selected = acc
@@ -2206,6 +2256,9 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 					}
 				}
 			}
+		}
+		if healthMode == ChannelMonitorHealthGateEnabled {
+			selected = channelMonitorHealthWeightedAccount(ctx, healthMode, groupID, healthEligible, nativePlatform, requestedModel, preferOAuth)
 		}
 
 		if selected != nil {
@@ -2234,7 +2287,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
-					if !clearSticky && s.isGatewayAccountProfitEligible(ctx, account) && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+					if !clearSticky && !shouldBypassChannelMonitorSticky(ctx, channelMonitorHealthMode(ctx, s.settingService), groupID, account.ID, nativePlatform, requestedModel) && s.isGatewayAccountProfitEligible(ctx, account) && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 						if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
 							return account, nil
 						}
@@ -2260,7 +2313,9 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 	// 3. 按优先级+最久未用选择（考虑模型支持和混合调度）
 	// needsUpstreamCheck 仅在主选择循环中使用；粘性会话命中时跳过此检查。
 	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
+	healthMode := channelMonitorHealthMode(ctx, s.settingService)
 	var selected *Account
+	var healthEligible []*Account
 	for i := range accounts {
 		acc := &accounts[i]
 		if _, excluded := excludedIDs[acc.ID]; excluded {
@@ -2276,8 +2331,10 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		}
 		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
 		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-			_ = s.accountRepo.SetError(ctx, acc.ID,
-				fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
+			if !isChannelMonitorProbe(ctx) {
+				_ = s.accountRepo.SetError(ctx, acc.ID,
+					fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
+			}
 			continue
 		}
 		// 过滤：原生平台直接通过，antigravity 需要启用混合调度
@@ -2302,6 +2359,9 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		if !s.isAccountSchedulableForRPM(ctx, acc, false) {
 			continue
 		}
+		if healthMode == ChannelMonitorHealthGateEnabled {
+			healthEligible = append(healthEligible, acc)
+		}
 		if selected == nil {
 			selected = acc
 			continue
@@ -2324,6 +2384,9 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 				}
 			}
 		}
+	}
+	if healthMode == ChannelMonitorHealthGateEnabled {
+		selected = channelMonitorHealthWeightedAccount(ctx, healthMode, groupID, healthEligible, nativePlatform, requestedModel, preferOAuth)
 	}
 
 	if selected == nil {

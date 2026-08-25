@@ -1560,6 +1560,9 @@ func applyGrokCLIHeaders(headers http.Header) {
 }
 
 func (s *OpenAIGatewayService) updateGrokUsageSnapshot(ctx context.Context, account *Account, snapshot *xai.QuotaSnapshot) {
+	if isChannelMonitorProbe(ctx) {
+		return
+	}
 	s.updateGrokUsageSnapshotWithRateLimit(ctx, account, snapshot, true)
 }
 
@@ -1619,6 +1622,9 @@ func (s *OpenAIGatewayService) updateGrokUsageSnapshotWithRateLimit(ctx context.
 }
 
 func (s *OpenAIGatewayService) updateGrokUsageFromResponse(ctx context.Context, account *Account, headers http.Header, statusCode int) {
+	if isChannelMonitorProbe(ctx) {
+		return
+	}
 	snapshot := parseGrokQuotaSnapshot(headers, statusCode, time.Now())
 	if snapshot != nil {
 		stampGrokQuotaSnapshotForPlan(account, snapshot, grokRequestedModelFromCtx(ctx))
@@ -1794,6 +1800,9 @@ func clearGrokRateLimitAfterRecovery(ctx context.Context, repo AccountRepository
 }
 
 func persistGrokRateLimit(ctx context.Context, repo AccountRepository, account *Account, resetAt time.Time) {
+	if isChannelMonitorProbe(ctx) {
+		return
+	}
 	if repo == nil || account == nil || account.ID <= 0 {
 		return
 	}
@@ -1812,6 +1821,9 @@ func persistGrokRateLimit(ctx context.Context, repo AccountRepository, account *
 }
 
 func (s *OpenAIGatewayService) rateLimitGrok(ctx context.Context, account *Account, resetAt time.Time) {
+	if isChannelMonitorProbe(ctx) {
+		return
+	}
 	if s == nil || account == nil {
 		return
 	}
@@ -2045,6 +2057,9 @@ func isGrokSpendingLimitError(responseBody []byte) bool {
 }
 
 func (s *OpenAIGatewayService) tempUnscheduleGrok(ctx context.Context, account *Account, cooldown time.Duration, reason string) {
+	if isChannelMonitorProbe(ctx) {
+		return
+	}
 	if s == nil || account == nil {
 		return
 	}
