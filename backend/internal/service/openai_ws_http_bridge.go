@@ -349,6 +349,15 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 			LoweredTools:  loweredTools,
 		})
 	}
+	if account.Platform != PlatformGrok && isOpenAIResponsesLiteWebSocketPayload(payload) {
+		liteBody, liteChanged, liteErr := normalizeOpenAIResponsesLitePayloadForAccount(body, account)
+		if liteErr != nil {
+			return nil, fmt.Errorf("normalize responses Lite payload: %w", liteErr)
+		}
+		if liteChanged {
+			body = liteBody
+		}
+	}
 
 	buildUpstreamRequest := func(requestBody []byte) (*http.Request, error) {
 		upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
@@ -366,7 +375,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 		if account.Platform != PlatformGrok &&
 			!isOpenAIFullResponsesForcedForRequest(c) &&
 			isOpenAIResponsesLiteWebSocketPayload(payload) &&
-			openAIResponsesLiteFullProtocolReason(payload) == "" {
+			openAIResponsesLiteFullProtocolReason(body) == "" {
 			upstreamReq.Header.Set(responsesLiteHeader, "true")
 		}
 		return upstreamReq, nil

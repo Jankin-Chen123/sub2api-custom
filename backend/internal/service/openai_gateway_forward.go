@@ -79,16 +79,19 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	liteFullProtocolReason := openAIResponsesLiteFullProtocolReason(body)
 	responsesLiteRequested := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) &&
 		!isOpenAIFullResponsesForcedForRequest(c)
-	// A namespace request can be represented by Lite after moving the
-	// namespace declaration into input.additional_tools and forcing
-	// parallel_tool_calls=false. Plain parallel tool calls, however, must stay
-	// on the full Responses protocol so their client-visible semantics are not
-	// silently weakened.
-	responsesLiteEnabled := responsesLiteRequested &&
-		(liteFullProtocolReason == "" ||
-			(liteFullProtocolReason == "parallel_tool_calls" && openAIResponsesLiteHasNamespaceTool(body)))
-	if account.IsOpenAIOAuthLike() && responsesLiteEnabled {
-		liteBody, changed, liteErr := normalizeOpenAIResponsesLiteToolsPayload(body)
+	// OAuth/Codex keeps the public Responses capabilities intact: unsupported
+	// capabilities use full Responses, while a namespace payload can still be
+	// represented by Lite after normalization. API-key accounts use the official
+	// Lite transport normalizer, which pins parallel tool calls to false.
+	responsesLiteEnabled := responsesLiteRequested
+	if account.IsOpenAIOAuthLike() {
+		responsesLiteEnabled = responsesLiteRequested &&
+			(liteFullProtocolReason == "" ||
+				(liteFullProtocolReason == "parallel_tool_calls" && openAIResponsesLiteHasNamespaceTool(body)))
+	}
+	responsesLite := account.IsOpenAI() && responsesLiteEnabled
+	if responsesLite {
+		liteBody, changed, liteErr := normalizeOpenAIResponsesLitePayloadForAccount(body, account)
 		if liteErr != nil {
 			param := "tools"
 			var validationErr *openAIResponsesLiteValidationError
@@ -165,7 +168,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, reqModel)
 	}
 	if account.IsOpenAIApiKey() {
-		if normalized, changed, normalizeErr := normalizeOpenAIParallelToolCallsWithoutTools(body); normalizeErr != nil {
+		if normalized, changed, normalizeErr := normalizeOpenAIParallelToolCallsWithoutTools(body, responsesLite); normalizeErr != nil {
 			return nil, normalizeErr
 		} else if changed {
 			body = normalized
