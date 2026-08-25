@@ -337,7 +337,11 @@ func channelMonitorHealthMode(ctx context.Context, settings *SettingService) Cha
 		return ChannelMonitorHealthGateOff
 	}
 	entryValue, _ := channelMonitorHealthModeCache.LoadOrStore(settings, &channelMonitorHealthModeCacheEntry{})
-	entry := entryValue.(*channelMonitorHealthModeCacheEntry)
+	entry, ok := entryValue.(*channelMonitorHealthModeCacheEntry)
+	if !ok || entry == nil {
+		entry = &channelMonitorHealthModeCacheEntry{}
+		channelMonitorHealthModeCache.Store(settings, entry)
+	}
 	now := time.Now()
 	entry.mu.Lock()
 	defer entry.mu.Unlock()

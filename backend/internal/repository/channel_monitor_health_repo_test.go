@@ -13,7 +13,7 @@ import (
 func TestChannelMonitorRepositoryApplyAccountProbeResultsAdvancesSnapshot(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	t.Cleanup(func() { _ = db.Close() })
 
 	checkedAt := time.Now().UTC().Truncate(time.Millisecond)
 	row := &service.ChannelMonitorAccountProbeResult{
@@ -52,7 +52,7 @@ func TestChannelMonitorRepositoryApplyAccountProbeResultsAdvancesSnapshot(t *tes
 func TestChannelMonitorRepositoryListAccountHealthSnapshots(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	t.Cleanup(func() { _ = db.Close() })
 
 	checkedAt := time.Now().UTC()
 	mock.ExpectQuery("SELECT group_id, account_id, provider, model, score, health_state").

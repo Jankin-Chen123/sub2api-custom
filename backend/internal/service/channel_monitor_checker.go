@@ -52,14 +52,6 @@ type CheckOptions struct {
 	BodyOverride map[string]any
 }
 
-// runCheckForModel 对单个 (provider, model) 做一次完整检测。
-// 不返回 error：所有失败都包装进 CheckResult.Status=error/failed。
-//
-// opts 承载模板 / 监控快照带来的自定义配置。nil 等同于 "off + 无 extra headers"。
-func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model string, opts *CheckOptions) *CheckResult {
-	return runCheckForModelWithChallenge(ctx, provider, endpoint, apiKey, model, opts, generateChallenge())
-}
-
 // runCheckForModelWithChallenge keeps the original single-request checker
 // intact while allowing a local account-directed round to reuse the exact
 // challenge and status/threshold semantics for every account.

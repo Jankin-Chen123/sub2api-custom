@@ -14,6 +14,12 @@ import (
 	"time"
 )
 
+// runCheckForModel keeps the original single-request helper available to this
+// unit-only checker suite without leaving a production-only unused wrapper.
+func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model string, opts *CheckOptions) *CheckResult {
+	return runCheckForModelWithChallenge(ctx, provider, endpoint, apiKey, model, opts, generateChallenge())
+}
+
 // swapMonitorHTTPClient 临时替换 monitorHTTPClient 为不带 SSRF 校验的普通 client，
 // 让 httptest (127.0.0.1) 能连通。测试结束后恢复。
 func swapMonitorHTTPClient(t *testing.T) {

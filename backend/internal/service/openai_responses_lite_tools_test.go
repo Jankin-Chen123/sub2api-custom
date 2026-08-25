@@ -573,11 +573,12 @@ func TestOpenAIGatewayServiceForward_PinsParallelToolCallsForToollessResponsesLi
 		{name: "apikey", accountType: AccountTypeAPIKey, credentials: map[string]any{"api_key": "sk-test"}},
 	}
 	parallelCases := []struct {
-		name  string
-		field string
+		name           string
+		field          string
+		needsFullOAuth bool
 	}{
 		{name: "字段缺失"},
-		{name: "值为 true", field: `,"parallel_tool_calls":true`},
+		{name: "值为 true", field: `,"parallel_tool_calls":true`, needsFullOAuth: true},
 		{name: "值为 false", field: `,"parallel_tool_calls":false`},
 	}
 
@@ -620,8 +621,13 @@ func TestOpenAIGatewayServiceForward_PinsParallelToolCallsForToollessResponsesLi
 
 					require.NoError(t, err)
 					require.NotNil(t, result)
-					require.Equal(t, "true", upstream.lastReq.Header.Get(responsesLiteHeader))
-					require.Equal(t, gjson.False, gjson.GetBytes(upstream.lastBody, "parallel_tool_calls").Type, string(upstream.lastBody))
+					if accountCase.accountType == AccountTypeOAuth && parallelCase.needsFullOAuth {
+						require.Empty(t, upstream.lastReq.Header.Get(responsesLiteHeader))
+						require.True(t, gjson.GetBytes(upstream.lastBody, "parallel_tool_calls").Bool(), string(upstream.lastBody))
+					} else {
+						require.Equal(t, "true", upstream.lastReq.Header.Get(responsesLiteHeader))
+						require.Equal(t, gjson.False, gjson.GetBytes(upstream.lastBody, "parallel_tool_calls").Type, string(upstream.lastBody))
+					}
 				})
 			}
 		}
