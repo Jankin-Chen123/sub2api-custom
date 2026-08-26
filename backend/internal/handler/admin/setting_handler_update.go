@@ -345,6 +345,7 @@ type UpdateSettingsRequest struct {
 	// Channel Monitor feature switch
 	ChannelMonitorEnabled                *bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorMode                   *string `json:"channel_monitor_mode"`
+	ChannelMonitorHealthMode             *string `json:"channel_monitor_health_mode"`
 	ChannelMonitorDefaultIntervalSeconds *int    `json:"channel_monitor_default_interval_seconds"`
 	ChannelMonitorHideThroughput         *bool   `json:"channel_monitor_hide_throughput"`
 	ChannelMonitorShowQuota              *bool   `json:"channel_monitor_show_quota"`
@@ -1935,6 +1936,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.ChannelMonitorMode
 		}(),
+		ChannelMonitorHealthMode: func() string {
+			if req.ChannelMonitorHealthMode != nil {
+				return *req.ChannelMonitorHealthMode
+			}
+			return previousSettings.ChannelMonitorHealthMode
+		}(),
 		ChannelMonitorDefaultIntervalSeconds: func() int {
 			if req.ChannelMonitorDefaultIntervalSeconds != nil {
 				return *req.ChannelMonitorDefaultIntervalSeconds
@@ -2425,6 +2432,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 
 		ChannelMonitorEnabled:                updatedSettings.ChannelMonitorEnabled,
 		ChannelMonitorMode:                   updatedSettings.ChannelMonitorMode,
+		ChannelMonitorHealthMode:             updatedSettings.ChannelMonitorHealthMode,
 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
 		ChannelMonitorHideThroughput:         updatedSettings.ChannelMonitorHideThroughput,
 		ChannelMonitorShowQuota:              updatedSettings.ChannelMonitorShowQuota,

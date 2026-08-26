@@ -463,6 +463,10 @@ const baseSettingsResponse = {
   min_claude_code_version: "",
   max_claude_code_version: "",
   allow_ungrouped_key_scheduling: false,
+  channel_monitor_enabled: true,
+  channel_monitor_mode: "v1" as const,
+  channel_monitor_health_mode: "shadow" as const,
+  channel_monitor_default_interval_seconds: 60,
   enable_fingerprint_unification: true,
   enable_metadata_passthrough: false,
   enable_cch_signing: false,
@@ -607,6 +611,16 @@ async function openUsersTab(wrapper: ReturnType<typeof mountView>) {
   await flushPromises();
 }
 
+async function openFeaturesTab(wrapper: ReturnType<typeof mountView>) {
+  const featuresTabButton = wrapper
+    .findAll("button")
+    .find((node) => node.text().includes("admin.settings.tabs.features"));
+
+  expect(featuresTabButton).toBeDefined();
+  await featuresTabButton?.trigger("click");
+  await flushPromises();
+}
+
 async function openImageGenerationTab(wrapper: ReturnType<typeof mountView>) {
   const tabButton = wrapper
     .findAll("button")
@@ -724,6 +738,31 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({ compact_home_enabled: true }),
+    );
+  });
+
+  it("loads and saves the channel monitor health routing mode", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    const shadow = wrapper.get('[data-testid="channel-monitor-health-mode-shadow"]');
+    expect(shadow.attributes("aria-pressed")).toBe("true");
+
+    await wrapper
+      .get('[data-testid="channel-monitor-health-mode-enabled"]')
+      .trigger("click");
+    expect(
+      wrapper.find('[data-testid="channel-monitor-health-enabled-warning"]').exists(),
+    ).toBe(true);
+
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel_monitor_health_mode: "enabled",
+      }),
     );
   });
 

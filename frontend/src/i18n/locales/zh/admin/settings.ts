@@ -60,6 +60,27 @@ export default {
           modeV1: 'V1 主动探测',
           modeV2Hint: '需主动选择：基于真实网关流量聚合健康指标，不向上游发送探活请求；启用期间 V1 探测停止。',
           modeV1Hint: '默认模式：按配置的渠道监控项定时发起上游健康检查（产生探测流量）。',
+          healthMode: '探测健康结果参与账号调度',
+          healthModeHint: '控制逐账号主动探测生成的健康评分是否影响真实用户的账号选择；不会修改账号的人工优先级。',
+          healthModeOptions: {
+            off: {
+              label: '关闭',
+              shortHint: '不读取健康评分',
+              description: '主动探测和健康快照仍会正常记录，但真实用户选号完全沿用原有调度逻辑。',
+            },
+            shadow: {
+              label: '影子观察',
+              shortHint: '记录但不改变选号',
+              description: '计算健康调度决策并记录统计数据，但不改变真实用户实际选中的账号，适合上线前观察。',
+            },
+            enabled: {
+              label: '正式生效',
+              shortHint: '健康账号获得更高概率',
+              description: '在相同人工优先级内，以有界权重提高健康账号的选中概率；未知账号仍保留探索机会，不会跨越人工优先级。',
+            },
+          },
+          healthModeEnabledWarning: '正式生效会影响真实用户流量。建议先在“影子观察”模式运行并确认探测结果稳定后再开启；保存后约数秒内生效。',
+          healthModeV2Warning: 'V2 被动监控不会刷新逐账号主动探测健康快照；快照过期后会按“未知”中性处理。若要持续使用健康调度，请切换到 V1 主动探测。',
           defaultInterval: '默认检测间隔（秒）',
           defaultIntervalHint: '仅 V1 模式使用：新建渠道监控时表单的默认值，可被单个渠道覆盖。范围 15 – 3600 秒。',
           hideThroughput: '对用户隐藏吞吐速率（RPM / TPM）',

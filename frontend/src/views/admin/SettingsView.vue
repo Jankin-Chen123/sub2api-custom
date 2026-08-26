@@ -7210,7 +7210,7 @@
 	        <!-- Tab: Features (功能开关) -->
         <div v-show="activeTab === 'features'" class="space-y-6">
 
-        <div class="card">
+        <div class="card" data-testid="channel-monitor-settings-card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.channelMonitor.title') }}
@@ -7282,6 +7282,59 @@
                 <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                   {{ t('admin.settings.features.channelMonitor.modeHint') }}
                 </p>
+              </div>
+
+              <div class="border-t border-gray-100 pt-5 dark:border-dark-700">
+                <label class="input-label">
+                  {{ t('admin.settings.features.channelMonitor.healthMode') }}
+                </label>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.channelMonitor.healthModeHint') }}
+                </p>
+                <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <button
+                    v-for="mode in channelMonitorHealthModes"
+                    :key="mode"
+                    type="button"
+                    :data-testid="`channel-monitor-health-mode-${mode}`"
+                    :aria-pressed="form.channel_monitor_health_mode === mode"
+                    class="rounded-lg border px-3 py-3 text-left transition"
+                    :class="
+                      form.channel_monitor_health_mode === mode
+                        ? 'border-primary-500 bg-primary-50 text-primary-800 ring-1 ring-primary-500 dark:bg-primary-900/20 dark:text-primary-200'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:border-dark-500'
+                    "
+                    @click="form.channel_monitor_health_mode = mode"
+                  >
+                    <span class="block text-sm font-medium">
+                      {{ t(`admin.settings.features.channelMonitor.healthModeOptions.${mode}.label`) }}
+                    </span>
+                    <span class="mt-1 block text-xs opacity-80">
+                      {{ t(`admin.settings.features.channelMonitor.healthModeOptions.${mode}.shortHint`) }}
+                    </span>
+                  </button>
+                </div>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {{
+                    t(
+                      `admin.settings.features.channelMonitor.healthModeOptions.${form.channel_monitor_health_mode}.description`,
+                    )
+                  }}
+                </p>
+                <div
+                  v-if="form.channel_monitor_health_mode === 'enabled'"
+                  data-testid="channel-monitor-health-enabled-warning"
+                  class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+                >
+                  {{ t('admin.settings.features.channelMonitor.healthModeEnabledWarning') }}
+                </div>
+                <div
+                  v-if="form.channel_monitor_mode === 'v2' && form.channel_monitor_health_mode !== 'off'"
+                  data-testid="channel-monitor-health-v2-warning"
+                  class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+                >
+                  {{ t('admin.settings.features.channelMonitor.healthModeV2Warning') }}
+                </div>
               </div>
 
               <div v-if="form.channel_monitor_mode === 'v1'">
@@ -8997,6 +9050,7 @@ import {
   appendAuthSourceDefaultsToUpdateRequest,
   buildAuthSourceDefaultsState,
   normalizeAccountSchedulingThresholdsMap,
+  normalizeChannelMonitorHealthMode,
   normalizePlatformQuotasMap,
   sanitizeAccountSchedulingThresholdsMap,
   sanitizePlatformQuotasMap,
@@ -9009,6 +9063,7 @@ import {
 import type {
   AuthSourceDefaultsState,
   AuthSourceType,
+  ChannelMonitorHealthMode,
   SystemSettings,
   UpdateSettingsRequest,
   DefaultSubscriptionSetting,
@@ -9758,6 +9813,11 @@ type SettingsForm = Omit<
 };
 
 const schedulingThresholdPlatforms = SCHEDULING_THRESHOLD_PLATFORMS;
+const channelMonitorHealthModes: ChannelMonitorHealthMode[] = [
+  "off",
+  "shadow",
+  "enabled",
+];
 
 const form = reactive<SettingsForm>({
   registration_enabled: true,
@@ -10043,6 +10103,7 @@ const form = reactive<SettingsForm>({
   // Channel Monitor feature switch
   channel_monitor_enabled: true,
   channel_monitor_mode: 'v1' as 'v1' | 'v2',
+  channel_monitor_health_mode: "off",
   channel_monitor_default_interval_seconds: 60,
   channel_monitor_hide_throughput: false,
   channel_monitor_show_quota: false,
@@ -11052,6 +11113,9 @@ async function loadSettings() {
       settings.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
     form.channel_monitor_mode =
       settings.channel_monitor_mode === "v2" ? "v2" : "v1";
+    form.channel_monitor_health_mode = normalizeChannelMonitorHealthMode(
+      settings.channel_monitor_health_mode,
+    );
     form.channel_monitor_hide_throughput = Boolean(
       settings.channel_monitor_hide_throughput
     );
@@ -11736,6 +11800,7 @@ async function saveSettings() {
       // Channel Monitor feature switch
       channel_monitor_enabled: form.channel_monitor_enabled,
       channel_monitor_mode: form.channel_monitor_mode === 'v1' ? 'v1' : 'v2',
+      channel_monitor_health_mode: form.channel_monitor_health_mode,
       channel_monitor_default_interval_seconds:
         Number(form.channel_monitor_default_interval_seconds) || 60,
       channel_monitor_hide_throughput: Boolean(form.channel_monitor_hide_throughput),

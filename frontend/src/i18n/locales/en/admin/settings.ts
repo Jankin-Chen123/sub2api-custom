@@ -60,6 +60,27 @@ export default {
           modeV1: 'V1 active probes',
           modeV2Hint: 'Opt-in: aggregates health metrics from real gateway traffic without upstream probe traffic. V1 probes stop while V2 is active.',
           modeV1Hint: 'Default: runs scheduled upstream health checks for configured channel monitors (probe traffic).',
+          healthMode: 'Use probe health for account scheduling',
+          healthModeHint: 'Controls whether per-account active-probe health scores influence real-user account selection. Administrator priorities are never rewritten.',
+          healthModeOptions: {
+            off: {
+              label: 'Off',
+              shortHint: 'Ignore health scores',
+              description: 'Active probes and health snapshots are still recorded, while real-user selection follows the original scheduling behavior exactly.',
+            },
+            shadow: {
+              label: 'Shadow',
+              shortHint: 'Observe without rerouting',
+              description: 'Computes and records health-routing decisions without changing the account actually selected for real users. Use this before enabling.',
+            },
+            enabled: {
+              label: 'Enabled',
+              shortHint: 'Favor healthier accounts',
+              description: 'Within the same administrator priority tier, bounded weights increase selection probability for healthy accounts. Unknown accounts retain exploration traffic.',
+            },
+          },
+          healthModeEnabledWarning: 'Enabled mode affects real user traffic. Run in Shadow mode first and confirm probe stability before enabling. Changes take effect within a few seconds after saving.',
+          healthModeV2Warning: 'V2 passive monitoring does not refresh per-account active-probe snapshots. Expired snapshots are treated as neutral unknown health. Use V1 active probes for continuous health routing.',
           defaultInterval: 'Default check interval (seconds)',
           defaultIntervalHint: 'V1 only: default interval for new monitors (overridable per monitor). Range 15 – 3600 seconds.',
           hideThroughput: 'Hide throughput rates from users (RPM / TPM)',

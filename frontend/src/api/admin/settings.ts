@@ -20,6 +20,11 @@ export interface DefaultSubscriptionSetting {
 // ── 平台限额类型 ──────────────────────────────────────────────────
 export type PlatformType = "anthropic" | "openai" | "gemini" | "antigravity" | "grok"
 export type QuotaWindowType = "daily" | "weekly" | "monthly"
+export type ChannelMonitorHealthMode = "off" | "shadow" | "enabled";
+
+export function normalizeChannelMonitorHealthMode(input: unknown): ChannelMonitorHealthMode {
+  return input === "shadow" || input === "enabled" ? input : "off";
+}
 
 /** 单平台三档限额；null = 不限制，undefined = 未填（等价 null） */
 export interface PlatformQuotaLimits {
@@ -733,6 +738,7 @@ export interface SystemSettings {
   // Channel Monitor feature switch
   channel_monitor_enabled: boolean;
   channel_monitor_mode?: 'v1' | 'v2';
+  channel_monitor_health_mode: ChannelMonitorHealthMode;
   channel_monitor_default_interval_seconds: number;
   channel_monitor_hide_throughput?: boolean;
   channel_monitor_show_quota?: boolean;
@@ -1049,6 +1055,7 @@ export interface UpdateSettingsRequest {
   // Channel Monitor feature switch
   channel_monitor_enabled?: boolean;
   channel_monitor_mode?: 'v1' | 'v2';
+  channel_monitor_health_mode?: ChannelMonitorHealthMode;
   channel_monitor_default_interval_seconds?: number;
   channel_monitor_hide_throughput?: boolean;
   channel_monitor_show_quota?: boolean;
