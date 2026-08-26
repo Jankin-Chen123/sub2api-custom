@@ -114,7 +114,7 @@ func (s *DocumentationStore) Import(sourceFile string, archive []byte) (*Documen
 	if err := os.MkdirAll(filepath.Join(tempDir, "assets"), 0755); err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 	if err := os.WriteFile(filepath.Join(tempDir, "content.md"), result.Markdown, 0644); err != nil {
 		return nil, err
 	}
@@ -424,9 +424,9 @@ func (h *DocumentationHandler) Import(c *gin.Context) {
 		response.BadRequest(c, "请选择 Notion 导出的 ZIP 文件")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	if c.Request.MultipartForm != nil {
-		defer c.Request.MultipartForm.RemoveAll()
+		defer func() { _ = c.Request.MultipartForm.RemoveAll() }()
 	}
 	if !strings.EqualFold(filepath.Ext(header.Filename), ".zip") {
 		response.BadRequest(c, "只支持 ZIP 文件")

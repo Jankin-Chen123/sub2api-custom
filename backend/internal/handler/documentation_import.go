@@ -42,8 +42,8 @@ var (
 
 var (
 	errDocumentationInvalidArchive  = errors.New("invalid Notion export archive")
-	errDocumentationArchiveTooLarge = errors.New("Notion export archive is too large")
-	errDocumentationNoMarkdown      = errors.New("Notion export does not contain a Markdown file")
+	errDocumentationArchiveTooLarge = errors.New("notion export archive is too large")
+	errDocumentationNoMarkdown      = errors.New("notion export does not contain a Markdown file")
 )
 
 type documentationArchiveFile struct {
@@ -212,7 +212,7 @@ func readDocumentationZipEntry(entry *zip.File) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: cannot open %q: %v", errDocumentationInvalidArchive, entry.Name, err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	limited := io.LimitReader(r, maxDocumentationEntryBytes+1)
 	content, err := io.ReadAll(limited)
@@ -487,10 +487,10 @@ func documentationHeadingID(value string) string {
 	lastDash := false
 	for _, r := range strings.ToLower(value) {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || (r >= '\u4e00' && r <= '\u9fff') {
-			builder.WriteRune(r)
+			_ = builder.WriteRune(r)
 			lastDash = false
 		} else if !lastDash && builder.Len() > 0 {
-			builder.WriteByte('-')
+			_ = builder.WriteByte('-')
 			lastDash = true
 		}
 	}
