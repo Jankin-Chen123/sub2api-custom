@@ -28,8 +28,10 @@ const (
 	maxDocumentationExpandedBytes       = 256 << 20
 	maxDocumentationEntryBytes          = 32 << 20
 	maxDocumentationEntries             = 5000
-	maxDocumentationMarkdownBytes       = 4 << 20
+	maxDocumentationContentBytes        = 16 << 20
 	maxDocumentationImagePixels   int64 = 60_000_000
+	documentationFormatMarkdown         = "markdown"
+	documentationFormatHTML             = "html"
 )
 
 var (
@@ -43,7 +45,7 @@ var (
 var (
 	errDocumentationInvalidArchive  = errors.New("invalid Notion export archive")
 	errDocumentationArchiveTooLarge = errors.New("notion export archive is too large")
-	errDocumentationNoMarkdown      = errors.New("notion export does not contain a Markdown file")
+	errDocumentationNoContent       = errors.New("notion export does not contain an HTML or Markdown file")
 )
 
 type documentationArchiveFile struct {
@@ -73,7 +75,8 @@ type DocumentationAsset struct {
 
 type documentationImportResult struct {
 	Title     string
-	Markdown  []byte
+	Format    string
+	Content   []byte
 	Assets    map[string][]byte
 	AssetMeta []DocumentationAsset
 	Outline   []DocumentationHeading
@@ -91,14 +94,22 @@ func importNotionArchive(data []byte) (*documentationImportResult, error) {
 		return nil, err
 	}
 
+	htmlPaths := make([]string, 0)
 	markdownPaths := make([]string, 0)
 	for name := range files {
-		if strings.EqualFold(path.Ext(name), ".md") {
+		switch strings.ToLower(path.Ext(name)) {
+		case ".html", ".htm":
+			htmlPaths = append(htmlPaths, name)
+		case ".md":
 			markdownPaths = append(markdownPaths, name)
 		}
 	}
+	if len(htmlPaths) > 0 {
+		sort.Strings(htmlPaths)
+		return importNotionHTMLDocuments(files, htmlPaths, stats.warnings)
+	}
 	if len(markdownPaths) == 0 {
-		return nil, errDocumentationNoMarkdown
+		return nil, errDocumentationNoContent
 	}
 	sort.Strings(markdownPaths)
 
@@ -111,8 +122,8 @@ func importNotionArchive(data []byte) (*documentationImportResult, error) {
 
 	for index, markdownPath := range markdownPaths {
 		file := files[markdownPath]
-		if len(file.Data) > maxDocumentationMarkdownBytes {
-			return nil, fmt.Errorf("%w: Markdown file %q exceeds %d bytes", errDocumentationArchiveTooLarge, markdownPath, maxDocumentationMarkdownBytes)
+		if len(file.Data) > maxDocumentationContentBytes {
+			return nil, fmt.Errorf("%w: Markdown file %q exceeds %d bytes", errDocumentationArchiveTooLarge, markdownPath, maxDocumentationContentBytes)
 		}
 		if !utf8.Valid(file.Data) {
 			return nil, fmt.Errorf("%w: Markdown file %q is not UTF-8", errDocumentationInvalidArchive, markdownPath)
@@ -146,7 +157,8 @@ func importNotionArchive(data []byte) (*documentationImportResult, error) {
 
 	return &documentationImportResult{
 		Title:     title,
-		Markdown:  []byte(markdown),
+		Format:    documentationFormatMarkdown,
+		Content:   []byte(markdown),
 		Assets:    assets,
 		AssetMeta: assetMeta,
 		Outline:   outline,
@@ -194,7 +206,7 @@ func collectDocumentationZip(data []byte, stats *documentationArchiveStats, file
 
 		virtualPath := cleanName
 		ext := strings.ToLower(path.Ext(cleanName))
-		if ext != ".md" && !isDocumentationImageExtension(ext) {
+		if ext != ".md" && ext != ".html" && ext != ".htm" && !isDocumentationImageExtension(ext) {
 			stats.warnings = append(stats.warnings, fmt.Sprintf("已忽略不支持的文件：%s", virtualPath))
 			continue
 		}

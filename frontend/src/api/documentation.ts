@@ -14,10 +14,13 @@ export interface DocumentationAsset {
   height: number
 }
 
+export type DocumentationContentFormat = 'markdown' | 'html'
+
 export interface DocumentationManifest {
   id: string
   title: string
   source_file: string
+  content_format?: DocumentationContentFormat
   created_at: string
   published_at?: string
   content_sha256: string
@@ -38,7 +41,8 @@ export interface DocumentationChanges {
 export interface DocumentationPreview {
   draft_id: string
   manifest: DocumentationManifest
-  markdown: string
+  content: string
+  markdown?: string
   changes: DocumentationChanges
 }
 

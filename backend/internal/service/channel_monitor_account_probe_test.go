@@ -48,6 +48,91 @@ func TestRunChannelMonitorAccountProbes_ProbesEachDistinctAccountAndAggregatesOp
 	}
 }
 
+func TestRunChannelMonitorAccountProbes_SlowAccountDoesNotBlockFollowingAccounts(t *testing.T) {
+	request := ChannelMonitorAccountProbeRequest{
+		Monitor: &ChannelMonitor{ID: 12, Provider: MonitorProviderOpenAI},
+		Model:   "gpt-test",
+	}
+	accounts := make([]Account, 8)
+	for i := range accounts {
+		accounts[i] = probeTestAccount(int64(i + 1))
+	}
+
+	started := make(chan int64, len(accounts))
+	releaseSlow := make(chan struct{})
+	runDone := make(chan *ChannelMonitorAccountProbeRun, 1)
+	var mu sync.Mutex
+	calls := make(map[int64]int)
+	go func() {
+		runDone <- runChannelMonitorAccountProbes(context.Background(), request, accounts, func(_ context.Context, account *Account, _ ChannelMonitorAccountProbeRequest) *CheckResult {
+			started <- account.ID
+			mu.Lock()
+			calls[account.ID]++
+			mu.Unlock()
+			if account.ID == 1 {
+				<-releaseSlow
+			}
+			return &CheckResult{Model: request.Model, Status: MonitorStatusOperational, CheckedAt: time.Now()}
+		})
+	}()
+
+	seen := make(map[int64]struct{}, len(accounts))
+	timer := time.NewTimer(2 * time.Second)
+	timedOut := false
+	for len(seen) < len(accounts) {
+		select {
+		case id := <-started:
+			seen[id] = struct{}{}
+		case <-timer.C:
+			timedOut = true
+		}
+		if timedOut {
+			break
+		}
+	}
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	close(releaseSlow)
+	run := <-runDone
+	if timedOut {
+		t.Fatalf("slow account blocked later accounts; started %d/%d", len(seen), len(accounts))
+	}
+	if run.Aggregate.Status != MonitorStatusOperational {
+		t.Fatalf("aggregate status = %q, want operational", run.Aggregate.Status)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	for _, account := range accounts {
+		if calls[account.ID] != 1 {
+			t.Errorf("account %d called %d times, want once", account.ID, calls[account.ID])
+		}
+	}
+}
+
+func TestMonitorAccountProbeRoundTimeoutForCountUsesConcurrentWaves(t *testing.T) {
+	for _, tt := range []struct {
+		count int
+		want  time.Duration
+	}{
+		{count: 0, want: monitorAccountProbeRoundBuffer},
+		{count: 1, want: monitorAccountProbeTimeout + monitorAccountProbeRoundBuffer},
+		{count: 4, want: monitorAccountProbeTimeout + monitorAccountProbeRoundBuffer},
+		{count: 5, want: 2*monitorAccountProbeTimeout + monitorAccountProbeRoundBuffer},
+		{count: 8, want: 2*monitorAccountProbeTimeout + monitorAccountProbeRoundBuffer},
+		{count: 9, want: 3*monitorAccountProbeTimeout + monitorAccountProbeRoundBuffer},
+	} {
+		t.Run(string(rune('0'+tt.count)), func(t *testing.T) {
+			if got := monitorAccountProbeRoundTimeoutForCount(tt.count); got != tt.want {
+				t.Fatalf("round timeout for %d accounts = %s, want %s", tt.count, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRunChannelMonitorAccountProbes_DegradedAndFailureAggregation(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -126,8 +211,11 @@ func TestRunChannelMonitorAccountProbes_ContextCancellationStopsNextBatch(t *tes
 		<-ctx.Done()
 		return &CheckResult{Status: MonitorStatusError, Message: ctx.Err().Error(), CheckedAt: time.Now()}
 	})
-	if called > monitorAccountProbeConcurrency {
-		t.Fatalf("started %d attempts after cancellation, want at most one batch", called)
+	mu.Lock()
+	started := called
+	mu.Unlock()
+	if started > monitorAccountProbeConcurrency {
+		t.Fatalf("started %d attempts after cancellation, want at most one batch", started)
 	}
 	if len(run.Results) != len(accounts) {
 		t.Fatalf("result rows = %d, want one row per account including skipped", len(run.Results))
@@ -135,6 +223,94 @@ func TestRunChannelMonitorAccountProbes_ContextCancellationStopsNextBatch(t *tes
 	if run.Aggregate.Status != MonitorStatusError {
 		t.Fatalf("aggregate status = %q, want error after cancellation", run.Aggregate.Status)
 	}
+}
+
+func TestRunChannelMonitorAccountProbes_ContextCancellationDoesNotWaitForAttempt(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	started := make(chan struct{})
+	release := make(chan struct{})
+	runDone := make(chan *ChannelMonitorAccountProbeRun, 1)
+	request := ChannelMonitorAccountProbeRequest{
+		Monitor: &ChannelMonitor{ID: 11, Provider: MonitorProviderOpenAI},
+		Model:   "gpt-test",
+	}
+	accounts := []Account{probeTestAccount(1)}
+
+	go func() {
+		runDone <- runChannelMonitorAccountProbes(ctx, request, accounts, func(context.Context, *Account, ChannelMonitorAccountProbeRequest) *CheckResult {
+			close(started)
+			<-release
+			return &CheckResult{Status: MonitorStatusOperational, CheckedAt: time.Now()}
+		})
+	}()
+
+	<-started
+	cancel()
+	select {
+	case run := <-runDone:
+		if run.Aggregate.Status != MonitorStatusError {
+			t.Fatalf("aggregate status = %q, want error after cancellation", run.Aggregate.Status)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("account probe waited for an attempt that ignored context cancellation")
+	}
+	close(release)
+}
+
+func TestChannelMonitorPersistenceContextSurvivesExpiredProbeContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	persistCtx, persistCancel := channelMonitorPersistenceContext(ctx)
+	defer persistCancel()
+	if err := persistCtx.Err(); err != nil {
+		t.Fatalf("persistence context is already canceled: %v", err)
+	}
+	if _, ok := persistCtx.Deadline(); !ok {
+		t.Fatal("persistence context must retain an explicit deadline")
+	}
+}
+
+func TestPersistAccountProbeResultsUsesIndependentContext(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	cancel()
+	repo := &capturingChannelMonitorHealthRepository{}
+	svc := &ChannelMonitorService{accountProbeResults: repo}
+
+	svc.persistAccountProbeResults(parent, []*ChannelMonitorAccountProbeResult{{
+		GroupID:   1,
+		AccountID: 2,
+		Model:     "gpt-test",
+		Provider:  MonitorProviderOpenAI,
+		Status:    MonitorStatusError,
+		CheckedAt: time.Now(),
+	}})
+
+	if repo.ctx == nil {
+		t.Fatal("account probe persistence repository was not called")
+	}
+	if repo.ctxErr != nil {
+		t.Fatalf("account probe persistence received canceled context: %v", repo.ctxErr)
+	}
+}
+
+type capturingChannelMonitorHealthRepository struct {
+	ctx    context.Context
+	ctxErr error
+}
+
+func (*capturingChannelMonitorHealthRepository) InsertAccountProbeResults(context.Context, []*ChannelMonitorAccountProbeResult) error {
+	return nil
+}
+
+func (r *capturingChannelMonitorHealthRepository) ApplyAccountProbeResults(ctx context.Context, _ []*ChannelMonitorAccountProbeResult) ([]*ChannelMonitorAccountHealthSnapshot, error) {
+	r.ctx = ctx
+	r.ctxErr = ctx.Err()
+	return nil, nil
+}
+
+func (*capturingChannelMonitorHealthRepository) ListAccountHealthSnapshots(context.Context, *int64, string, string, int) ([]*ChannelMonitorAccountHealthSnapshot, error) {
+	return nil, nil
 }
 
 func TestClassifyMonitorProviderResponse_ReplaceModeKeepsNonEmptyAndEmptySemantics(t *testing.T) {

@@ -18,14 +18,19 @@ export default {
       noResults: 'No matching headings',
       notPublished: 'Not published',
       endOfDocument: 'End of document',
-      backToTop: 'Back to top ↑'
+      backToTop: 'Back to top ↑',
+      startReading: 'Start reading',
+      quickNavigation: 'Quick navigation',
+      quickNavigationHint: 'Jump directly to a chapter',
+      allSections: 'Back to chapter navigation',
+      visitWebsite: 'Back to website'
     },
     admin: {
       title: 'Documentation',
-      description: 'Import a Notion Markdown export, preview it, and publish it to the public documentation site.',
+      description: 'Import a Notion HTML export, preserve its structure and images, then preview and publish it.',
       uploadTitle: 'Import Notion documentation',
       uploadHint: 'Drop a ZIP here or click to select one',
-      uploadRule: 'Upload the innermost export ZIP. It must directly contain Markdown and images, with no nested ZIP.',
+      uploadRule: 'Upload the innermost HTML export ZIP. It must directly contain HTML and images, with no nested ZIP.',
       chooseFile: 'Choose ZIP',
       importing: 'Parsing {progress}%',
       previewTitle: 'Preview before publishing',

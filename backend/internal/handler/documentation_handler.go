@@ -29,6 +29,7 @@ type DocumentationManifest struct {
 	ID            string                 `json:"id"`
 	Title         string                 `json:"title"`
 	SourceFile    string                 `json:"source_file"`
+	ContentFormat string                 `json:"content_format"`
 	CreatedAt     time.Time              `json:"created_at"`
 	PublishedAt   *time.Time             `json:"published_at,omitempty"`
 	ContentSHA256 string                 `json:"content_sha256"`
@@ -49,7 +50,8 @@ type DocumentationChanges struct {
 type DocumentationPreview struct {
 	DraftID  string                `json:"draft_id"`
 	Manifest DocumentationManifest `json:"manifest"`
-	Markdown string                `json:"markdown"`
+	Content  string                `json:"content"`
+	Markdown string                `json:"markdown,omitempty"`
 	Changes  DocumentationChanges  `json:"changes"`
 }
 
@@ -102,10 +104,10 @@ func (s *DocumentationStore) Import(sourceFile string, archive []byte) (*Documen
 
 	id := uuid.NewString()
 	createdAt := s.now().UTC()
-	digest := sha256.Sum256(result.Markdown)
+	digest := sha256.Sum256(result.Content)
 	manifest := DocumentationManifest{
 		ID: id, Title: result.Title, SourceFile: filepath.Base(sourceFile), CreatedAt: createdAt,
-		ContentSHA256: hex.EncodeToString(digest[:]), ContentBytes: int64(len(result.Markdown)),
+		ContentFormat: result.Format, ContentSHA256: hex.EncodeToString(digest[:]), ContentBytes: int64(len(result.Content)),
 		Assets: result.AssetMeta, Outline: result.Outline, Warnings: result.Warnings,
 	}
 
@@ -115,7 +117,7 @@ func (s *DocumentationStore) Import(sourceFile string, archive []byte) (*Documen
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(tempDir) }()
-	if err := os.WriteFile(filepath.Join(tempDir, "content.md"), result.Markdown, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tempDir, documentationContentFilename(manifest)), result.Content, 0644); err != nil {
 		return nil, err
 	}
 	for assetPath, data := range result.Assets {
@@ -138,7 +140,11 @@ func (s *DocumentationStore) Import(sourceFile string, archive []byte) (*Documen
 		return nil, err
 	}
 
-	return &DocumentationPreview{DraftID: id, Manifest: manifest, Markdown: string(result.Markdown), Changes: changes}, nil
+	preview := &DocumentationPreview{DraftID: id, Manifest: manifest, Content: string(result.Content), Changes: changes}
+	if result.Format == documentationFormatMarkdown {
+		preview.Markdown = preview.Content
+	}
+	return preview, nil
 }
 
 func (s *DocumentationStore) Publish(draftID string) (*DocumentationManifest, error) {
@@ -295,23 +301,30 @@ func (s *DocumentationStore) activeVersionIDLocked() (string, error) {
 	return latest.VersionID, nil
 }
 
-func (s *DocumentationStore) VersionContent(versionID string) (string, error) {
+func (s *DocumentationStore) VersionContent(versionID string) (string, string, error) {
 	if !documentationIDPattern.MatchString(versionID) {
-		return "", errDocumentationNotFound
+		return "", "", errDocumentationNotFound
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	data, err := os.ReadFile(filepath.Join(s.root, "versions", versionID, "content.md"))
+	manifest, err := readDocumentationManifest(filepath.Join(s.root, "versions", versionID, "manifest.json"))
 	if os.IsNotExist(err) {
-		return "", errDocumentationNotFound
+		return "", "", errDocumentationNotFound
 	}
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	if len(data) > maxDocumentationMarkdownBytes {
-		return "", errDocumentationArchiveTooLarge
+	data, err := os.ReadFile(filepath.Join(s.root, "versions", versionID, documentationContentFilename(manifest)))
+	if os.IsNotExist(err) {
+		return "", "", errDocumentationNotFound
 	}
-	return string(data), nil
+	if err != nil {
+		return "", "", err
+	}
+	if len(data) > maxDocumentationContentBytes {
+		return "", "", errDocumentationArchiveTooLarge
+	}
+	return string(data), manifest.ContentFormat, nil
 }
 
 func (s *DocumentationStore) AssetPath(kind, id, filename string) (string, error) {
@@ -406,7 +419,20 @@ func readDocumentationManifest(filename string) (DocumentationManifest, error) {
 	if !documentationIDPattern.MatchString(manifest.ID) {
 		return manifest, fmt.Errorf("invalid documentation manifest")
 	}
+	if manifest.ContentFormat == "" {
+		manifest.ContentFormat = documentationFormatMarkdown
+	}
+	if manifest.ContentFormat != documentationFormatMarkdown && manifest.ContentFormat != documentationFormatHTML {
+		return manifest, fmt.Errorf("invalid documentation content format")
+	}
 	return manifest, nil
+}
+
+func documentationContentFilename(manifest DocumentationManifest) string {
+	if manifest.ContentFormat == documentationFormatHTML {
+		return "content.html"
+	}
+	return "content.md"
 }
 
 type DocumentationHandler struct {
@@ -482,13 +508,17 @@ func (h *DocumentationHandler) Active(c *gin.Context) {
 }
 
 func (h *DocumentationHandler) VersionContent(c *gin.Context) {
-	content, err := h.store.VersionContent(c.Param("versionID"))
+	content, format, err := h.store.VersionContent(c.Param("versionID"))
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
 	c.Header("Cache-Control", "public, max-age=300")
-	c.Data(http.StatusOK, "text/markdown; charset=utf-8", []byte(content))
+	contentType := "text/markdown; charset=utf-8"
+	if format == documentationFormatHTML {
+		contentType = "text/plain; charset=utf-8"
+	}
+	c.Data(http.StatusOK, contentType, []byte(content))
 }
 
 func (h *DocumentationHandler) VersionAsset(c *gin.Context) {
@@ -520,7 +550,7 @@ func (h *DocumentationHandler) writeError(c *gin.Context, err error) {
 		response.NotFound(c, "文档或版本不存在")
 	case errors.Is(err, errDocumentationArchiveTooLarge):
 		response.Error(c, http.StatusRequestEntityTooLarge, err.Error())
-	case errors.Is(err, errDocumentationInvalidArchive), errors.Is(err, errDocumentationNoMarkdown):
+	case errors.Is(err, errDocumentationInvalidArchive), errors.Is(err, errDocumentationNoContent):
 		response.BadRequest(c, err.Error())
 	default:
 		response.InternalError(c, "文档处理失败")

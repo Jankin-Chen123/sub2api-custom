@@ -206,6 +206,16 @@ const routes: RouteRecordRaw[] = [
       titleKey: 'nav.docs'
     }
   },
+  {
+    path: '/docs/:section',
+    name: 'DocumentationSection',
+    component: () => import('@/views/public/DocumentationView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Documentation',
+      titleKey: 'nav.docs'
+    }
+  },
 
   // ==================== User Routes ====================
   {

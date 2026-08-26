@@ -300,11 +300,12 @@ func (r *ChannelMonitorRunner) releaseInFlight(id int64) {
 // runOne 执行单个监控的检测。普通错误只记日志；API key 解密失败会撤销任务。
 // 任务结束时（含 panic recover）必须释放 in-flight 槽。
 func (r *ChannelMonitorRunner) runOne(id int64, name string) {
-	// Account-directed probing runs fixed-size batches behind an explicit round
-	// deadline. Keep the runner budget large enough for that round plus the
-	// shared ping and completion buffer; do not multiply the request timeout by
-	// the account count.
-	ctx, cancel := context.WithTimeout(context.Background(), monitorAccountProbeRoundTimeout+monitorPingTimeout+monitorRunOneBuffer)
+	// Account-directed probing uses a bounded worker queue and calculates its
+	// round budget from concurrent waves after resolving the group. This outer
+	// watchdog only protects the runner from an unexpected non-cooperative
+	// service; it must not truncate a normal large group at a fixed four-account
+	// batch boundary.
+	ctx, cancel := context.WithTimeout(context.Background(), monitorAccountProbeRunnerWatchdog)
 	defer cancel()
 
 	defer r.releaseInFlight(id)

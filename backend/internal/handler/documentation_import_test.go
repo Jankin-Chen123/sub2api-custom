@@ -40,7 +40,10 @@ func TestImportNotionArchiveConvertsDirectExport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import archive: %v", err)
 	}
-	content := string(result.Markdown)
+	content := string(result.Content)
+	if result.Format != documentationFormatMarkdown {
+		t.Fatalf("format = %q, want markdown", result.Format)
+	}
 	for _, expected := range []string{
 		"# 使用教程",
 		"> [!TIP]",
@@ -64,6 +67,68 @@ func TestImportNotionArchiveConvertsDirectExport(t *testing.T) {
 	}
 	if len(result.Outline) != 4 {
 		t.Fatalf("outline length = %d, want 4", len(result.Outline))
+	}
+}
+
+func TestImportNotionArchivePreservesHTMLStructureAndAssets(t *testing.T) {
+	exportedHTML := `<!doctype html><html><head><title>使用教程</title><style>body{color:red}</style></head><body>
+<article id="page-id" class="page sans" data-notion-page-icon="🥳">
+  <img class="page-cover-image" src="cover.png" style="width:900px;object-position:center 50%" onerror="alert(1)">
+  <h1 id="title-id" class="page-title">使用<strong>教程</strong></h1>
+  <aside class="block-color-gray_background callout" data-notion-callout-icon="💡" onclick="alert(1)"><p>这是提示内容。</p></aside>
+  <details id="section-id" open><summary><strong>第一章</strong></summary>
+    <details id="install-id" open><summary>安装方法</summary>
+      <ol start="1"><li>请按步骤安装。</li></ol>
+      <figure class="image"><a href="image%201.png"><img src="image%201.png" style="width:480px"></a></figure>
+      <p><a href="guide.html#section-id">返回第一章</a></p>
+      <script>alert('unsafe')</script>
+    </details>
+  </details>
+</article></body></html>`
+	archive := makeDocumentationZip(t, map[string][]byte{
+		"guide.html":  []byte(exportedHTML),
+		"cover.png":   makeDocumentationPNG(t),
+		"image 1.png": makeDocumentationPNG(t),
+	})
+
+	result, err := importNotionArchive(archive)
+	if err != nil {
+		t.Fatalf("import HTML archive: %v", err)
+	}
+	if result.Format != documentationFormatHTML {
+		t.Fatalf("format = %q, want html", result.Format)
+	}
+	if result.Title != "使用教程" {
+		t.Fatalf("title = %q, want inline formatting without inserted spaces", result.Title)
+	}
+	content := string(result.Content)
+	for _, expected := range []string{
+		`class="notion-document"`,
+		`class="page-cover-image" src="assets/0001.png"`,
+		`data-docs-width="900"`,
+		`class="docs-toggle docs-toggle-level-2"`,
+		`class="docs-toggle-summary"`,
+		`href="assets/0002.png"`,
+		`src="assets/0002.png"`,
+		`href="#第一章"`,
+	} {
+		if !strings.Contains(content, expected) {
+			t.Fatalf("normalized HTML missing %q:\n%s", expected, content)
+		}
+	}
+	for _, unsafe := range []string{"<script", "onclick=", "onerror=", "style="} {
+		if strings.Contains(content, unsafe) {
+			t.Fatalf("normalized HTML retained unsafe content %q:\n%s", unsafe, content)
+		}
+	}
+	if len(result.Assets) != 2 || len(result.AssetMeta) != 2 {
+		t.Fatalf("assets = %d/%d, want 2/2", len(result.Assets), len(result.AssetMeta))
+	}
+	if len(result.Outline) != 3 {
+		t.Fatalf("outline length = %d, want 3: %+v", len(result.Outline), result.Outline)
+	}
+	if result.Outline[0].Level != 1 || result.Outline[1].Level != 2 || result.Outline[2].Level != 3 {
+		t.Fatalf("unexpected outline levels: %+v", result.Outline)
 	}
 }
 
@@ -139,9 +204,9 @@ func TestDocumentationStorePublishAndRollback(t *testing.T) {
 	if err != nil || active.ID != firstPublished.ID {
 		t.Fatalf("active after rollback = %+v, %v", active, err)
 	}
-	content, err := store.VersionContent(firstPublished.ID)
-	if err != nil || content != "# First\n" {
-		t.Fatalf("first content = %q, %v", content, err)
+	content, format, err := store.VersionContent(firstPublished.ID)
+	if err != nil || content != "# First\n" || format != documentationFormatMarkdown {
+		t.Fatalf("first content = %q (%s), %v", content, format, err)
 	}
 	state, err := store.State()
 	if err != nil || len(state.Versions) != 2 || state.Active == nil || state.Active.ID != firstPublished.ID {
@@ -150,7 +215,7 @@ func TestDocumentationStorePublishAndRollback(t *testing.T) {
 }
 
 // Set NOTION_EXPORT_SAMPLE to exercise the importer against a real, innermost
-// Notion Markdown export without checking a machine-specific sample into git.
+// Notion HTML or Markdown export without checking a machine-specific sample into git.
 func TestImportNotionArchiveRealSample(t *testing.T) {
 	filename := os.Getenv("NOTION_EXPORT_SAMPLE")
 	if filename == "" {
@@ -164,10 +229,13 @@ func TestImportNotionArchiveRealSample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import real sample: %v", err)
 	}
-	if result.Title == "" || len(result.Markdown) == 0 || len(result.Outline) == 0 {
-		t.Fatalf("incomplete import result: title=%q markdown=%d outline=%d", result.Title, len(result.Markdown), len(result.Outline))
+	if result.Title == "" || len(result.Content) == 0 || len(result.Outline) == 0 {
+		t.Fatalf("incomplete import result: title=%q content=%d outline=%d", result.Title, len(result.Content), len(result.Outline))
 	}
-	t.Logf("title=%q markdown=%d assets=%d outline=%d warnings=%d", result.Title, len(result.Markdown), len(result.Assets), len(result.Outline), len(result.Warnings))
+	t.Logf("title=%q format=%s content=%d assets=%d outline=%d warnings=%d", result.Title, result.Format, len(result.Content), len(result.Assets), len(result.Outline), len(result.Warnings))
+	for _, warning := range result.Warnings {
+		t.Logf("warning: %s", warning)
+	}
 }
 
 func makeDocumentationZip(t *testing.T, files map[string][]byte) []byte {

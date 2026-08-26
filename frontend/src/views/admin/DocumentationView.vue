@@ -30,7 +30,7 @@
             </span>
             <strong>{{ importing ? t('documentation.admin.importing', { progress: uploadProgress }) : t('documentation.admin.uploadHint') }}</strong>
             <span v-if="selectedFile">{{ selectedFile.name }} · {{ formatBytes(selectedFile.size) }}</span>
-            <span v-else>Markdown + PNG / JPG / GIF / WebP · ZIP ≤ 64 MB</span>
+            <span v-else>Notion HTML + PNG / JPG / GIF / WebP · ZIP ≤ 64 MB</span>
             <span v-if="importing" class="docs-upload-progress"><i :style="{ width: `${uploadProgress}%` }"></i></span>
             <span v-else class="docs-choose-button">{{ t('documentation.admin.chooseFile') }}</span>
           </button>
@@ -55,7 +55,7 @@
           <div><span>§</span><strong>{{ preview.manifest.outline.length }}</strong><small>{{ t('documentation.admin.chapterLabel') }}</small></div>
           <div><span>▧</span><strong>{{ preview.manifest.assets.length }}</strong><small>{{ t('documentation.admin.imageLabel') }}</small></div>
           <div><span>Δ</span><strong>{{ preview.changes.content_changed ? t('documentation.admin.yes') : t('documentation.admin.no') }}</strong><small>{{ preview.changes.content_changed ? t('documentation.admin.contentChanged') : t('documentation.admin.contentUnchanged') }}</small></div>
-          <div><span>MB</span><strong>{{ formatBytes(preview.manifest.content_bytes) }}</strong><small>Markdown</small></div>
+          <div><span>MB</span><strong>{{ formatBytes(preview.manifest.content_bytes) }}</strong><small>{{ (preview.manifest.content_format || 'markdown').toUpperCase() }}</small></div>
         </div>
 
         <div class="grid gap-5 p-5 xl:grid-cols-[260px_minmax(0,1fr)]">
@@ -131,7 +131,7 @@ import {
   type DocumentationState,
   type DocumentationVersion
 } from '@/api/documentation'
-import { renderDocumentationMarkdown } from '@/utils/documentationMarkdown'
+import { renderDocumentationContent } from '@/utils/documentationMarkdown'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
@@ -148,8 +148,9 @@ const activatingID = ref('')
 
 const renderedPreview = computed(() => {
   if (!preview.value) return ''
-  return renderDocumentationMarkdown(
-    preview.value.markdown,
+  return renderDocumentationContent(
+    preview.value.content || preview.value.markdown || '',
+    preview.value.manifest.content_format || 'markdown',
     preview.value.manifest.outline,
     documentationPreviewAssetBase(preview.value.draft_id),
     t('documentation.public.copy')
@@ -264,7 +265,9 @@ onMounted(() => { void loadState() })
 .docs-preview-outline { max-height: 260px; overflow-y: auto; }.docs-preview-outline span { display: block; overflow: hidden; padding-top: 4px; padding-bottom: 4px; color: #64748b; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .docs-warning-panel { border-color: #fde68a; background: #fffbeb; }.dark .docs-warning-panel { border-color: rgba(245,158,11,.3); background: rgba(120,53,15,.13); }.docs-warning-panel h3 { color: #b45309; }.docs-warning-panel p { margin-top: 7px; color: #92400e; font-size: 11px; line-height: 1.55; }.dark .docs-warning-panel p { color: #fcd34d; }
 .docs-preview-frame { min-width: 0; overflow: hidden; border: 1px solid #dfe6ef; border-radius: 15px; background: white; box-shadow: 0 18px 45px rgba(15,23,42,.08); }.dark .docs-preview-frame { border-color: #334155; background: #0f172a; }.docs-preview-toolbar { display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 13px; border-bottom: 1px solid #e8edf4; color: #94a3b8; background: #f8fafc; font-size: 10px; }.dark .docs-preview-toolbar { border-color: #334155; background: #182135; }.docs-preview-toolbar i { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; }.docs-preview-toolbar i:first-child { background: #f87171; }.docs-preview-toolbar i:nth-child(2) { background: #fbbf24; }.docs-preview-toolbar i:nth-child(3) { background: #4ade80; }.docs-preview-toolbar span { margin-left: 6px; }
-.docs-preview-content { max-height: 720px; overflow: auto; padding: 32px clamp(22px,5vw,64px); color: #475569; font-size: 13px; line-height: 1.75; }.dark .docs-preview-content { color: #cbd5e1; }.docs-preview-content :deep(h1) { margin: 0 0 26px; color: #111827; font-size: 32px; font-weight: 800; }.docs-preview-content :deep(h2) { margin: 36px 0 12px; color: #172033; font-size: 23px; font-weight: 760; }.docs-preview-content :deep(h3) { margin: 28px 0 10px; color: #334155; font-size: 18px; font-weight: 720; }.dark .docs-preview-content :deep(h1),.dark .docs-preview-content :deep(h2),.dark .docs-preview-content :deep(h3) { color: #f1f5f9; }.docs-preview-content :deep(.docs-heading-anchor),.docs-preview-content :deep(.docs-copy-button) { display: none; }.docs-preview-content :deep(img) { max-width: 100%; margin: 18px auto; border-radius: 9px; box-shadow: 0 10px 28px rgba(15,23,42,.12); }.docs-preview-content :deep(.docs-callout) { margin: 16px 0; padding: 14px 16px; border: 1px solid rgba(99,102,241,.2); border-left: 3px solid #6366f1; border-radius: 10px; background: rgba(99,102,241,.06); }.docs-preview-content :deep(.docs-callout-label) { display: block; color: #6366f1; font-size: 9px; font-weight: 800; }.docs-preview-content :deep(li) { margin: 5px 0; }.docs-preview-content :deep(ul),.docs-preview-content :deep(ol) { padding-left: 20px; }
+.docs-preview-content :deep(ul),.docs-preview-content :deep(ol) { list-style-position: outside; }.docs-preview-content :deep(ul) { list-style-type: disc; }.docs-preview-content :deep(ol) { list-style-type: decimal; }
+.docs-preview-content :deep(strong),.docs-preview-content :deep(b) { color: #1e293b; font-weight: 720; }.dark .docs-preview-content :deep(strong),.dark .docs-preview-content :deep(b) { color: #f8fafc; }
+.docs-preview-content :deep(.docs-page-title) { display: none; }.docs-preview-content :deep(.page-cover-image) { width: 100%; max-height: 220px; object-fit: cover; }.docs-preview-content :deep(.docs-toggle) { margin: 14px 0; }.docs-preview-content :deep(.docs-toggle-summary) { padding: 7px 10px; border-radius: 8px; color: #334155; background: rgba(99,102,241,.06); cursor: pointer; font-weight: 700; }.dark .docs-preview-content :deep(.docs-toggle-summary) { color: #e2e8f0; }.docs-preview-content :deep(.docs-callout-notion) { display: grid !important; grid-template-columns: auto minmax(0,1fr); gap: 10px; }.docs-preview-content :deep(.docs-callout-icon) { font-size: 16px; }.docs-preview-content :deep(figure) { margin: 14px 0; text-align: center; }
 .docs-active-card { position: relative; overflow: hidden; margin-top: 16px; padding: 20px; border: 1px solid rgba(34,197,94,.18); border-radius: 15px; background: linear-gradient(135deg,rgba(34,197,94,.08),rgba(6,182,212,.04)); }.docs-active-card::after { content: ''; position: absolute; right: -35px; top: -40px; width: 120px; height: 120px; border: 20px solid rgba(34,197,94,.05); border-radius: 50%; }.docs-live-badge { display: inline-flex; align-items: center; gap: 6px; color: #16a34a; font-size: 9px; font-weight: 850; letter-spacing: .13em; }.docs-live-badge i { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.12); }.docs-active-card h3 { margin-top: 12px; color: #172033; font-size: 20px; font-weight: 760; }.dark .docs-active-card h3 { color: #f8fafc; }.docs-active-card p { margin-top: 5px; color: #64748b; font-size: 12px; }.docs-active-card code { display: inline-block; margin-top: 13px; padding: 3px 7px; border-radius: 6px; color: #64748b; background: rgba(255,255,255,.7); font-size: 10px; }.dark .docs-active-card code { background: #1e293b; }
 .docs-no-active { display: grid; min-height: 128px; place-items: center; margin-top: 16px; border: 1px dashed #dbe2eb; border-radius: 15px; color: #94a3b8; font-size: 13px; }.dark .docs-no-active { border-color: #334155; }
 .docs-version-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 12px; border: 1px solid #eef1f5; border-radius: 11px; }.dark .docs-version-row { border-color: #293548; }.docs-version-row strong { color: #334155; font-size: 12px; }.dark .docs-version-row strong { color: #e2e8f0; }.docs-version-row small { display: block; margin-top: 3px; color: #94a3b8; font-size: 10px; }.docs-active-pill { padding: 2px 6px; border-radius: 99px; color: #15803d; background: #dcfce7; font-size: 8px; font-weight: 800; text-transform: uppercase; }

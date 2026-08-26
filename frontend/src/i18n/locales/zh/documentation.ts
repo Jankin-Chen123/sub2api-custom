@@ -18,14 +18,19 @@ export default {
       noResults: '没有匹配的标题',
       notPublished: '尚未发布',
       endOfDocument: '文档已到底',
-      backToTop: '返回顶部 ↑'
+      backToTop: '返回顶部 ↑',
+      startReading: '开始阅读',
+      quickNavigation: '快速导航',
+      quickNavigationHint: '选择一个章节直接进入',
+      allSections: '返回章节导航',
+      visitWebsite: '返回网站'
     },
     admin: {
       title: '文档管理',
-      description: '导入 Notion Markdown 导出包，预览后发布到公开文档站。',
+      description: '导入 Notion HTML 导出包，保留页面结构与图片，预览后发布到公开文档站。',
       uploadTitle: '导入 Notion 文档',
       uploadHint: '拖放 ZIP 到这里，或点击选择文件',
-      uploadRule: '请上传最底层的导出 ZIP：压缩包内直接包含 Markdown 与图片，不能再包含 ZIP。',
+      uploadRule: '请上传最底层的 HTML 导出 ZIP：压缩包内直接包含 HTML 与图片，不能再包含 ZIP。',
       chooseFile: '选择 ZIP',
       importing: '正在解析 {progress}%',
       previewTitle: '发布前预览',

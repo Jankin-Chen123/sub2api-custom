@@ -66,7 +66,7 @@ func (p *channelMonitorAccountProbe) Probe(
 	}
 
 	request.GroupID = groupID
-	roundCtx, cancel := context.WithTimeout(ctx, monitorAccountProbeRoundTimeout)
+	roundCtx, cancel := context.WithTimeout(ctx, monitorAccountProbeRoundTimeoutForCount(len(accounts)))
 	defer cancel()
 	run := runChannelMonitorAccountProbes(roundCtx, request, accounts, p.attempt(apiKey))
 	return run, true, nil

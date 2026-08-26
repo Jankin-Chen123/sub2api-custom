@@ -694,6 +694,9 @@ func attachQuotaSnapshot(results []*CheckResult, snapshot *domain.MonitorQuotaSn
 // persistCheckResults 写入本次检测的历史记录并更新 last_checked_at。
 // 任一写库失败都只记日志，不影响调用方拿到 results（与 MVP 期望一致：宁可漏记历史也要先返回结果）。
 func (s *ChannelMonitorService) persistCheckResults(ctx context.Context, m *ChannelMonitor, results []*CheckResult) {
+	persistCtx, cancel := channelMonitorPersistenceContext(ctx)
+	defer cancel()
+
 	rows := make([]*ChannelMonitorHistoryRow, 0, len(results))
 	for _, r := range results {
 		rows = append(rows, &ChannelMonitorHistoryRow{
@@ -707,11 +710,11 @@ func (s *ChannelMonitorService) persistCheckResults(ctx context.Context, m *Chan
 			Quota:         r.Quota,
 		})
 	}
-	if err := s.repo.InsertHistoryBatch(ctx, rows); err != nil {
+	if err := s.repo.InsertHistoryBatch(persistCtx, rows); err != nil {
 		slog.Error("channel_monitor: insert history failed",
 			"monitor_id", m.ID, "name", m.Name, "error", err)
 	}
-	if err := s.repo.MarkChecked(ctx, m.ID, time.Now()); err != nil {
+	if err := s.repo.MarkChecked(persistCtx, m.ID, time.Now()); err != nil {
 		slog.Error("channel_monitor: mark checked failed",
 			"monitor_id", m.ID, "error", err)
 	}
@@ -721,8 +724,11 @@ func (s *ChannelMonitorService) persistAccountProbeResults(ctx context.Context, 
 	if len(rows) == 0 || s.accountProbeResults == nil {
 		return
 	}
+	persistCtx, cancel := channelMonitorPersistenceContext(ctx)
+	defer cancel()
+
 	if healthRepo, ok := s.accountProbeResults.(ChannelMonitorAccountHealthRepository); ok {
-		snapshots, err := healthRepo.ApplyAccountProbeResults(ctx, rows)
+		snapshots, err := healthRepo.ApplyAccountProbeResults(persistCtx, rows)
 		if err != nil {
 			slog.Error("channel_monitor: persist account probe health failed", "error", err)
 			return
@@ -730,9 +736,23 @@ func (s *ChannelMonitorService) persistAccountProbeResults(ctx context.Context, 
 		cacheChannelMonitorHealthSnapshots(snapshots)
 		return
 	}
-	if err := s.accountProbeResults.InsertAccountProbeResults(ctx, rows); err != nil {
+	if err := s.accountProbeResults.InsertAccountProbeResults(persistCtx, rows); err != nil {
 		slog.Error("channel_monitor: insert account probe results failed", "error", err)
 	}
+}
+
+const channelMonitorPersistenceTimeout = 15 * time.Second
+
+// channelMonitorPersistenceContext deliberately detaches persistence from the
+// probe deadline. A slow/uncancelable upstream must not discard the completed
+// account observations and the one aggregate history row after the probe
+// context expires. WithoutCancel preserves request-scoped repository values,
+// while the explicit short timeout still bounds shutdown and database work.
+func channelMonitorPersistenceContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithTimeout(context.WithoutCancel(ctx), channelMonitorPersistenceTimeout)
 }
 
 // ListAccountHealthSnapshots exposes the latest internal health view for
