@@ -120,6 +120,7 @@ func runChannelMonitorAccountProbes(
 		}
 
 		completed := 0
+	collectResults:
 		for completed < len(pending) {
 			select {
 			case attemptResult := <-attemptResults:
@@ -158,7 +159,7 @@ func runChannelMonitorAccountProbes(
 						break
 					}
 				}
-				break
+				break collectResults
 			}
 		}
 	}

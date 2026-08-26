@@ -116,7 +116,18 @@ func serveVersionRequest(writer http.ResponseWriter, request *http.Request, stor
 			http.NotFound(writer, request)
 			return
 		}
-		http.ServeFile(writer, request, assetPath)
+		assetFile, err := os.Open(assetPath)
+		if err != nil {
+			http.NotFound(writer, request)
+			return
+		}
+		defer func() { _ = assetFile.Close() }()
+		assetInfo, err := assetFile.Stat()
+		if err != nil {
+			http.NotFound(writer, request)
+			return
+		}
+		http.ServeContent(writer, request, filepath.Base(assetPath), assetInfo.ModTime(), assetFile)
 	default:
 		http.NotFound(writer, request)
 	}

@@ -105,17 +105,17 @@ func importNotionHTMLDocuments(files map[string]documentationArchiveFile, htmlPa
 	var output strings.Builder
 	for index, document := range documents {
 		if index > 0 {
-			output.WriteString(`<hr class="docs-document-divider">`)
+			_, _ = output.WriteString(`<hr class="docs-document-divider">`)
 		}
-		output.WriteString(`<section class="notion-document" data-docs-document="`)
-		output.WriteString(html.EscapeString(document.rootID))
-		output.WriteString(`">`)
+		_, _ = output.WriteString(`<section class="notion-document" data-docs-document="`)
+		_, _ = output.WriteString(html.EscapeString(document.rootID))
+		_, _ = output.WriteString(`">`)
 		for child := document.article.FirstChild; child != nil; child = child.NextSibling {
 			if err := html.Render(&output, child); err != nil {
 				return nil, fmt.Errorf("%w: cannot serialize HTML file %q: %v", errDocumentationInvalidArchive, document.path, err)
 			}
 		}
-		output.WriteString(`</section>`)
+		_, _ = output.WriteString(`</section>`)
 	}
 	content := []byte(output.String())
 	if len(content) == 0 || len(content) > maxDocumentationContentBytes {
