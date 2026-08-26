@@ -487,7 +487,7 @@ func documentationHeadingID(value string) string {
 	lastDash := false
 	for _, r := range strings.ToLower(value) {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || (r >= '\u4e00' && r <= '\u9fff') {
-			_ = builder.WriteRune(r)
+			_, _ = builder.WriteRune(r)
 			lastDash = false
 		} else if !lastDash && builder.Len() > 0 {
 			_ = builder.WriteByte('-')
