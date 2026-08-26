@@ -116,7 +116,9 @@ func serveVersionRequest(writer http.ResponseWriter, request *http.Request, stor
 			http.NotFound(writer, request)
 			return
 		}
-		assetFile, err := os.Open(assetPath)
+		// AssetPath validates the request-derived filename, resolves symlinks, and
+		// guarantees the result stays inside the version's assets directory.
+		assetFile, err := os.Open(assetPath) // #nosec G703 -- validated by AssetPath
 		if err != nil {
 			http.NotFound(writer, request)
 			return

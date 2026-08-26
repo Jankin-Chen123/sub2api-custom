@@ -435,7 +435,7 @@ func notionHTMLNodeText(root *html.Node) string {
 	var builder strings.Builder
 	walkNotionHTML(root, func(node *html.Node) {
 		if node.Type == html.TextNode {
-			builder.WriteString(node.Data)
+			_, _ = builder.WriteString(node.Data)
 		}
 	})
 	return strings.Join(strings.Fields(builder.String()), " ")
