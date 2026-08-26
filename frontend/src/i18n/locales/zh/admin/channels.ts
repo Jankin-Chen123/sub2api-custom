@@ -580,6 +580,34 @@ export default {
         kindRequired: '请选择供应商'
       },
       runResultTitle: '检测结果',
+      accountHealth: {
+        button: '账号健康',
+        title: '账号健康分',
+        description: '显示该监控最近探测到的各账号健康快照；健康分按分组、模型分别计算。',
+        modelFilter: '模型',
+        allModels: '全部模型',
+        empty: '暂无账号健康数据，请先运行一次主动检测。',
+        loadError: '加载账号健康数据失败',
+        stale: '已过期',
+        sampleHint: '健康分仅供管理员观察；过期快照会显示为未知。',
+        states: {
+          healthy: '健康',
+          degraded: '降级',
+          unhealthy: '不健康',
+          unknown: '未知'
+        },
+        columns: {
+          account: '账号',
+          model: '模型',
+          score: '健康分',
+          state: '状态',
+          successRate: '成功率',
+          latency: 'EWMA 延迟',
+          samples: '样本数',
+          failures: '连续失败',
+          lastProbe: '最近探测'
+        }
+      },
       noMonitorsYet: '暂无监控',
       createFirstMonitor: '创建第一个监控来跟踪渠道可用性',
       advanced: {

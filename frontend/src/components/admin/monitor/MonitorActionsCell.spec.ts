@@ -41,6 +41,25 @@ function makeMonitor(overrides: Partial<ChannelMonitor> = {}): ChannelMonitor {
 }
 
 describe('MonitorActionsCell duplicate action', () => {
+  it('emits the selected monitor when account health is clicked', async () => {
+    const row = makeMonitor()
+    const wrapper = mount(MonitorActionsCell, {
+      props: { row, running: false, duplicating: false },
+    })
+
+    await wrapper.get('[data-testid="monitor-account-health"]').trigger('click')
+
+    expect(wrapper.emitted('account-health')).toEqual([[row]])
+  })
+
+  it('hides account health for quota-only monitors', () => {
+    const wrapper = mount(MonitorActionsCell, {
+      props: { row: makeMonitor({ check_mode: 'quota' }), running: false, duplicating: false },
+    })
+
+    expect(wrapper.find('[data-testid="monitor-account-health"]').exists()).toBe(false)
+  })
+
   it('emits the selected monitor when duplicate is clicked', async () => {
     const row = makeMonitor()
     const wrapper = mount(MonitorActionsCell, {

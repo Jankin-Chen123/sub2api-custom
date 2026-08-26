@@ -28,6 +28,15 @@
       <span class="text-xs">{{ t('common.edit') }}</span>
     </button>
     <button
+      v-if="row.check_mode !== 'quota'"
+      data-testid="monitor-account-health"
+      @click="$emit('account-health', row)"
+      class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-300"
+    >
+      <Icon name="chartBar" size="sm" />
+      <span class="text-xs">{{ t('admin.channelMonitor.accountHealth.button') }}</span>
+    </button>
+    <button
       @click="$emit('delete', row)"
       class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
     >
@@ -53,6 +62,7 @@ defineEmits<{
   (e: 'run', row: ChannelMonitor): void
   (e: 'duplicate', row: ChannelMonitor): void
   (e: 'edit', row: ChannelMonitor): void
+  (e: 'account-health', row: ChannelMonitor): void
   (e: 'delete', row: ChannelMonitor): void
 }>()
 

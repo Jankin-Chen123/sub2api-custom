@@ -209,6 +209,14 @@ type ChannelMonitorAccountHealthRepository interface {
 	ListAccountHealthSnapshots(ctx context.Context, groupID *int64, provider, model string, limit int) ([]*ChannelMonitorAccountHealthSnapshot, error)
 }
 
+// ChannelMonitorAccountHealthViewRepository is the admin-facing, monitor
+// scoped read path. A monitor may share a group with other monitors, so a
+// health view must additionally prove that the account/model tuple was
+// actually probed by the requested monitor.
+type ChannelMonitorAccountHealthViewRepository interface {
+	ListAccountHealthSnapshotsForMonitor(ctx context.Context, monitorID int64, provider string, models []string, model string, limit int) ([]*ChannelMonitorAccountHealthSnapshot, error)
+}
+
 // UserMonitorView 用户只读视图：监控概览（含主模型最近状态 + 7d 可用率 + 附加模型最近状态）。
 type UserMonitorView struct {
 	ID                   int64

@@ -647,6 +647,21 @@ const ShieldIcon = {
     )
 }
 
+const BookIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M4.5 19.5A2.25 2.25 0 016.75 17.25H19.5V4.5A2.25 2.25 0 0017.25 2.25H6.75A2.25 2.25 0 004.5 4.5v15zm0 0v.75A1.5 1.5 0 006 21.75h13.5v-4.5M8.25 6.75h7.5M8.25 10.5h5.25'
+        })
+      ]
+    )
+}
+
 const PriceTagIcon = {
   render: () =>
     h(
@@ -763,6 +778,7 @@ const customMenuItemsForAdmin = computed(() => {
 const adminNavItems = computed((): NavItem[] => {
   const baseItems: NavItem[] = [
     { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
+    { path: '/admin/documentation', label: t('nav.documentation'), icon: BookIcon },
     { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
     { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
     { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon, hideInSimpleMode: true },

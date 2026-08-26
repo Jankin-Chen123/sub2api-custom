@@ -108,6 +108,7 @@
               @run="handleRunNow"
               @duplicate="handleDuplicate"
               @edit="openEditDialog"
+              @account-health="openAccountHealth"
               @delete="handleDelete"
             />
           </template>
@@ -155,6 +156,12 @@
       @close="showRunResult = false"
     />
 
+    <MonitorAccountHealthDialog
+      :show="showAccountHealth"
+      :monitor="accountHealthMonitor"
+      @close="closeAccountHealth"
+    />
+
     <ConfirmDialog
       :show="showDeleteDialog"
       :title="t('common.delete')"
@@ -196,6 +203,7 @@ import MonitorTemplateManagerDialog from '@/components/admin/monitor/MonitorTemp
 import MonitorRunResultDialog from '@/components/admin/monitor/MonitorRunResultDialog.vue'
 import MonitorPrimaryModelCell from '@/components/admin/monitor/MonitorPrimaryModelCell.vue'
 import MonitorActionsCell from '@/components/admin/monitor/MonitorActionsCell.vue'
+import MonitorAccountHealthDialog from '@/components/admin/monitor/MonitorAccountHealthDialog.vue'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
 import MonitorSettingsPanel from '@/features/channel-monitor-v2/MonitorSettingsPanel.vue'
@@ -229,6 +237,8 @@ const showDeleteDialog = ref(false)
 const deleting = ref<ChannelMonitor | null>(null)
 const showRunResult = ref(false)
 const runResults = ref<CheckResult[]>([])
+const showAccountHealth = ref(false)
+const accountHealthMonitor = ref<ChannelMonitor | null>(null)
 const duplicatingIds = reactive(new Set<number>())
 
 let abortController: AbortController | null = null
@@ -307,6 +317,16 @@ function openCreateDialog() {
 function openEditDialog(row: ChannelMonitor) {
   editing.value = row
   showDialog.value = true
+}
+
+function openAccountHealth(row: ChannelMonitor) {
+  accountHealthMonitor.value = row
+  showAccountHealth.value = true
+}
+
+function closeAccountHealth() {
+  showAccountHealth.value = false
+  accountHealthMonitor.value = null
 }
 
 function closeDialog() {

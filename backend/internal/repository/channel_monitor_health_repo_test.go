@@ -74,6 +74,30 @@ func TestChannelMonitorRepositoryListAccountHealthSnapshots(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestChannelMonitorRepositoryListAccountHealthSnapshotsForMonitorScopesProbe(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	checkedAt := time.Now().UTC()
+	mock.ExpectQuery("SELECT s.group_id, s.account_id, COALESCE\\(a.name, ''\\)").
+		WithArgs(int64(42), service.PlatformOpenAI, sqlmock.AnyArg(), "", 1000).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"group_id", "account_id", "account_name", "provider", "model", "score", "health_state",
+			"ewma_success_rate", "ewma_latency_ms", "sample_count", "consecutive_successes",
+			"consecutive_failures", "last_status", "last_probe_at", "updated_at", "expires_at",
+		}).AddRow(9, 17, "upstream-a", service.PlatformOpenAI, "gpt-test", 82.5, service.ChannelMonitorHealthStateHealthy,
+			0.95, 180, 8, 7, 0, service.MonitorStatusOperational, checkedAt, checkedAt, checkedAt.Add(time.Minute)))
+
+	repo := &channelMonitorRepository{db: db}
+	snapshots, err := repo.ListAccountHealthSnapshotsForMonitor(t.Context(), 42, service.PlatformOpenAI, []string{"gpt-test"}, "", 1000)
+	require.NoError(t, err)
+	require.Len(t, snapshots, 1)
+	require.Equal(t, "upstream-a", snapshots[0].AccountName)
+	require.Equal(t, int64(17), snapshots[0].AccountID)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func intPtrForHealthRepoTest(value int) *int {
 	return &value
 }

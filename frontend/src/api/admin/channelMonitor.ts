@@ -192,6 +192,32 @@ export interface HistoryResponse {
   items: HistoryItem[]
 }
 
+export type AccountHealthState = 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
+
+export interface AccountHealthItem {
+  account_id: number
+  account_name: string
+  group_id: number
+  provider: string
+  model: string
+  score: number
+  health_state: AccountHealthState
+  ewma_success_rate: number
+  ewma_latency_ms: number | null
+  sample_count: number
+  consecutive_successes: number
+  consecutive_failures: number
+  last_status: MonitorStatus | string
+  last_probe_at: string
+  updated_at: string
+  expires_at: string
+  stale: boolean
+}
+
+export interface AccountHealthResponse {
+  items: AccountHealthItem[]
+}
+
 /**
  * List channel monitors with pagination and filters
  */
@@ -343,6 +369,20 @@ export async function listHistory(
   return data
 }
 
+/**
+ * List the latest per-account health snapshots observed by one monitor.
+ */
+export async function listAccountHealth(
+  id: number,
+  params: { model?: string } = {}
+): Promise<AccountHealthResponse> {
+  const { data } = await apiClient.get<AccountHealthResponse>(
+    `/admin/channel-monitors/${id}/account-health`,
+    { params }
+  )
+  return data
+}
+
 export const channelMonitorAPI = {
   list,
   get,
@@ -352,6 +392,7 @@ export const channelMonitorAPI = {
   del,
   runNow,
   listHistory,
+  listAccountHealth,
 }
 
 export default channelMonitorAPI

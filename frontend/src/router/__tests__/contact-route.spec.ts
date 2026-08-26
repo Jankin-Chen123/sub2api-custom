@@ -59,4 +59,13 @@ describe('contact page route', () => {
     expect(isBackendModePublicRouteAllowed('/contact', false)).toBe(true)
     expect(isBackendModePublicRouteAllowed('/contact/', false)).toBe(true)
   })
+
+  it('registers documentation as a standalone public route', async () => {
+    const { default: router, isBackendModePublicRouteAllowed } = await import('@/router')
+    const route = router.getRoutes().find((record) => record.name === 'Documentation')
+
+    expect(route?.path).toBe('/docs')
+    expect(route?.meta.requiresAuth).toBe(false)
+    expect(isBackendModePublicRouteAllowed('/docs', false)).toBe(true)
+  })
 })

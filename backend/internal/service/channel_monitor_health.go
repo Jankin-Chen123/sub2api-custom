@@ -58,8 +58,11 @@ const (
 // account in one local group/provider/model tuple. It is intentionally not an
 // account field: health must never rewrite administrator-owned Priority.
 type ChannelMonitorAccountHealthSnapshot struct {
-	GroupID              int64
-	AccountID            int64
+	GroupID   int64
+	AccountID int64
+	// AccountName is populated only for administrative health views. It is
+	// intentionally not persisted and is not used by routing or score logic.
+	AccountName          string
 	Provider             string
 	Model                string
 	Score                float64

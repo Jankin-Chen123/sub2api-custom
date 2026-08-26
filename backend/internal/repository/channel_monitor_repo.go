@@ -531,6 +531,81 @@ func (r *channelMonitorRepository) ListAccountHealthSnapshots(ctx context.Contex
 	return out, nil
 }
 
+// ListAccountHealthSnapshotsForMonitor scopes the admin view to tuples that
+// this monitor has actually probed. Snapshots are shared by group/account/
+// provider/model, so the EXISTS clause prevents another monitor in the same
+// group from leaking into this view while still retaining deleted accounts.
+func (r *channelMonitorRepository) ListAccountHealthSnapshotsForMonitor(ctx context.Context, monitorID int64, provider string, models []string, model string, limit int) ([]*service.ChannelMonitorAccountHealthSnapshot, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("channel monitor database is not configured")
+	}
+	if limit <= 0 || limit > 1000 {
+		limit = 1000
+	}
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	model = strings.TrimSpace(model)
+	if len(models) == 0 {
+		return []*service.ChannelMonitorAccountHealthSnapshot{}, nil
+	}
+	const q = `
+		SELECT s.group_id, s.account_id, COALESCE(a.name, ''), s.provider, s.model,
+		       s.score, s.health_state, s.ewma_success_rate, s.ewma_latency_ms,
+		       s.sample_count, s.consecutive_successes, s.consecutive_failures,
+		       s.last_status, s.last_probe_at, s.updated_at, s.expires_at
+		FROM channel_monitor_account_health_snapshots s
+		LEFT JOIN accounts a ON a.id = s.account_id
+		WHERE s.provider = $2
+		  AND s.model = ANY($3)
+		  AND ($4 = '' OR s.model = $4)
+		  AND EXISTS (
+				SELECT 1
+				FROM channel_monitor_account_probe_results p
+				WHERE p.monitor_id = $1
+				  AND p.group_id = s.group_id
+				  AND p.account_id = s.account_id
+				  AND p.provider = s.provider
+				  AND p.model = s.model
+			)
+		ORDER BY s.model ASC, s.score DESC, s.account_id ASC
+		LIMIT $5`
+	rows, err := r.db.QueryContext(ctx, q, monitorID, provider, pq.Array(models), model, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list monitor account health snapshots: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := make([]*service.ChannelMonitorAccountHealthSnapshot, 0)
+	for rows.Next() {
+		snapshot := &service.ChannelMonitorAccountHealthSnapshot{}
+		var ewmaLatency sql.NullInt64
+		if err := rows.Scan(
+			&snapshot.GroupID,
+			&snapshot.AccountID,
+			&snapshot.AccountName,
+			&snapshot.Provider,
+			&snapshot.Model,
+			&snapshot.Score,
+			&snapshot.HealthState,
+			&snapshot.EWMASuccessRate,
+			&ewmaLatency,
+			&snapshot.SampleCount,
+			&snapshot.ConsecutiveSuccesses,
+			&snapshot.ConsecutiveFailures,
+			&snapshot.LastStatus,
+			&snapshot.LastProbeAt,
+			&snapshot.UpdatedAt,
+			&snapshot.ExpiresAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan monitor account health snapshot: %w", err)
+		}
+		snapshot.EWMALatencyMs = nullIntPointer(ewmaLatency)
+		out = append(out, snapshot)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate monitor account health snapshots: %w", err)
+	}
+	return out, nil
+}
+
 func nullIntPointer(value sql.NullInt64) *int {
 	if !value.Valid {
 		return nil

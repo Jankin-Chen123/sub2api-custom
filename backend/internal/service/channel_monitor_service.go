@@ -754,6 +754,52 @@ func (s *ChannelMonitorService) ListAccountHealthSnapshots(
 	return healthRepo.ListAccountHealthSnapshots(ctx, groupID, provider, model, limit)
 }
 
+// ListAccountHealthSnapshotsForMonitor returns only account/model snapshots
+// that belong to the requested monitor's configured models and have a probe
+// observation recorded for that monitor. This keeps the admin view scoped
+// even when several monitors share one group.
+func (s *ChannelMonitorService) ListAccountHealthSnapshotsForMonitor(
+	ctx context.Context,
+	monitorID int64,
+	model string,
+	limit int,
+) ([]*ChannelMonitorAccountHealthSnapshot, error) {
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("channel monitor repository is not configured")
+	}
+	monitor, err := s.repo.GetByID(ctx, monitorID)
+	if err != nil {
+		return nil, err
+	}
+	models := make([]string, 0, 1+len(monitor.ExtraModels))
+	seen := make(map[string]struct{}, 1+len(monitor.ExtraModels))
+	for _, candidate := range append([]string{monitor.PrimaryModel}, monitor.ExtraModels...) {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if _, exists := seen[candidate]; exists {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		models = append(models, candidate)
+	}
+	model = strings.TrimSpace(model)
+	if model != "" {
+		if _, exists := seen[model]; !exists {
+			return []*ChannelMonitorAccountHealthSnapshot{}, nil
+		}
+	}
+	viewRepo, ok := s.repo.(ChannelMonitorAccountHealthViewRepository)
+	if !ok && s.accountProbeResults != nil {
+		viewRepo, ok = s.accountProbeResults.(ChannelMonitorAccountHealthViewRepository)
+	}
+	if !ok {
+		return nil, fmt.Errorf("channel monitor account health view is not supported")
+	}
+	return viewRepo.ListAccountHealthSnapshotsForMonitor(ctx, monitorID, strings.TrimSpace(monitor.Provider), models, model, limit)
+}
+
 func (s *ChannelMonitorService) runChecksConcurrentWithAccountRows(ctx context.Context, m *ChannelMonitor) ([]*CheckResult, []*ChannelMonitorAccountProbeResult) {
 	models := append([]string{m.PrimaryModel}, m.ExtraModels...)
 	results := make([]*CheckResult, len(models))

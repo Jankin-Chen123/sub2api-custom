@@ -260,6 +260,7 @@ func (h *PageHandler) checkImageSlugVisibility(c *gin.Context, slug string) bool
 // RegisterPageRoutes registers page routes on a router group.
 func RegisterPageRoutes(v1 *gin.RouterGroup, dataDir string, jwtAuth gin.HandlerFunc, adminAuth gin.HandlerFunc, settingService *service.SettingService) {
 	h := NewPageHandler(dataDir, settingService)
+	docs := NewDocumentationHandler(dataDir)
 
 	// Authenticated page content (JWT required + visibility check)
 	pages := v1.Group("/pages")
@@ -280,5 +281,27 @@ func RegisterPageRoutes(v1 *gin.RouterGroup, dataDir string, jwtAuth gin.Handler
 	adminPages.Use(middleware2.AdminComplianceGuard(settingService))
 	{
 		adminPages.GET("", h.ListPages)
+	}
+
+	// Public, version-pinned documentation. A content response and all of its
+	// assets stay consistent even when an administrator publishes a new version.
+	publicDocs := v1.Group("/docs")
+	{
+		publicDocs.GET("", docs.Active)
+		publicDocs.GET("/versions/:versionID/content", docs.VersionContent)
+		publicDocs.GET("/versions/:versionID/assets/*filename", docs.VersionAsset)
+		// Draft IDs are cryptographically random capability URLs used only by the
+		// admin preview. Drafts expire automatically and are never listed publicly.
+		publicDocs.GET("/previews/:draftID/assets/*filename", docs.DraftAsset)
+	}
+
+	adminDocs := v1.Group("/admin/docs")
+	adminDocs.Use(adminAuth)
+	adminDocs.Use(middleware2.AdminComplianceGuard(settingService))
+	{
+		adminDocs.GET("", docs.State)
+		adminDocs.POST("/import", docs.Import)
+		adminDocs.POST("/drafts/:draftID/publish", docs.Publish)
+		adminDocs.POST("/versions/:versionID/activate", docs.Activate)
 	}
 }

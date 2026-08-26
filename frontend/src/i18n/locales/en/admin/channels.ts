@@ -580,6 +580,34 @@ export default {
         kindRequired: 'Please select a provider'
       },
       runResultTitle: 'Check Result',
+      accountHealth: {
+        button: 'Account health',
+        title: 'Account health scores',
+        description: 'Latest account snapshots observed by this monitor; scores are isolated by group and model.',
+        modelFilter: 'Model',
+        allModels: 'All models',
+        empty: 'No account health data yet. Run an active check first.',
+        loadError: 'Failed to load account health data',
+        stale: 'Stale',
+        sampleHint: 'Health scores are for administrator observation; stale snapshots are shown as unknown.',
+        states: {
+          healthy: 'Healthy',
+          degraded: 'Degraded',
+          unhealthy: 'Unhealthy',
+          unknown: 'Unknown'
+        },
+        columns: {
+          account: 'Account',
+          model: 'Model',
+          score: 'Score',
+          state: 'State',
+          successRate: 'Success rate',
+          latency: 'EWMA latency',
+          samples: 'Samples',
+          failures: 'Consecutive failures',
+          lastProbe: 'Last probe'
+        }
+      },
       noMonitorsYet: 'No monitors yet',
       createFirstMonitor: 'Create your first monitor to track channel availability',
       advanced: {

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -139,6 +140,26 @@ type channelMonitorHistoryItemResponse struct {
 	Message       string                       `json:"message"`
 	CheckedAt     string                       `json:"checked_at"`
 	Quota         *domain.MonitorQuotaSnapshot `json:"quota,omitempty"`
+}
+
+type channelMonitorAccountHealthItemResponse struct {
+	AccountID            int64   `json:"account_id"`
+	AccountName          string  `json:"account_name"`
+	GroupID              int64   `json:"group_id"`
+	Provider             string  `json:"provider"`
+	Model                string  `json:"model"`
+	Score                float64 `json:"score"`
+	HealthState          string  `json:"health_state"`
+	EWMASuccessRate      float64 `json:"ewma_success_rate"`
+	EWMALatencyMs        *int    `json:"ewma_latency_ms"`
+	SampleCount          int     `json:"sample_count"`
+	ConsecutiveSuccesses int     `json:"consecutive_successes"`
+	ConsecutiveFailures  int     `json:"consecutive_failures"`
+	LastStatus           string  `json:"last_status"`
+	LastProbeAt          string  `json:"last_probe_at"`
+	UpdatedAt            string  `json:"updated_at"`
+	ExpiresAt            string  `json:"expires_at"`
+	Stale                bool    `json:"stale"`
 }
 
 // maskAPIKey 对 API Key 明文做脱敏：前 4 字符 + "***"，长度 ≤ 4 时只显示 "***"。
@@ -506,6 +527,60 @@ func (h *ChannelMonitorHandler) History(c *gin.Context) {
 	out := make([]channelMonitorHistoryItemResponse, 0, len(entries))
 	for _, e := range entries {
 		out = append(out, historyEntryToResponse(e))
+	}
+	response.Success(c, gin.H{"items": out})
+}
+
+// AccountHealth GET /api/v1/admin/channel-monitors/:id/account-health
+func (h *ChannelMonitorHandler) AccountHealth(c *gin.Context) {
+	id, ok := ParseChannelMonitorID(c)
+	if !ok {
+		return
+	}
+	model := strings.TrimSpace(c.Query("model"))
+	if len(model) > 200 {
+		response.ErrorFrom(c, infraerrors.BadRequest("INVALID_MODEL", "invalid model"))
+		return
+	}
+	items, err := h.monitorService.ListAccountHealthSnapshotsForMonitor(c.Request.Context(), id, model, 1000)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	now := time.Now()
+	out := make([]channelMonitorAccountHealthItemResponse, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		stale := !item.ExpiresAt.IsZero() && !now.Before(item.ExpiresAt)
+		state := item.HealthState
+		if stale {
+			state = service.ChannelMonitorHealthStateUnknown
+		}
+		accountName := strings.TrimSpace(item.AccountName)
+		if accountName == "" {
+			accountName = fmt.Sprintf("#%d", item.AccountID)
+		}
+		out = append(out, channelMonitorAccountHealthItemResponse{
+			AccountID:            item.AccountID,
+			AccountName:          accountName,
+			GroupID:              item.GroupID,
+			Provider:             item.Provider,
+			Model:                item.Model,
+			Score:                item.Score,
+			HealthState:          state,
+			EWMASuccessRate:      item.EWMASuccessRate,
+			EWMALatencyMs:        item.EWMALatencyMs,
+			SampleCount:          item.SampleCount,
+			ConsecutiveSuccesses: item.ConsecutiveSuccesses,
+			ConsecutiveFailures:  item.ConsecutiveFailures,
+			LastStatus:           item.LastStatus,
+			LastProbeAt:          item.LastProbeAt.UTC().Format(time.RFC3339),
+			UpdatedAt:            item.UpdatedAt.UTC().Format(time.RFC3339),
+			ExpiresAt:            item.ExpiresAt.UTC().Format(time.RFC3339),
+			Stale:                stale,
+		})
 	}
 	response.Success(c, gin.H{"items": out})
 }
