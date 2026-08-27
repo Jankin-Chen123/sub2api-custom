@@ -153,10 +153,6 @@
       </template>
     </main>
 
-    <div v-if="currentSection" class="docs-lion-floating" aria-label="互动小狮子">
-      <ChillLionWidget />
-    </div>
-
     <div v-if="lightboxSource" class="docs-lightbox" @click="lightboxSource = ''">
       <button :aria-label="t('documentation.public.close')">×</button>
       <img :src="lightboxSource" alt="" @click.stop />
@@ -168,7 +164,6 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import ChillLionWidget from '@/components/ChillLionWidget.vue'
 import { useAppStore } from '@/stores'
 import {
   documentationAssetBase,
@@ -612,9 +607,6 @@ onBeforeUnmount(() => {
 .docs-outline-label { margin-bottom: 12px; color: #94a3b8; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .docs-page-outline button { padding: 5px 0; overflow: hidden; color: #94a3b8; text-align: left; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; transition: .18s; }
 .docs-page-outline button:hover,.docs-page-outline button.active { color: var(--docs-accent); transform: translateX(3px); }
-.docs-lion-floating { position: fixed; z-index: 45; right: 28px; bottom: 24px; width: 300px; height: clamp(220px,30vh,360px); overflow: hidden; border: 1px solid rgba(99,102,241,.18); border-radius: 18px; background: #ebe5e7; box-shadow: 0 18px 48px rgba(64,74,145,.16); }
-.dark .docs-lion-floating { border-color: rgba(129,140,248,.26); box-shadow: 0 20px 54px rgba(0,0,0,.3); }
-.docs-lion-floating :deep(.chill-lion-canvas) { width: 100%; height: 100%; }
 .docs-article-footer { display: flex; justify-content: space-between; margin-top: 80px; padding-top: 24px; border-top: 1px solid rgba(148,163,184,.2); color: #94a3b8; font-size: 12px; }
 .docs-article-footer button:hover { color: var(--docs-accent); }
 .docs-loading { width: min(780px, calc(100% - 60px)); margin: 0 auto; padding-top: 140px; }
@@ -690,7 +682,7 @@ onBeforeUnmount(() => {
 .docs-content :deep(.docs-reveal) { opacity: 0; transform: translateY(14px); transition: opacity .5s ease,transform .5s cubic-bezier(.2,.8,.2,1); }.docs-content :deep(.docs-reveal.docs-visible) { opacity: 1; transform: none; }
 @keyframes docs-shimmer { to { background-position: -200% 0; } } @keyframes docs-float { 50% { transform: translateY(-8px) rotate(3deg); } } @keyframes docs-fade { from { opacity: 0; } } @keyframes docs-orbit { 50% { transform: translate3d(-16px,12px,0) scale(1.08); } } @keyframes docs-content-enter { from { opacity: 0; transform: translateY(-5px); } } @keyframes docs-resource-drift { 50% { transform: translate3d(3%,2%,0) scale(1.08); } } @keyframes docs-resource-pulse { 50% { opacity: .45; transform: scale(.72); } } @keyframes docs-introduction-drift { 50% { transform: translate3d(4%,3%,0) scale(1.08); } }
 
-@media (max-width: 1180px) { .docs-main { padding-right: 0; }.docs-page-outline,.docs-lion-floating { display: none; }.docs-article { width: min(860px, calc(100vw - 320px)); } }
+@media (max-width: 1180px) { .docs-main { padding-right: 0; }.docs-page-outline { display: none; }.docs-article { width: min(860px, calc(100vw - 320px)); } }
 @media (max-width: 760px) {
   .docs-mobile-only { display: grid; }.docs-header { height: 60px; }.docs-header-inner { padding: 0 14px; gap: 8px; }.docs-brand { gap: 7px; font-size: 14px; }.docs-logo { width: 31px; height: 31px; }.docs-brand-divider,.docs-brand-section,.docs-search-wrap,.docs-header-link { display: none; }
   .docs-sidebar { top: 0; z-index: 90; width: min(86vw,320px); transform: translateX(-105%); background: #fbfcff; box-shadow: 25px 0 70px rgba(15,23,42,.18); transition: transform .28s cubic-bezier(.2,.8,.2,1); }.dark .docs-sidebar { background: #0b1020; }.docs-sidebar-open { transform: none; }.docs-mobile-backdrop { display: block; position: fixed; z-index: 80; inset: 0; background: rgba(15,23,42,.42); backdrop-filter: blur(3px); }

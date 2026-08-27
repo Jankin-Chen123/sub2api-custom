@@ -132,6 +132,49 @@ func TestImportNotionArchivePreservesHTMLStructureAndAssets(t *testing.T) {
 	}
 }
 
+func TestImportNotionArchiveRewritesNotionPageAliases(t *testing.T) {
+	pageID := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	mainHTML := `<!doctype html><html><body><article>
+<h1 class="page-title">使用教程</h1>
+<p><a href="Notion-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee">代理节点</a></p>
+<p><a href="https://www.notion.so/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee">代理节点（网页链接）</a></p>
+<p><a href="代理节点">代理节点（标题链接）</a></p>
+</article></body></html>`
+	sectionHTML := `<!doctype html><html><body><article>
+<h1 class="page-title">代理节点</h1>
+</article></body></html>`
+	archive := makeDocumentationZip(t, map[string][]byte{
+		"guide.html":               []byte(mainHTML),
+		"代理节点 " + pageID + ".html": []byte(sectionHTML),
+	})
+
+	result, err := importNotionArchive(archive)
+	if err != nil {
+		t.Fatalf("import HTML archive: %v", err)
+	}
+	content := string(result.Content)
+	if strings.Count(content, `href="#代理节点"`) != 3 {
+		t.Fatalf("expected all Notion page aliases to become internal links:\n%s", content)
+	}
+}
+
+func TestImportNotionArchiveRewritesSameDocumentTitleAlias(t *testing.T) {
+	htmlDocument := `<!doctype html><html><body><article>
+<h1 class="page-title">使用教程</h1>
+<details><summary>代理节点</summary><p>章节内容</p></details>
+<p><a href="代理节点">跳转到代理节点</a></p>
+</article></body></html>`
+	result, err := importNotionArchive(makeDocumentationZip(t, map[string][]byte{
+		"guide.html": []byte(htmlDocument),
+	}))
+	if err != nil {
+		t.Fatalf("import HTML archive: %v", err)
+	}
+	if !strings.Contains(string(result.Content), `href="#代理节点"`) {
+		t.Fatalf("same-document title alias was not rewritten:\n%s", result.Content)
+	}
+}
+
 func TestImportNotionArchiveRejectsNestedZip(t *testing.T) {
 	inner := makeDocumentationZip(t, map[string][]byte{"guide.md": []byte("# Guide\n")})
 	outer := makeDocumentationZip(t, map[string][]byte{"Export-Part-1.zip": inner})

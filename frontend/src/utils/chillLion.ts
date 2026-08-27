@@ -2,41 +2,27 @@
 /* eslint-disable no-var, no-extra-semi, @typescript-eslint/no-unused-vars */
 /**
  * Local Vue adapter for Karim Maaloul's "Chill the lion" CodePen.
- * The original Three.js scene is kept local here; only the pinned Three.js
- * runtime is loaded on demand.
+ * The original Three.js scene and its pinned Three.js runtime are bundled
+ * with the frontend so the widget does not depend on a third-party CDN.
+ * The runtime is loaded as a local async chunk so it does not delay the
+ * initial documentation content.
  */
-const THREE_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r70/three.min.js'
 let threeLoadPromise: Promise<any> | null = null
+let threeRuntime: any = null
 
 function loadThree(): Promise<any> {
-  const existingThree = (globalThis as any).THREE
-  if (existingThree) return Promise.resolve(existingThree)
-  if (threeLoadPromise) return threeLoadPromise
-
-  threeLoadPromise = new Promise((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>('script[data-chill-lion-three]')
-    if (existingScript) {
-      existingScript.addEventListener('load', () => resolve((globalThis as any).THREE), { once: true })
-      existingScript.addEventListener('error', () => reject(new Error('Three.js failed to load')), { once: true })
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = THREE_CDN_URL
-    script.async = true
-    script.dataset.chillLionThree = 'true'
-    script.onload = () => {
-      const loadedThree = (globalThis as any).THREE
-      if (loadedThree) resolve(loadedThree)
-      else reject(new Error('Three.js did not expose a global THREE object'))
-    }
-    script.onerror = () => reject(new Error('Three.js failed to load'))
-    document.head.appendChild(script)
-  }).catch((error) => {
-    threeLoadPromise = null
-    throw error
-  })
-
+  if (threeRuntime) return Promise.resolve(threeRuntime)
+  if (!threeLoadPromise) {
+    threeLoadPromise = import('three')
+      .then((module) => {
+        threeRuntime = (module as any).default || module
+        return threeRuntime
+      })
+      .catch((error) => {
+        threeLoadPromise = null
+        throw error
+      })
+  }
   return threeLoadPromise
 }
 
@@ -47,7 +33,8 @@ export async function mountChillLionWhenReady(element: HTMLElement): Promise<() 
 
 export function mountChillLion(element: HTMLElement): () => void {
   if (!element) return () => {}
-  const THREE = (globalThis as any).THREE
+  const THREE = threeRuntime || (globalThis as any).THREE
+  if (!THREE) return () => {}
   let destroyed = false
   let animationFrame = 0
 

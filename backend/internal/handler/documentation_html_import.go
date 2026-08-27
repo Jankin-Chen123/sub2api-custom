@@ -18,6 +18,8 @@ import (
 )
 
 var notionHTMLImageWidthPattern = regexp.MustCompile(`(?i)(?:^|;)\s*width\s*:\s*([0-9]+(?:\.[0-9]+)?)px`)
+var notionHTMLPageUUIDPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}`)
+var notionHTMLPageHexIDPattern = regexp.MustCompile(`(?i)[0-9a-f]{32}`)
 
 type notionHTMLDocument struct {
 	path      string
@@ -268,6 +270,7 @@ func assignNotionHTMLSections(root *html.Node, document *notionHTMLDocument, pag
 				if oldID != "" {
 					fragmentIDs[document.path+"#"+oldID] = id
 				}
+				fragmentIDs[document.path+"#"+title] = id
 				*outline = append(*outline, DocumentationHeading{Level: level, Title: title, ID: id})
 			}
 			assignNotionHTMLSections(child, document, pageLevel, detailsDepth+1, idCounts, fragmentIDs, outline)
@@ -286,6 +289,7 @@ func assignNotionHTMLSections(root *html.Node, document *notionHTMLDocument, pag
 				if oldID != "" {
 					fragmentIDs[document.path+"#"+oldID] = id
 				}
+				fragmentIDs[document.path+"#"+title] = id
 				*outline = append(*outline, DocumentationHeading{Level: level, Title: title, ID: id})
 			}
 		}
@@ -308,6 +312,18 @@ func rewriteNotionHTMLLinks(root *html.Node, document *notionHTMLDocument, files
 			return
 		}
 		if parsed.Scheme != "" || parsed.Host != "" || strings.HasPrefix(rawTarget, "//") {
+			// Notion sometimes exports page links as notion.so URLs. If the
+			// referenced page is part of this archive, keep the link internal.
+			if isNotionHTMLURL(parsed) {
+				externalPath := path.Base(parsed.Path)
+				if decodedPath, decodeErr := url.PathUnescape(externalPath); decodeErr == nil {
+					externalPath = decodedPath
+				}
+				if targetPath, ok := resolveNotionHTMLDocumentPath(externalPath, documentByPath); ok {
+					setNotionHTMLAttribute(node, "href", notionHTMLFragmentHref(targetPath, parsed.Fragment, fragmentIDs, documentByPath))
+					return
+				}
+			}
 			if !isSafeDocumentationLinkScheme(parsed.Scheme) {
 				removeNotionHTMLAttribute(node, "href")
 				*warnings = append(*warnings, fmt.Sprintf("已移除不安全链接：%s", rawTarget))
@@ -323,6 +339,23 @@ func rewriteNotionHTMLLinks(root *html.Node, document *notionHTMLDocument, files
 				return
 			}
 			targetPath = resolved
+		}
+		if parsed.Path != "" {
+			// A page-link block may point at a same-document section by its
+			// title without a leading '#'. Prefer that interpretation when both
+			// a local section and another exported page share the same title.
+			if path.Ext(targetPath) == "" {
+				for _, alias := range []string{targetPath, path.Base(targetPath)} {
+					if mapped, ok := fragmentIDs[document.path+"#"+alias]; ok {
+						setNotionHTMLAttribute(node, "href", "#"+mapped)
+						return
+					}
+				}
+			}
+			if resolved, ok := resolveNotionHTMLDocumentPath(targetPath, documentByPath); ok {
+				setNotionHTMLAttribute(node, "href", notionHTMLFragmentHref(resolved, parsed.Fragment, fragmentIDs, documentByPath))
+				return
+			}
 		}
 		ext := strings.ToLower(path.Ext(targetPath))
 		switch {
@@ -362,6 +395,92 @@ func rewriteNotionHTMLLinks(root *html.Node, document *notionHTMLDocument, files
 			*warnings = append(*warnings, fmt.Sprintf("已移除无法发布的本地链接：%s", rawTarget))
 		}
 	})
+}
+
+// resolveNotionHTMLDocumentPath accepts both the normal exported filename
+// (for example "代理节点 1234...html") and Notion's page-link aliases, which
+// may omit the extension or contain only a page UUID.
+func resolveNotionHTMLDocumentPath(targetPath string, documentByPath map[string]*notionHTMLDocument) (string, bool) {
+	targetPath = canonicalDocumentationPath(targetPath)
+	if targetPath == "." || targetPath == "" {
+		return "", false
+	}
+	if _, ok := documentByPath[targetPath]; ok {
+		return targetPath, true
+	}
+
+	if path.Ext(targetPath) == "" {
+		for _, extension := range []string{".html", ".htm"} {
+			candidate := targetPath + extension
+			if _, ok := documentByPath[candidate]; ok {
+				return candidate, true
+			}
+		}
+	}
+
+	targetBase := strings.TrimSuffix(path.Base(targetPath), path.Ext(targetPath))
+	targetID := notionHTMLPageID(targetBase)
+	targetTitle := cleanDocumentationHeadingText(targetBase)
+	canMatchTitle := path.Ext(targetPath) == ""
+	documentPaths := make([]string, 0, len(documentByPath))
+	for documentPath := range documentByPath {
+		documentPaths = append(documentPaths, documentPath)
+	}
+	sort.Strings(documentPaths)
+	for _, documentPath := range documentPaths {
+		document := documentByPath[documentPath]
+		documentBase := strings.TrimSuffix(path.Base(documentPath), path.Ext(documentPath))
+		if strings.EqualFold(documentBase, targetBase) {
+			return documentPath, true
+		}
+		if targetID != "" && targetID == notionHTMLPageID(documentBase) {
+			return documentPath, true
+		}
+		// Some Notion exports use the visible page title as the href value
+		// (for example href="代理节点") instead of the generated HTML file
+		// name. Match both the literal title and its generated heading slug.
+		if canMatchTitle && targetTitle != "" && strings.EqualFold(targetTitle, document.title) {
+			return documentPath, true
+		}
+		if canMatchTitle && targetTitle != "" && documentationHeadingID(targetTitle) == documentationHeadingID(document.title) {
+			return documentPath, true
+		}
+	}
+	return "", false
+}
+
+func notionHTMLPageID(value string) string {
+	if match := notionHTMLPageUUIDPattern.FindString(value); match != "" {
+		return strings.ReplaceAll(strings.ToLower(match), "-", "")
+	}
+	if match := notionHTMLPageHexIDPattern.FindString(value); match != "" {
+		return strings.ToLower(match)
+	}
+	return ""
+}
+
+func isNotionHTMLURL(parsed *url.URL) bool {
+	if parsed == nil || parsed.Host == "" {
+		return false
+	}
+	host := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	return host == "notion.so" || strings.HasSuffix(host, ".notion.so") || host == "notion.com" || strings.HasSuffix(host, ".notion.com")
+}
+
+func notionHTMLFragmentHref(targetPath, rawFragment string, fragmentIDs map[string]string, documentByPath map[string]*notionHTMLDocument) string {
+	targetDocument := documentByPath[targetPath]
+	if targetDocument == nil {
+		return "#"
+	}
+	targetID := targetDocument.rootID
+	if rawFragment != "" {
+		if fragment, err := url.PathUnescape(rawFragment); err == nil {
+			if mapped, exists := fragmentIDs[targetPath+"#"+fragment]; exists {
+				targetID = mapped
+			}
+		}
+	}
+	return "#" + targetID
 }
 
 func resolveNotionHTMLArchiveTarget(documentPath, rawTarget string) (string, bool) {

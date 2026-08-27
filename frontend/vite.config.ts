@@ -114,6 +114,14 @@ export default defineConfig(({ mode }) => {
          */
         manualChunks(id: string) {
           if (id.includes('node_modules')) {
+            // The documentation lion loads Three.js on demand. Keep the
+            // legacy runtime in its own async chunk so it does not inflate
+            // the shared vendor bundle or delay normal page rendering.
+            const normalizedID = id.replace(/\\/g, '/')
+            if (normalizedID.includes('/three/')) {
+              return 'vendor-three'
+            }
+
             // Vue 核心库
             if (
               id.includes('/vue/') ||

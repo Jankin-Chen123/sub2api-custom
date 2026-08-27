@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import Toast from '@/components/common/Toast.vue'
 import NavigationProgress from '@/components/common/NavigationProgress.vue'
 import AdminComplianceDialog from '@/components/admin/AdminComplianceDialog.vue'
+import ChillLionWidget from '@/components/ChillLionWidget.vue'
 import { resolveRouteDocumentTitle } from '@/router/title'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore, useAdminSettingsStore } from '@/stores'
@@ -18,6 +19,8 @@ const subscriptionStore = useSubscriptionStore()
 const announcementStore = useAnnouncementStore()
 const adminComplianceStore = useAdminComplianceStore()
 const adminSettingsStore = useAdminSettingsStore()
+const isDocumentationRoute = computed(() => route.name === 'Documentation' || route.name === 'DocumentationSection')
+const isDocumentationSection = computed(() => route.name === 'DocumentationSection')
 
 function updateDocumentTitle() {
   const customMenuItems = [
@@ -139,6 +142,7 @@ onMounted(async () => {
 <template>
   <NavigationProgress />
   <RouterView />
+  <ChillLionWidget v-if="isDocumentationRoute" :visible="isDocumentationSection" />
   <Toast />
   <AnnouncementPopup />
   <AdminComplianceDialog />
