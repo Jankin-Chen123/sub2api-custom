@@ -19,6 +19,16 @@ describe('AppSidebar custom SVG styles', () => {
     expect(componentSource).toContain("[stroke]:not([stroke='none'])")
     expect(componentSource).toContain('stroke: currentColor !important;')
   })
+
+  it('adds the external tutorial documentation entry with the supplied SVG', () => {
+    expect(componentSource).toContain("tutorialDocsIconSvg from '@/assets/tutorial-docs.svg?raw'")
+    expect(componentSource).toContain("t('nav.tutorialDocs')")
+    expect(componentSource).toContain("externalUrl: 'https://aibaipiao.top/docs'")
+    expect(componentSource).toContain(":is=\"item.externalUrl ? 'a' : 'router-link'\"")
+    expect(componentSource).toContain("target: '_blank'")
+    expect(componentSource).toContain('appStore.backendModeEnabled ? backendModeNavItems : userNavItems')
+    expect(componentSource).toContain('const backendModeNavItems = computed')
+  })
 })
 
 describe('AppSidebar scroll position persistence', () => {

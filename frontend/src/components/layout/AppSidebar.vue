@@ -77,9 +77,10 @@
               </div>
             </template>
             <!-- Normal item (no children) -->
-            <router-link
+            <component
               v-else
-              :to="item.path"
+              :is="item.externalUrl ? 'a' : 'router-link'"
+              v-bind="item.externalUrl ? { href: item.externalUrl, target: '_blank', rel: 'noopener noreferrer' } : { to: item.path }"
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
@@ -97,7 +98,7 @@
               <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
               <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
               <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-            </router-link>
+            </component>
           </template>
         </div>
 
@@ -109,10 +110,11 @@
             </span>
           </div>
 
-          <router-link
+          <component
+            :is="item.externalUrl ? 'a' : 'router-link'"
+            v-bind="item.externalUrl ? { href: item.externalUrl, target: '_blank', rel: 'noopener noreferrer' } : { to: item.path }"
             v-for="item in personalNavItems"
             :key="item.path"
-            :to="item.path"
             class="sidebar-link mb-1"
             :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
@@ -122,17 +124,18 @@
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-          </router-link>
+          </component>
         </div>
       </template>
 
       <!-- Regular User View -->
-      <template v-else-if="!appStore.backendModeEnabled">
+      <template v-else>
         <div class="sidebar-section">
-          <router-link
-            v-for="item in userNavItems"
+          <component
+            :is="item.externalUrl ? 'a' : 'router-link'"
+            v-bind="item.externalUrl ? { href: item.externalUrl, target: '_blank', rel: 'noopener noreferrer' } : { to: item.path }"
+            v-for="item in appStore.backendModeEnabled ? backendModeNavItems : userNavItems"
             :key="item.path"
-            :to="item.path"
             class="sidebar-link mb-1"
             :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
@@ -142,7 +145,7 @@
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-          </router-link>
+          </component>
         </div>
       </template>
     </nav>
@@ -198,12 +201,14 @@ import { sanitizeSvg } from '@/utils/sanitize'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
+import tutorialDocsIconSvg from '@/assets/tutorial-docs.svg?raw'
 
 interface NavItem {
   path: string
   label: string
   icon: unknown
   iconSvg?: string
+  externalUrl?: string
   hideInSimpleMode?: boolean
   children?: NavItem[]
   /**
@@ -718,10 +723,23 @@ const flagImageWorkbench = () => authStore.isAdmin || appStore.cachedPublicSetti
 //
 // 条目顺序：密钥 → 用量 → 可用渠道 → 渠道状态 → 订阅/支付 → 兑换/资料。
 // 可用渠道紧挨渠道状态之上，让用户"先看自己能用什么、再看对应状态"。
+function createTutorialDocsItem(): NavItem {
+  return {
+    path: '/tutorial-docs',
+    label: t('nav.tutorialDocs'),
+    icon: null,
+    iconSvg: tutorialDocsIconSvg,
+    externalUrl: 'https://aibaipiao.top/docs',
+  }
+}
+
 function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   const items: NavItem[] = []
   if (withDashboard) {
     items.push({ path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon })
+  }
+  if (!isAdmin.value) {
+    items.push(createTutorialDocsItem())
   }
 	items.push(
 		{ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
@@ -755,6 +773,10 @@ function finalizeNav(items: NavItem[]): NavItem[] {
 // User navigation items (for regular users)
 const userNavItems = computed((): NavItem[] => finalizeNav(buildSelfNavItems(true)))
 
+// Backend mode intentionally hides the regular account menu, but the public
+// tutorial documentation link must remain available to ordinary users.
+const backendModeNavItems = computed((): NavItem[] => [createTutorialDocsItem()])
+
 // Personal navigation items (for admin's "My Account" section, without Dashboard).
 // Admins access 可用渠道 from this section just like regular users — there is no
 // separate admin entry, since the page is purely a user-facing view.
@@ -779,6 +801,7 @@ const adminNavItems = computed((): NavItem[] => {
   const baseItems: NavItem[] = [
     { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
     { path: '/admin/documentation', label: t('nav.documentation'), icon: BookIcon },
+    createTutorialDocsItem(),
     { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
     { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
     { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon, hideInSimpleMode: true },

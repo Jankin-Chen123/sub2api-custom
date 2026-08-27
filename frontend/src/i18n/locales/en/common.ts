@@ -194,6 +194,7 @@ export default {
     buySubscription: 'Recharge / Subscription',
     docs: 'Docs',
     documentation: 'Documentation',
+    tutorialDocs: 'Tutorial Docs',
     myOrders: 'My Orders',
     orderManagement: 'Orders',
     paymentDashboard: 'Payment Dashboard',
