@@ -38,6 +38,40 @@ export function mountChillLion(element: HTMLElement): () => void {
   let destroyed = false
   let animationFrame = 0
 
+  function applyGeometryMatrix(geometry, matrix) {
+    if (typeof geometry.applyMatrix4 === 'function') {
+      geometry.applyMatrix4(matrix)
+    } else if (typeof geometry.applyMatrix === 'function') {
+      geometry.applyMatrix(matrix)
+    }
+  }
+
+  function readGeometryVertex(geometry, index) {
+    if (Array.isArray(geometry.vertices)) {
+      return geometry.vertices[index]
+    }
+    const position = typeof geometry.getAttribute === 'function'
+      ? geometry.getAttribute('position')
+      : null
+    if (!position) return null
+    return { x: position.getX(index), y: position.getY(index), z: position.getZ(index) }
+  }
+
+  function writeGeometryVertexX(geometry, index, x) {
+    if (Array.isArray(geometry.vertices)) {
+      geometry.vertices[index].x = x
+      geometry.verticesNeedUpdate = true
+      return
+    }
+    const position = typeof geometry.getAttribute === 'function'
+      ? geometry.getAttribute('position')
+      : null
+    if (position) {
+      position.setX(index, x)
+      position.needsUpdate = true
+    }
+  }
+
 //THREEJS RELATED VARIABLES
 
 var scene,
@@ -89,7 +123,11 @@ function init(){
   renderer = new THREE.WebGLRenderer({alpha: true, antialias: true });
   renderer.setPixelRatio( window.devicePixelRatio );
   renderer.setSize(WIDTH, HEIGHT);
-  renderer.shadowMapEnabled = true;
+  if (renderer.shadowMap) {
+    renderer.shadowMap.enabled = true;
+  } else {
+    renderer.shadowMapEnabled = true;
+  }
   container = element;
   container.appendChild(renderer.domElement);
   windowHalfX = WIDTH / 2;
@@ -154,11 +192,9 @@ function createLights() {
   shadowLight = new THREE.DirectionalLight(0xffffff, .8);
   shadowLight.position.set(200, 200, 200);
   shadowLight.castShadow = true;
-  shadowLight.shadowDarkness = .2;
 
   backLight = new THREE.DirectionalLight(0xffffff, .4);
   backLight.position.set(-100, 200, 50);
-  backLight.shadowDarkness = .1;
   backLight.castShadow = true;
 
   scene.add(backLight);
@@ -191,22 +227,22 @@ Fan = function(){
   this.acc =0;
   this.redMat = new THREE.MeshLambertMaterial ({
     color: 0xad3525,
-    shading:THREE.FlatShading
+    flatShading: true
   });
   this.greyMat = new THREE.MeshLambertMaterial ({
     color: 0x653f4c,
-    shading:THREE.FlatShading
+    flatShading: true
   });
 
   this.yellowMat = new THREE.MeshLambertMaterial ({
     color: 0xfdd276,
-    shading:THREE.FlatShading
+    flatShading: true
   });
 
   var coreGeom = new THREE.BoxGeometry(10,10,20);
   var sphereGeom = new THREE.BoxGeometry(10, 10, 3);
   var propGeom = new THREE.BoxGeometry(10,30,2);
-  propGeom.applyMatrix( new THREE.Matrix4().makeTranslation( 0,25,0) );
+  applyGeometryMatrix(propGeom, new THREE.Matrix4().makeTranslation( 0,25,0) );
 
   this.core = new THREE.Mesh(coreGeom,this.greyMat);
 
@@ -261,36 +297,36 @@ Lion = function(){
   this.threegroup = new THREE.Group();
   this.yellowMat = new THREE.MeshLambertMaterial ({
     color: 0xfdd276,
-    shading:THREE.FlatShading
+    flatShading: true
   });
   this.redMat = new THREE.MeshLambertMaterial ({
     color: 0xad3525,
-    shading:THREE.FlatShading
+    flatShading: true
   });
 
   this.pinkMat = new THREE.MeshLambertMaterial ({
     color: 0xe55d2b,
-    shading:THREE.FlatShading
+    flatShading: true
   });
 
   this.whiteMat = new THREE.MeshLambertMaterial ({
     color: 0xffffff,
-    shading:THREE.FlatShading
+    flatShading: true
   });
 
   this.purpleMat = new THREE.MeshLambertMaterial ({
     color: 0x451954,
-    shading:THREE.FlatShading
+    flatShading: true
   });
 
   this.greyMat = new THREE.MeshLambertMaterial ({
     color: 0x653f4c,
-    shading:THREE.FlatShading
+    flatShading: true
   });
 
   this.blackMat = new THREE.MeshLambertMaterial ({
     color: 0x302925,
-    shading:THREE.FlatShading
+    flatShading: true
   });
 
 
@@ -299,7 +335,7 @@ Lion = function(){
   var faceGeom = new THREE.BoxGeometry(80,80,80);
   var spotGeom = new THREE.BoxGeometry(4,4,4);
   var mustacheGeom = new THREE.BoxGeometry(30,2,1);
-  mustacheGeom.applyMatrix( new THREE.Matrix4().makeTranslation( 15, 0, 0 ) );
+  applyGeometryMatrix(mustacheGeom, new THREE.Matrix4().makeTranslation( 15, 0, 0 ) );
 
   var earGeom = new THREE.BoxGeometry(20,20,20);
   var noseGeom = new THREE.BoxGeometry(40,40,20);
@@ -309,7 +345,7 @@ Lion = function(){
   var smileGeom = new THREE.TorusGeometry( 12, 4, 2, 10, Math.PI );
   var lipsGeom = new THREE.BoxGeometry(40,15,20);
   var kneeGeom = new THREE.BoxGeometry(25, 80, 80);
-  kneeGeom.applyMatrix( new THREE.Matrix4().makeTranslation( 0, 50, 0 ) );
+  applyGeometryMatrix(kneeGeom, new THREE.Matrix4().makeTranslation( 0, 50, 0 ) );
   var footGeom = new THREE.BoxGeometry(40, 20, 20);
 
   // body
@@ -319,10 +355,14 @@ Lion = function(){
   this.bodyVertices = [0,1,2,3,4,10];
 
   for (var i=0;i<this.bodyVertices.length; i++){
-    var tv = this.body.geometry.vertices[this.bodyVertices[i]];
-    tv.z =70;
-    //tv.x = 0;
-    this.bodyInitPositions.push({x:tv.x, y:tv.y, z:tv.z});
+    var tv = readGeometryVertex(this.body.geometry, this.bodyVertices[i]);
+    if (tv) {
+      tv.z = 70;
+      writeGeometryVertexX(this.body.geometry, this.bodyVertices[i], tv.x);
+      var position = this.body.geometry.getAttribute?.('position');
+      if (position) position.setZ(this.bodyVertices[i], tv.z);
+      this.bodyInitPositions.push({x:tv.x, y:tv.y, z:tv.z});
+    }
   }
 
   // knee
@@ -646,10 +686,8 @@ Lion.prototype.look = function(xTarget, yTarget){
 
   for (var i=0; i<this.bodyVertices.length; i++){
      var tvInit = this.bodyInitPositions[i];
-      var tv = this.body.geometry.vertices[this.bodyVertices[i]];
-      tv.x = tvInit.x + this.head.position.x;
+      writeGeometryVertexX(this.body.geometry, this.bodyVertices[i], tvInit.x + this.head.position.x);
   }
-  this.body.geometry.verticesNeedUpdate = true;
 }
 
 Lion.prototype.cool = function(xTarget, yTarget){
@@ -709,10 +747,8 @@ Lion.prototype.cool = function(xTarget, yTarget){
 
   for (var i=0; i<this.bodyVertices.length; i++){
      var tvInit = this.bodyInitPositions[i];
-      var tv = this.body.geometry.vertices[this.bodyVertices[i]];
-      tv.x = tvInit.x + this.head.position.x;
+      writeGeometryVertexX(this.body.geometry, this.bodyVertices[i], tvInit.x + this.head.position.x);
   }
-  this.body.geometry.verticesNeedUpdate = true;
 }
 
 function loop(){
