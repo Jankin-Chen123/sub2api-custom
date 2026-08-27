@@ -27,7 +27,15 @@ type channelMonitorAccountProbe struct {
 	openAIGateway *OpenAIGatewayService
 	geminiGateway *GeminiMessagesCompatService
 	slots         chan struct{}
+	forwardFn     channelMonitorAccountForward
 }
+
+type channelMonitorAccountForward func(
+	context.Context,
+	*APIKey,
+	*Account,
+	ChannelMonitorAccountProbeRequest,
+) (string, string, int, error)
 
 // monitorAllGroupAccountRepository is intentionally optional: the account
 // repository's public interface is shared by many test doubles and services.
@@ -181,7 +189,6 @@ func monitorPlatformForProvider(provider string) string {
 func (p *channelMonitorAccountProbe) attempt(apiKey *APIKey) channelMonitorAccountAttempt {
 	return func(ctx context.Context, account *Account, request ChannelMonitorAccountProbeRequest) *CheckResult {
 		result := newMonitorAttemptResult(request.Model)
-		start := time.Now()
 		if p != nil && p.slots != nil {
 			select {
 			case p.slots <- struct{}{}:
@@ -191,7 +198,14 @@ func (p *channelMonitorAccountProbe) attempt(apiKey *APIKey) channelMonitorAccou
 				return result
 			}
 		}
-		respText, rawBody, statusCode, err := p.forwardAccount(ctx, apiKey, account, request)
+		// Exclude local probe-slot queueing from the account's provider
+		// latency. RoundDurationMs remains the separate end-to-end round metric.
+		start := time.Now()
+		forward := p.forwardAccount
+		if p != nil && p.forwardFn != nil {
+			forward = p.forwardFn
+		}
+		respText, rawBody, statusCode, err := forward(ctx, apiKey, account, request)
 		latency := time.Since(start)
 		latencyMs := int(latency / time.Millisecond)
 		result.LatencyMs = &latencyMs

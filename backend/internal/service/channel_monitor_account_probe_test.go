@@ -133,6 +133,52 @@ func TestMonitorAccountProbeRoundTimeoutForCountUsesConcurrentWaves(t *testing.T
 	}
 }
 
+func TestChannelMonitorAccountProbeLatencyExcludesSlotQueue(t *testing.T) {
+	slots := make(chan struct{}, 1)
+	slots <- struct{}{}
+	forwardStarted := make(chan time.Time, 1)
+	probe := &channelMonitorAccountProbe{
+		slots: slots,
+		forwardFn: func(context.Context, *APIKey, *Account, ChannelMonitorAccountProbeRequest) (string, string, int, error) {
+			forwardStarted <- time.Now()
+			time.Sleep(10 * time.Millisecond)
+			return `{"choices":[{"message":{"content":"8"}}]}`, `{"choices":[{"message":{"content":"8"}}]}`, http.StatusOK, nil
+		},
+	}
+	attemptDone := make(chan *CheckResult, 1)
+	go func() {
+		attemptDone <- probe.attempt(nil)(context.Background(), &Account{ID: 1}, ChannelMonitorAccountProbeRequest{
+			Monitor: &ChannelMonitor{Provider: MonitorProviderOpenAI},
+			Model:   "gpt-test",
+			Challenge: monitorChallenge{
+				Expected: "8",
+			},
+		})
+	}()
+
+	select {
+	case <-forwardStarted:
+		t.Fatal("forward started while the probe slot was occupied")
+	case <-time.After(100 * time.Millisecond):
+	}
+	slotReleasedAt := time.Now()
+	<-slots
+	forwardAt := <-forwardStarted
+	result := <-attemptDone
+	if forwardAt.Before(slotReleasedAt) {
+		t.Fatalf("forward started before the probe slot was released")
+	}
+	if result.Status != MonitorStatusOperational {
+		t.Fatalf("status = %q, want operational", result.Status)
+	}
+	if result.LatencyMs == nil {
+		t.Fatal("latency was not recorded")
+	}
+	if *result.LatencyMs >= 80 {
+		t.Fatalf("latency = %dms includes the 100ms slot wait", *result.LatencyMs)
+	}
+}
+
 func TestRunChannelMonitorAccountProbes_DegradedAndFailureAggregation(t *testing.T) {
 	tests := []struct {
 		name       string
