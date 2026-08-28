@@ -58,15 +58,15 @@ export default {
     dockerRecreate: '重新创建容器'
   },
 
-  // Recharge / Subscription Page
+  // Online Recharge Page
   purchase: {
-    title: '充值/订阅',
-    description: '通过内嵌页面完成充值/订阅',
+    title: '在线充值',
+    description: '通过在线充值页面完成余额充值',
     openInNewTab: '新窗口打开',
     notEnabledTitle: '该功能未开启',
-    notEnabledDesc: '管理员暂未开启充值/订阅入口，请联系管理员。',
-    notConfiguredTitle: '充值/订阅链接未配置',
-    notConfiguredDesc: '管理员已开启入口，但尚未配置充值/订阅链接，请联系管理员。'
+    notEnabledDesc: '管理员暂未开启在线充值入口，请联系管理员。',
+    notConfiguredTitle: '在线充值链接未配置',
+    notConfiguredDesc: '管理员已开启入口，但尚未配置在线充值链接，请联系管理员。'
   },
 
   // Custom Page (iframe embed)
@@ -118,7 +118,8 @@ export default {
     availablePlans: '可购买的订阅',
     availablePlansDesc: '使用账户余额购买订阅卡，购买后不会立即开始计时。',
     purchase: '购买订阅',
-    purchaseConfirm: '确定使用余额购买“{name}”（{price}）吗？',
+    purchaseConfirmTitle: '确认购买订阅',
+    purchaseConfirm: '确定使用余额购买“{name}”吗？',
     purchaseSuccess: '订阅卡购买成功，请在下方手动启用。',
     purchaseFailed: '购买订阅失败，请检查余额或稍后重试。',
     activate: '立即启用',
@@ -323,7 +324,7 @@ export default {
 
   // Payment System
   payment: {
-    title: '充值/订阅',
+    title: '在线充值',
     amountLabel: '充值金额',
     paymentAmount: '支付金额',
     creditedBalance: '到账余额',

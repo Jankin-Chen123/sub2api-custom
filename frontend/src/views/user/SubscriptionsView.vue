@@ -19,13 +19,13 @@
               {{ t('userSubscriptions.availablePlansDesc') }}
             </p>
           </div>
-          <div class="grid gap-5 lg:grid-cols-3">
+          <div class="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-2">
             <div
               v-for="plan in plans"
               :key="plan.id"
-              class="flex flex-col rounded-2xl border border-primary-100 bg-white p-5 shadow-sm dark:border-primary-900/40 dark:bg-dark-800"
+              class="flex h-full min-h-[380px] flex-col rounded-2xl border border-primary-100 bg-white p-6 shadow-sm dark:border-primary-900/40 dark:bg-dark-800"
             >
-              <div class="flex items-start justify-between gap-3">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p class="text-xs font-medium uppercase tracking-wide text-primary-600 dark:text-primary-400">
                     {{ plan.group_name || `Group #${plan.group_id}` }}
@@ -34,7 +34,7 @@
                 </div>
                 <div class="text-right">
                   <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                    {{ plan.currency || '$' }}{{ plan.price.toFixed(2) }}
+                    {{ formatPlanPrice(plan) }}
                   </div>
                   <div class="text-xs text-gray-500 dark:text-dark-400">
                     {{ t('userSubscriptions.planValidity', { days: plan.validity_days }) }}
@@ -62,7 +62,7 @@
                 </li>
               </ul>
               <button
-                class="mt-5 w-full rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+                class="mt-auto w-full rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="purchasingPlanId === plan.id"
                 @click="purchasePlan(plan)"
               >
@@ -88,11 +88,11 @@
         </div>
 
         <!-- Subscriptions Grid -->
-      <div v-else class="grid gap-6 lg:grid-cols-2">
+      <div v-else class="mx-auto grid max-w-5xl gap-6 lg:grid-cols-2">
         <div
           v-for="subscription in subscriptions"
           :key="subscription.id"
-          class="overflow-hidden rounded-2xl border bg-white dark:bg-dark-800"
+          class="flex min-h-[380px] flex-col overflow-hidden rounded-2xl border bg-white dark:bg-dark-800"
           :class="platformBorderClass(subscription.group?.platform || '')"
         >
           <!-- Header -->
@@ -144,18 +144,11 @@
               >
                 {{ activatingSubscriptionId === subscription.id ? t('common.loading') : t('userSubscriptions.activate') }}
               </button>
-              <button
-                v-else-if="subscription.status === 'active'"
-                :class="['rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-colors', platformButtonClass(subscription.group?.platform || '')]"
-                @click="router.push({ path: '/purchase', query: { tab: 'subscription', group: String(subscription.group_id) } })"
-              >
-                {{ t('payment.renewNow') }}
-              </button>
             </div>
           </div>
 
           <!-- Usage Progress -->
-          <div class="space-y-4 p-4">
+          <div class="flex flex-1 flex-col gap-4 p-4">
             <!-- Expiration Info -->
             <div v-if="subscription.status === 'pending'" class="flex items-center justify-between text-sm">
               <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.validity') }}</span>
@@ -306,7 +299,7 @@
                 !getWeeklyLimit(subscription) &&
                 !getMonthlyLimit(subscription)
               "
-              class="flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 py-6 dark:from-emerald-900/20 dark:to-teal-900/20"
+              class="mt-auto flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 py-6 dark:from-emerald-900/20 dark:to-teal-900/20"
             >
               <div class="flex items-center gap-3">
                 <span class="text-4xl text-emerald-600 dark:text-emerald-400">∞</span>
@@ -322,26 +315,50 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
     </div>
-    </div>
+
+    <ConfirmDialog
+      :show="purchaseConfirmOpen"
+      :title="t('userSubscriptions.purchaseConfirmTitle')"
+      :message="purchaseConfirmMessage"
+      @confirm="confirmPurchasePlan"
+      @cancel="closePurchaseConfirm"
+    >
+      <div
+        v-if="pendingPurchasePlan"
+        class="rounded-xl border border-primary-100 bg-primary-50/70 p-4 dark:border-primary-900/50 dark:bg-primary-900/20"
+      >
+        <div class="flex items-start justify-between gap-4">
+          <span class="font-semibold text-gray-900 dark:text-white">{{ pendingPurchasePlan.name }}</span>
+          <span class="shrink-0 text-lg font-bold text-primary-600 dark:text-primary-400">
+            {{ formatPlanPrice(pendingPurchasePlan) }}
+          </span>
+        </div>
+        <div class="mt-2 flex items-center justify-between text-sm text-gray-500 dark:text-dark-300">
+          <span>{{ t('userSubscriptions.validity') }}</span>
+          <span>{{ t('userSubscriptions.planValidity', { days: pendingPurchasePlan.validity_days }) }}</span>
+        </div>
+      </div>
+    </ConfirmDialog>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
 import type { SubscriptionPlan } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
-import { platformBorderClass, platformBadgeClass, platformButtonClass, platformLabel } from '@/utils/platformColors'
+import { platformBorderClass, platformBadgeClass, platformLabel } from '@/utils/platformColors'
 import {
   getExpirationDateRelation,
   getRemainingDurationParts,
@@ -360,7 +377,6 @@ function platformAccentDotClass(p: string): string {
 }
 
 const { t } = useI18n()
-const router = useRouter()
 const appStore = useAppStore()
 
 const subscriptions = ref<UserSubscription[]>([])
@@ -368,6 +384,13 @@ const plans = ref<SubscriptionPlan[]>([])
 const loading = ref(true)
 const purchasingPlanId = ref<number | null>(null)
 const activatingSubscriptionId = ref<number | null>(null)
+const purchaseConfirmOpen = ref(false)
+const pendingPurchasePlan = ref<SubscriptionPlan | null>(null)
+
+const purchaseConfirmMessage = computed(() => {
+  const planName = pendingPurchasePlan.value?.name || ''
+  return t('userSubscriptions.purchaseConfirm', { name: planName })
+})
 
 function subscriptionHasPeakRate(subscription: UserSubscription): boolean {
   return hasPeakRate(subscription.group)
@@ -394,10 +417,21 @@ async function loadSubscriptions() {
   }
 }
 
-async function purchasePlan(plan: SubscriptionPlan) {
-  if (!window.confirm(t('userSubscriptions.purchaseConfirm', { name: plan.name, price: plan.price }))) {
-    return
-  }
+function purchasePlan(plan: SubscriptionPlan) {
+  pendingPurchasePlan.value = plan
+  purchaseConfirmOpen.value = true
+}
+
+function closePurchaseConfirm() {
+  purchaseConfirmOpen.value = false
+  pendingPurchasePlan.value = null
+}
+
+async function confirmPurchasePlan() {
+  const plan = pendingPurchasePlan.value
+  if (!plan) return
+
+  closePurchaseConfirm()
   purchasingPlanId.value = plan.id
   try {
     await subscriptionsAPI.purchasePlan(plan.id)
@@ -409,6 +443,10 @@ async function purchasePlan(plan: SubscriptionPlan) {
   } finally {
     purchasingPlanId.value = null
   }
+}
+
+function formatPlanPrice(plan: SubscriptionPlan): string {
+  return `${plan.currency || '$'}${plan.price.toFixed(2)}`
 }
 
 async function activateSubscription(subscription: UserSubscription) {

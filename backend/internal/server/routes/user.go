@@ -137,6 +137,15 @@ func RegisterUserRoutes(
 			redeem.GET("/history", h.Redeem.GetHistory)
 		}
 
+		// 每日签到幸运转盘
+		checkin := authenticated.Group("/check-in")
+		checkin.Use(panelRateLimiter.Heavy())
+		{
+			checkin.GET("", h.Checkin.GetStatus)
+			checkin.GET("/history", h.Checkin.GetHistory)
+			checkin.POST("/draw", h.Checkin.Draw)
+		}
+
 		// 用户订阅
 		subscriptions := authenticated.Group("/subscriptions")
 		{

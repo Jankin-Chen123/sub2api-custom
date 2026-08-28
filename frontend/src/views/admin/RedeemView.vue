@@ -1,6 +1,23 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
+    <div class="mb-5 inline-flex rounded-xl bg-gray-100 p-1 dark:bg-dark-800">
+      <button
+        type="button"
+        :class="['rounded-lg px-4 py-2 text-sm font-medium transition-colors', activeSection === 'codes' ? 'bg-white text-primary-600 shadow-sm dark:bg-dark-700 dark:text-primary-400' : 'text-gray-500 hover:text-gray-800 dark:text-dark-400 dark:hover:text-gray-200']"
+        @click="activeSection = 'codes'"
+      >
+        {{ t('admin.redeem.tabs.codes') }}
+      </button>
+      <button
+        type="button"
+        :class="['rounded-lg px-4 py-2 text-sm font-medium transition-colors', activeSection === 'checkin' ? 'bg-white text-primary-600 shadow-sm dark:bg-dark-700 dark:text-primary-400' : 'text-gray-500 hover:text-gray-800 dark:text-dark-400 dark:hover:text-gray-200']"
+        @click="activeSection = 'checkin'"
+      >
+        {{ t('admin.redeem.tabs.checkin') }}
+      </button>
+    </div>
+
+    <TablePageLayout v-if="activeSection === 'codes'">
       <template #filters>
         <div class="flex flex-wrap items-center gap-3">
           <!-- Left: Search + Filters -->
@@ -303,6 +320,8 @@
         </div>
       </template>
     </TablePageLayout>
+
+    <CheckinPrizeManager v-else />
 
     <!-- Delete Confirmation Dialog -->
     <ConfirmDialog
@@ -720,9 +739,11 @@ import Select from '@/components/common/Select.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
+import CheckinPrizeManager from '@/components/admin/redeem/CheckinPrizeManager.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const activeSection = ref<'codes' | 'checkin'>('codes')
 const { copyToClipboard: clipboardCopy } = useClipboard()
 
 interface GroupOption {

@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-2xl space-y-6">
+    <div class="mx-auto max-w-6xl space-y-6">
       <!-- Current Balance Card -->
       <div class="card overflow-hidden">
         <div class="bg-gradient-to-br from-primary-500 to-primary-600 px-6 py-8 text-center">
@@ -18,6 +18,9 @@
           </p>
         </div>
       </div>
+
+      <div class="grid items-stretch gap-6 lg:grid-cols-2">
+        <div class="flex h-full min-h-0 flex-col gap-6">
 
       <!-- Redeem Form -->
       <div class="card">
@@ -162,6 +165,80 @@
         </div>
       </transition>
 
+          <!-- Recent balance activity -->
+          <div class="card flex h-[380px] min-h-0 flex-none flex-col">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t('redeem.recentActivity') }}
+              </h2>
+            </div>
+            <div class="flex min-h-0 flex-1 flex-col p-6">
+              <div v-if="loadingActivity" class="flex min-h-0 flex-1 items-center justify-center py-8">
+                <svg class="h-6 w-6 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24">
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  ></circle>
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              </div>
+
+              <div v-else-if="activities.length > 0" class="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                <div
+                  v-for="item in activities"
+                  :key="item.id"
+                  class="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-4 dark:bg-dark-800"
+                >
+                  <div class="flex min-w-0 items-center gap-3">
+                    <div
+                      :class="[
+                        'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl',
+                        getActivityIconClass(item.source)
+                      ]"
+                    >
+                      <Icon :name="getActivityIcon(item.source)" size="md" />
+                    </div>
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-medium text-gray-900 dark:text-white">
+                        {{ getActivityTitle(item.source) }}
+                      </p>
+                      <p class="text-xs text-gray-500 dark:text-dark-400">
+                        {{ formatDateTime(item.occurred_at) }}
+                      </p>
+                    </div>
+                  </div>
+                  <p class="flex-shrink-0 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                    +${{ item.amount.toFixed(2) }}
+                  </p>
+                </div>
+              </div>
+
+              <div v-else class="empty-state min-h-0 flex-1 py-8">
+                <div
+                  class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-dark-800"
+                >
+                  <Icon name="clock" size="xl" class="text-gray-400 dark:text-dark-500" />
+                </div>
+                <p class="text-sm text-gray-500 dark:text-dark-400">
+                  {{ t('redeem.activity.empty') }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <!-- Daily lucky-wheel check-in -->
+        <DailyCheckinWheel class="h-full" @reward-added="fetchActivity" />
+      </div>
+
       <!-- Information Card -->
       <div
         class="card border-primary-200 bg-primary-50 dark:border-primary-800/50 dark:bg-primary-900/20"
@@ -198,145 +275,6 @@
         </div>
       </div>
 
-      <!-- Recent Activity -->
-      <div class="card">
-        <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-            {{ t('redeem.recentActivity') }}
-          </h2>
-        </div>
-        <div class="p-6">
-          <!-- Loading State -->
-          <div v-if="loadingHistory" class="flex items-center justify-center py-8">
-            <svg class="h-6 w-6 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24">
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-          </div>
-
-          <!-- History List -->
-          <div v-else-if="history.length > 0" class="space-y-3">
-            <div
-              v-for="item in history"
-              :key="item.id"
-              class="flex items-center justify-between rounded-xl bg-gray-50 p-4 dark:bg-dark-800"
-            >
-              <div class="flex items-center gap-4">
-                <div
-                  :class="[
-                    'flex h-10 w-10 items-center justify-center rounded-xl',
-                    isBalanceType(item.type)
-                      ? item.value >= 0
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30'
-                        : 'bg-red-100 dark:bg-red-900/30'
-                      : isSubscriptionType(item.type)
-                        ? 'bg-purple-100 dark:bg-purple-900/30'
-                        : item.value >= 0
-                          ? 'bg-blue-100 dark:bg-blue-900/30'
-                          : 'bg-orange-100 dark:bg-orange-900/30'
-                  ]"
-                >
-                  <!-- 余额类型图标 -->
-                  <Icon
-                    v-if="isBalanceType(item.type)"
-                    name="dollar"
-                    size="md"
-                    :class="
-                      item.value >= 0
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-red-600 dark:text-red-400'
-                    "
-                  />
-                  <!-- 订阅类型图标 -->
-                  <Icon
-                    v-else-if="isSubscriptionType(item.type)"
-                    name="badge"
-                    size="md"
-                    class="text-purple-600 dark:text-purple-400"
-                  />
-                  <!-- 并发类型图标 -->
-                  <Icon
-                    v-else
-                    name="bolt"
-                    size="md"
-                    :class="
-                      item.value >= 0
-                        ? 'text-blue-600 dark:text-blue-400'
-                        : 'text-orange-600 dark:text-orange-400'
-                    "
-                  />
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-gray-900 dark:text-white">
-                    {{ getHistoryItemTitle(item) }}
-                  </p>
-                  <p class="text-xs text-gray-500 dark:text-dark-400">
-                    {{ formatDateTime(item.used_at) }}
-                  </p>
-                </div>
-              </div>
-              <div class="text-right">
-                <p
-                  :class="[
-                    'text-sm font-semibold',
-                    isBalanceType(item.type)
-                      ? item.value >= 0
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-red-600 dark:text-red-400'
-                      : isSubscriptionType(item.type)
-                        ? 'text-purple-600 dark:text-purple-400'
-                        : item.value >= 0
-                          ? 'text-blue-600 dark:text-blue-400'
-                          : 'text-orange-600 dark:text-orange-400'
-                  ]"
-                >
-                  {{ formatHistoryValue(item) }}
-                </p>
-                <p
-                  v-if="!isAdminAdjustment(item.type)"
-                  class="font-mono text-xs text-gray-400 dark:text-dark-500"
-                >
-                  {{ item.code.slice(0, 8) }}...
-                </p>
-                <p v-else class="text-xs text-gray-400 dark:text-dark-500">
-                  {{ t('redeem.adminAdjustment') }}
-                </p>
-                <!-- Display notes for admin adjustments -->
-                <p
-                  v-if="item.notes"
-                  class="mt-1 text-xs text-gray-500 dark:text-dark-400 italic max-w-[200px] truncate"
-                  :title="item.notes"
-                >
-                  {{ item.notes }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Empty State -->
-          <div v-else class="empty-state py-8">
-            <div
-              class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-dark-800"
-            >
-              <Icon name="clock" size="xl" class="text-gray-400 dark:text-dark-500" />
-            </div>
-            <p class="text-sm text-gray-500 dark:text-dark-400">
-              {{ t('redeem.historyWillAppear') }}
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   </AppLayout>
 </template>
@@ -347,9 +285,18 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { useSubscriptionStore } from '@/stores/subscriptions'
-import { redeemAPI, authAPI, type RedeemHistoryItem } from '@/api'
+import {
+  authAPI,
+  checkinAPI,
+  paymentAPI,
+  redeemAPI,
+  type CheckinHistoryItem,
+  type RedeemHistoryItem
+} from '@/api'
+import type { PaymentOrder } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import DailyCheckinWheel from '@/components/user/checkin/DailyCheckinWheel.vue'
 import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
@@ -372,62 +319,90 @@ const redeemResult = ref<{
 } | null>(null)
 const errorMessage = ref('')
 
-// History data
-const history = ref<RedeemHistoryItem[]>([])
-const loadingHistory = ref(false)
+type BalanceActivitySource = 'redeem' | 'recharge' | 'checkin'
+
+interface BalanceActivity {
+  id: string
+  source: BalanceActivitySource
+  amount: number
+  occurred_at: string
+}
+
+// Balance activity combines code redemptions, completed balance recharges, and check-in rewards.
+const activities = ref<BalanceActivity[]>([])
+const loadingActivity = ref(false)
 const contactInfo = ref('')
 
-// Helper functions for history display
-const isBalanceType = (type: string) => {
-  return type === 'balance' || type === 'admin_balance'
+const getActivityTitle = (source: BalanceActivitySource) => {
+  if (source === 'redeem') return t('redeem.activity.redeem')
+  if (source === 'recharge') return t('redeem.activity.recharge')
+  return t('redeem.activity.checkin')
 }
 
-const isSubscriptionType = (type: string) => {
-  return type === 'subscription'
+const getActivityIcon = (source: BalanceActivitySource) => {
+  if (source === 'redeem') return 'gift'
+  if (source === 'recharge') return 'creditCard'
+  return 'checkCircle'
 }
 
-const isAdminAdjustment = (type: string) => {
-  return type === 'admin_balance' || type === 'admin_concurrency'
+const getActivityIconClass = (source: BalanceActivitySource) => {
+  if (source === 'redeem') return 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+  if (source === 'recharge') return 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+  return 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
 }
 
-const getHistoryItemTitle = (item: RedeemHistoryItem) => {
-  if (item.type === 'balance') {
-    return t('redeem.balanceAddedRedeem')
-  } else if (item.type === 'admin_balance') {
-    return item.value >= 0 ? t('redeem.balanceAddedAdmin') : t('redeem.balanceDeductedAdmin')
-  } else if (item.type === 'concurrency') {
-    return t('redeem.concurrencyAddedRedeem')
-  } else if (item.type === 'admin_concurrency') {
-    return item.value >= 0 ? t('redeem.concurrencyAddedAdmin') : t('redeem.concurrencyReducedAdmin')
-  } else if (item.type === 'subscription') {
-    return t('redeem.subscriptionAssigned')
-  }
-  return t('common.unknown')
-}
+const redeemActivities = (items: RedeemHistoryItem[]): BalanceActivity[] =>
+  items
+    .filter((item) => item.type === 'balance' && item.value > 0)
+    .map((item) => ({
+      id: `redeem-${item.id}`,
+      source: 'redeem',
+      amount: item.value,
+      occurred_at: item.used_at
+    }))
 
-const formatHistoryValue = (item: RedeemHistoryItem) => {
-  if (isBalanceType(item.type)) {
-    const sign = item.value >= 0 ? '+' : ''
-    return `${sign}$${item.value.toFixed(2)}`
-  } else if (isSubscriptionType(item.type)) {
-    // 订阅类型显示有效天数和分组名称
-    const days = item.validity_days || Math.round(item.value)
-    const groupName = item.group?.name || ''
-    return groupName ? `${days}${t('redeem.days')} - ${groupName}` : `${days}${t('redeem.days')}`
-  } else {
-    const sign = item.value >= 0 ? '+' : ''
-    return `${sign}${item.value} ${t('redeem.requests')}`
-  }
-}
+const rechargeActivities = (items: PaymentOrder[]): BalanceActivity[] =>
+  items
+    .filter((item) => item.order_type === 'balance' && item.amount > 0)
+    .map((item) => ({
+      id: `recharge-${item.id}`,
+      source: 'recharge',
+      amount: item.amount,
+      occurred_at: item.completed_at || item.paid_at || item.created_at
+    }))
 
-const fetchHistory = async () => {
-  loadingHistory.value = true
+const checkinActivities = (items: CheckinHistoryItem[]): BalanceActivity[] =>
+  items
+    .filter((item) => (item.total_amount ?? item.amount + (item.bonus_amount || 0)) > 0)
+    .map((item) => ({
+      id: `checkin-${item.id}`,
+      source: 'checkin',
+      amount: item.total_amount ?? item.amount + (item.bonus_amount || 0),
+      occurred_at: item.checked_at
+    }))
+
+const fetchActivity = async () => {
+  loadingActivity.value = true
   try {
-    history.value = await redeemAPI.getHistory()
+    const [redeemResult, rechargeResult, checkinResult] = await Promise.allSettled([
+      redeemAPI.getHistory(),
+      paymentAPI.getMyOrders({ page: 1, page_size: 25, status: 'COMPLETED', order_type: 'balance' }),
+      checkinAPI.getHistory()
+    ])
+
+    const next: BalanceActivity[] = []
+    if (redeemResult.status === 'fulfilled') next.push(...redeemActivities(redeemResult.value))
+    if (rechargeResult.status === 'fulfilled') next.push(...rechargeActivities(rechargeResult.value.data.items))
+    if (checkinResult.status === 'fulfilled') next.push(...checkinActivities(checkinResult.value))
+
+    activities.value = next
+      .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
+      .slice(0, 25)
   } catch (error) {
-    console.error('Failed to fetch history:', error)
+    console.error('Failed to fetch balance activity:', error)
+    activities.value = []
   } finally {
-    loadingHistory.value = false
+    loadingActivity.value = false
   }
 }
 
@@ -462,8 +437,8 @@ const handleRedeem = async () => {
     // Clear the input
     redeemCode.value = ''
 
-    // Refresh history
-    await fetchHistory()
+    // Refresh the combined balance activity list.
+    await fetchActivity()
 
     // Show success toast
     appStore.showSuccess(t('redeem.codeRedeemSuccess'))
@@ -477,7 +452,7 @@ const handleRedeem = async () => {
 }
 
 onMounted(async () => {
-  fetchHistory()
+  fetchActivity()
   try {
     const settings = await authAPI.getPublicSettings()
     contactInfo.value = settings.contact_info || ''

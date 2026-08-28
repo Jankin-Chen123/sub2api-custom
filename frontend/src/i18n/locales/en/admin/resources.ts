@@ -240,8 +240,8 @@ export default {
 
     // Redeem Codes
     redeem: {
-      title: 'Redeem Code Management',
-      description: 'Generate and manage redeem codes',
+      title: 'Redeem / Check-in Management',
+      description: 'Manage redeem codes and daily check-in wheel prizes',
       generateCodes: 'Generate Codes',
       searchCodes: 'Search codes or email...',
       allTypes: 'All Types',
@@ -392,6 +392,33 @@ export default {
         approveSuccess: 'Affiliate rebate applied',
         excludeSuccess: 'Marked as free gift',
         failed: 'Failed to review redeem rebate'
+      },
+      tabs: {
+        codes: 'Redeem Codes',
+        checkin: 'Check-in Prizes'
+      },
+      checkin: {
+        title: 'Daily Check-in Wheel',
+        description: 'Add or remove wheel prizes and configure balance amounts, colors, and win probabilities. Probabilities must total 100%.',
+        streakBonusTitle: 'Consecutive check-in bonus',
+        streakBonusDescription: 'Grant an extra balance bonus after {days} consecutive check-ins.',
+        streakBonusAmount: 'Bonus amount',
+        prizeCount: 'Prize count',
+        totalProbability: 'Total probability',
+        status: 'Configuration status',
+        ready: 'Ready to save and draw',
+        needsAttention: 'Configuration needs attention',
+        probabilityHint: 'All prize probabilities must add up to exactly 100%, or users cannot draw.',
+        prizes: 'Wheel prizes',
+        addPrize: 'Add prize',
+        name: 'Prize name',
+        amount: 'Reward amount ($)',
+        probability: 'Win probability (%)',
+        color: 'Color',
+        newPrize: 'New prize',
+        loadFailed: 'Failed to load check-in prizes',
+        saveSuccess: 'Check-in prizes updated',
+        saveFailed: 'Failed to save check-in prizes'
       }
     },
 

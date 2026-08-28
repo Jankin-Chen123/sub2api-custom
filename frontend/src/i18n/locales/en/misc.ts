@@ -59,16 +59,16 @@ export default {
     dockerRecreate: 'Recreate the container'
   },
 
-  // Recharge / Subscription Page
+  // Online Recharge Page
   purchase: {
-    title: 'Recharge / Subscription',
-    description: 'Recharge balance or purchase subscription via the embedded page',
+    title: 'Online Recharge',
+    description: 'Recharge your balance through the online recharge page',
     openInNewTab: 'Open in new tab',
     notEnabledTitle: 'Feature not enabled',
-    notEnabledDesc: 'The administrator has not enabled the recharge/subscription entry. Please contact admin.',
-    notConfiguredTitle: 'Recharge / Subscription URL not configured',
+    notEnabledDesc: 'The administrator has not enabled the online recharge entry. Please contact admin.',
+    notConfiguredTitle: 'Online Recharge URL not configured',
     notConfiguredDesc:
-      'The administrator enabled the entry but has not configured a recharge/subscription URL. Please contact admin.'
+      'The administrator enabled the entry but has not configured an online recharge URL. Please contact admin.'
   },
 
   // Custom Page (iframe embed)
@@ -121,7 +121,8 @@ export default {
     availablePlans: 'Available Subscriptions',
     availablePlansDesc: 'Buy a subscription card with your balance. The validity period starts only after activation.',
     purchase: 'Buy Subscription',
-    purchaseConfirm: 'Use your balance to buy “{name}” ({price})?',
+    purchaseConfirmTitle: 'Confirm Subscription Purchase',
+    purchaseConfirm: 'Use your balance to buy “{name}”?',
     purchaseSuccess: 'Subscription card purchased. Activate it below when ready.',
     purchaseFailed: 'Failed to purchase subscription. Check your balance and try again.',
     activate: 'Activate Now',
@@ -299,7 +300,7 @@ export default {
 
   // Payment System
   payment: {
-    title: 'Recharge / Subscription',
+    title: 'Online Recharge',
     amountLabel: 'Amount',
     paymentAmount: 'Payment Amount',
     creditedBalance: 'Credited Balance',

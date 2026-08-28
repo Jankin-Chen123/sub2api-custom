@@ -702,8 +702,8 @@ export default {
 
   // Redeem
   redeem: {
-    title: 'Redeem Code',
-    description: 'Enter your redeem code to add balance or increase concurrency',
+    title: 'Redeem / Check In',
+    description: 'Claim your daily reward or redeem a code for balance and benefits',
     currentBalance: 'Current Balance',
     concurrency: 'Concurrency',
     requests: 'requests',
@@ -725,6 +725,12 @@ export default {
     codeRule4: 'Balance and concurrency updates are immediate',
     recentActivity: 'Recent Activity',
     historyWillAppear: 'Your redemption history will appear here',
+    activity: {
+      redeem: 'Redeem Code',
+      recharge: 'Online Recharge',
+      checkin: 'Daily Check-in',
+      empty: 'No balance additions yet'
+    },
     balanceAddedRedeem: 'Balance Added (Redeem)',
     balanceAddedAffiliate: 'Balance Added (Affiliate Transfer)',
     balanceAddedAdmin: 'Balance Added (Admin)',
@@ -740,7 +746,33 @@ export default {
     codeRedeemSuccess: 'Code redeemed successfully!',
     failedToRedeem: 'Failed to redeem code. Please check the code and try again.',
     subscriptionRefreshFailed: 'Redeemed successfully, but failed to refresh subscription status.',
-    pleaseEnterCode: 'Please enter a redeem code'
+    pleaseEnterCode: 'Please enter a redeem code',
+    checkin: {
+      title: 'Daily Lucky Check-in',
+      streakLabel: 'Check-in progress',
+      streakDays: '{days}-day streak',
+      streakDay: 'Day {day}',
+      streakDaysUntilBonus: '{days} more days to unlock the bonus',
+      streakBonusUnlocked: '7-day bonus awarded',
+      streakStartHint: 'Check in today to start your streak',
+      lucky: 'Check in',
+      spinning: 'Good luck',
+      drawing: 'Drawing...',
+      drawTitle: "Today's lucky draw",
+      drawHint: 'Check in to draw from the prize list configured by the administrator',
+      checkinButton: 'Check in & Spin',
+      checkedToday: 'Checked in today',
+      todayCompleted: "Today's check-in reward",
+      congratulations: 'You won a check-in reward',
+      rewardAdded: 'Checked in successfully. ${amount} was added to your balance',
+      successTitle: 'Check-in successful',
+      successHeading: 'Congratulations, you won',
+      successBalance: 'The reward was added to your balance',
+      successBonus: 'Includes a streak bonus of +${amount}',
+      successClose: 'Awesome',
+      unavailable: 'The check-in wheel is unavailable. Please try again later',
+      failed: 'Check-in failed. Please try again later'
+    }
   },
 
   // Profile

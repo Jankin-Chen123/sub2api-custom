@@ -706,8 +706,8 @@ export default {
 
   // Redeem
   redeem: {
-    title: '兑换码',
-    description: '输入兑换码以充值余额或增加并发数',
+    title: '兑换/签到',
+    description: '每日签到抽奖，或输入兑换码增加余额与权益',
     currentBalance: '当前余额',
     concurrency: '并发数',
     requests: '请求',
@@ -729,6 +729,12 @@ export default {
     codeRule4: '余额和并发数即时更新',
     recentActivity: '最近活动',
     historyWillAppear: '您的兑换历史将显示在这里',
+    activity: {
+      redeem: '兑换码兑换',
+      recharge: '在线充值',
+      checkin: '签到奖励',
+      empty: '暂无余额增加记录'
+    },
     balanceAddedRedeem: '余额充值（兑换）',
     balanceAddedAffiliate: '余额充值（返利转入）',
     balanceAddedAdmin: '余额充值（管理员）',
@@ -744,7 +750,33 @@ export default {
     codeRedeemSuccess: '兑换成功！',
     failedToRedeem: '兑换失败，请检查兑换码后重试。',
     subscriptionRefreshFailed: '兑换成功，但订阅状态刷新失败。',
-    pleaseEnterCode: '请输入兑换码'
+    pleaseEnterCode: '请输入兑换码',
+    checkin: {
+      title: '每日幸运签到',
+      streakLabel: '签到进度',
+      streakDays: '连续签到 {days} 天',
+      streakDay: '第 {day} 天',
+      streakDaysUntilBonus: '还差 {days} 天解锁额外奖励',
+      streakBonusUnlocked: '7 天额外奖励已发放',
+      streakStartHint: '今天签到后开始累计',
+      lucky: '签到',
+      spinning: '好运来',
+      drawing: '抽奖中...',
+      drawTitle: '今日幸运抽奖',
+      drawHint: '点击签到，转盘将从后台配置的奖项中抽取奖励',
+      checkinButton: '签到并抽奖',
+      checkedToday: '今日已签到',
+      todayCompleted: '今日签到奖励',
+      congratulations: '恭喜抽中签到奖励',
+      rewardAdded: '签到成功，${amount} 已加入余额',
+      successTitle: '签到成功',
+      successHeading: '恭喜你抽中了',
+      successBalance: '奖励已加入账户余额',
+      successBonus: '含连续签到额外奖励 +${amount}',
+      successClose: '太棒了',
+      unavailable: '签到转盘暂不可用，请稍后再试',
+      failed: '签到失败，请稍后重试'
+    }
   },
 
   // Profile

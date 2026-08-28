@@ -238,8 +238,8 @@ export default {
 
     // Redeem Codes Management
     redeem: {
-      title: '兑换码管理',
-      description: '生成和管理兑换码',
+      title: '兑换/签到管理',
+      description: '管理兑换码与每日签到转盘奖项',
       generateCodes: '生成兑换码',
       columns: {
         code: '兑换码',
@@ -389,6 +389,33 @@ export default {
         approveSuccess: '已计入邀请返利',
         excludeSuccess: '已标记为免费赠送',
         failed: '兑换返利审核失败'
+      },
+      tabs: {
+        codes: '兑换码管理',
+        checkin: '签到奖品配置'
+      },
+      checkin: {
+        title: '签到幸运转盘',
+        description: '增删转盘奖项并设置到账额度、显示颜色和中奖概率。保存时所有概率之和必须为 100%。',
+        streakBonusTitle: '连续签到额外奖励',
+        streakBonusDescription: '连续签到达到 {days} 天时，额外赠送余额。',
+        streakBonusAmount: '额外奖励金额',
+        prizeCount: '奖项数量',
+        totalProbability: '概率合计',
+        status: '配置状态',
+        ready: '可以保存并用于签到',
+        needsAttention: '请完善奖项配置',
+        probabilityHint: '所有奖项的中奖概率合计必须恰好为 100%，否则用户无法签到抽奖。',
+        prizes: '转盘奖项',
+        addPrize: '添加奖项',
+        name: '奖项名称',
+        amount: '奖励额度 ($)',
+        probability: '中奖概率 (%)',
+        color: '颜色',
+        newPrize: '新奖项',
+        loadFailed: '加载签到奖项失败',
+        saveSuccess: '签到奖项已更新',
+        saveFailed: '保存签到奖项失败'
       }
     },
 
