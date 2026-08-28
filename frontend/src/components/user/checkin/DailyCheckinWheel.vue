@@ -18,7 +18,7 @@
       </div>
 
       <div v-if="loading" class="flex flex-1 items-center justify-center py-16">
-        <span class="h-9 w-9 animate-spin rounded-full border-4 border-primary-100 border-t-primary-500" />
+        <span class="h-9 w-9 animate-spin rounded-full border-4 border-primary-100 border-t-primary-500 dark:border-primary-900/50 dark:border-t-primary-400" />
       </div>
 
       <template v-else-if="status && status.prizes.length">
@@ -56,8 +56,8 @@
           </div>
         </div>
 
-        <div class="checkin-content mt-5 flex min-h-0 flex-1 items-center justify-center gap-5 xl:gap-8">
-          <div class="wheel-stage relative h-[218px] w-[218px] flex-shrink-0 sm:h-[230px] sm:w-[230px]">
+        <div class="checkin-content mt-5 flex min-h-0 flex-1 items-center justify-center gap-3 xl:gap-4">
+          <div class="wheel-stage relative h-[246px] w-[246px] flex-shrink-0 sm:h-[260px] sm:w-[260px]">
             <svg class="wheel-pointer z-20" viewBox="0 0 32 46" aria-hidden="true">
               <path d="M 1.5 2.5 Q 16 0 30.5 2.5 L 18.4 40.1 Q 16 46 13.6 40.1 Z" />
             </svg>
@@ -400,11 +400,11 @@ onMounted(loadStatus)
 }
 
 .wheel-label {
-  font-size: 10px;
+  font-size: 15px;
   font-weight: 900;
   paint-order: stroke;
   stroke: rgba(0, 0, 0, 0.18);
-  stroke-width: 2px;
+  stroke-width: 2.8px;
   stroke-linejoin: round;
 }
 
@@ -413,8 +413,8 @@ onMounted(loadStatus)
   position: absolute;
   top: 0;
   left: 50%;
-  width: 32px;
-  height: 46px;
+  width: 34px;
+  height: 49px;
   transform: translateX(-50%);
   filter: drop-shadow(0 3px 3px rgba(56, 48, 54, 0.17));
 }
@@ -540,5 +540,86 @@ onMounted(loadStatus)
 @media (prefers-reduced-motion: reduce) {
   .success-dialog,
   .confetti-piece { animation: none; }
+}
+</style>
+
+<style>
+/* The app theme class lives on <html>, so these overrides intentionally stay
+   unscoped and remain active when the component is rendered inside a dark page. */
+.dark .checkin-surface {
+  background: linear-gradient(138deg, #102f32 0%, #111f2d 54%, #121827 100%);
+}
+
+.dark .checkin-icon {
+  background: rgba(45, 212, 191, 0.14);
+  color: #5eead4;
+}
+
+.dark .today-pill {
+  background: rgba(45, 212, 191, 0.14);
+  color: #5eead4;
+}
+
+.dark .streak-card {
+  border-color: rgba(94, 234, 212, 0.18);
+  background: rgba(15, 30, 43, 0.72);
+}
+
+.dark .streak-hint {
+  color: #5eead4;
+}
+
+.dark .streak-day {
+  color: #64748b;
+}
+
+.dark .day-dot {
+  border-color: #334155;
+  background: #172235;
+  color: #94a3b8;
+}
+
+.dark .streak-day.is-done .day-dot {
+  border-color: #0f766e;
+  background: rgba(13, 148, 136, 0.24);
+  color: #5eead4;
+}
+
+.dark .streak-day.is-current .day-dot {
+  border-color: #2dd4bf;
+  background: #122433;
+  color: #5eead4;
+  box-shadow: 0 0 0 4px rgba(45, 212, 191, 0.12);
+}
+
+.dark .wheel-shell {
+  background: #1e293b;
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.36), 0 0 0 4px rgba(148, 163, 184, 0.12);
+}
+
+.dark .success-modal {
+  background: rgba(2, 6, 23, 0.72);
+}
+
+.dark .success-dialog {
+  border-color: rgba(94, 234, 212, 0.18);
+  background: linear-gradient(145deg, #142838, #102b2d);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.46);
+}
+
+.dark .success-close {
+  background: #1f3343;
+  color: #9ac5c2;
+}
+
+.dark .celebration-mark {
+  background: radial-gradient(circle at 35% 30%, #244a50, #123638);
+  box-shadow: 0 8px 18px rgba(45, 212, 191, 0.14);
+}
+
+.dark .success-balance {
+  border-color: rgba(94, 234, 212, 0.2);
+  background: rgba(13, 85, 80, 0.42);
+  color: #9dd7d1;
 }
 </style>
