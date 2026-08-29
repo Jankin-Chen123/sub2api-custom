@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
@@ -502,6 +503,131 @@ func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputToke
 	require.InDelta(t, expected.ImageOutputCost, usageRepo.lastLog.ImageOutputCost, 1e-12)
 	require.InDelta(t, expectedActual, usageRepo.lastLog.ActualCost, 1e-12)
 	require.InDelta(t, expectedActual, userRepo.lastAmount, 1e-12)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_TokenModeImageExcludesCampaignFactor(t *testing.T) {
+	groupID := int64(15)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	client, mock := newNewcomerCampaignSQLMock(t)
+	now := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(`(?s)SELECT g\.factor.*FROM newcomer_campaign_membership_grants`).
+		WithArgs(NewcomerCampaignKey, int64(2005), now, newcomerInviteThreshold).
+		WillReturnRows(sqlmock.NewRows([]string{"factor"}).AddRow(0.94))
+
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
+	svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, groupID, "gpt-5.1")
+	svc.newcomerCampaign = NewNewcomerCampaignService(client)
+	svc.newcomerCampaign.SetClock(func() time.Time { return now })
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:  "openai_campaign_token_image",
+			Model:      "gpt-5.1",
+			ImageCount: 1,
+			Usage: OpenAIUsage{
+				InputTokens:       1000,
+				OutputTokens:      600,
+				ImageOutputTokens: 100,
+			},
+			Duration: time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      1005,
+			GroupID: i64p(groupID),
+			Group:   &Group{ID: groupID, RateMultiplier: 1},
+		},
+		User:    &User{ID: 2005},
+		Account: &Account{ID: 3005},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, string(BillingModeToken), *usageRepo.lastLog.BillingMode)
+	require.InDelta(t, usageRepo.lastLog.TotalCost, usageRepo.lastLog.ActualCost, 1e-12)
+	require.Equal(t, 1.0, usageRepo.lastLog.RateMultiplier)
+	require.InDelta(t, usageRepo.lastLog.TotalCost, userRepo.lastAmount, 1e-12)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestOpenAIGatewayServiceRecordUsage_TextTokenKeepsCampaignFactor(t *testing.T) {
+	groupID := int64(18)
+	svc := newOpenAIRecordUsageServiceForTest(
+		&openAIRecordUsageLogRepoStub{},
+		&openAIRecordUsageUserRepoStub{},
+		&openAIRecordUsageSubRepoStub{},
+		nil,
+	)
+	svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, groupID, "gpt-5.1")
+	apiKey := &APIKey{GroupID: i64p(groupID), Group: &Group{ID: groupID, RateMultiplier: 1}}
+	result := &OpenAIForwardResult{
+		Model: "gpt-5.1",
+		Usage: OpenAIUsage{InputTokens: 100, OutputTokens: 50},
+	}
+	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50}
+
+	withMediaArgument, err := svc.calculateOpenAIRecordUsageCost(
+		context.Background(), result, apiKey, []string{"gpt-5.1"},
+		0.94, 1, 1, 0.94, tokens, "", nil, time.Time{}, 1,
+	)
+	require.NoError(t, err)
+	withoutMediaArgument, err := svc.calculateOpenAIRecordUsageCost(
+		context.Background(), result, apiKey, []string{"gpt-5.1"},
+		0.94, 1, 1, 0.94, tokens, "", nil, time.Time{},
+	)
+	require.NoError(t, err)
+	// The optional media multiplier is passed by the shared caller for all
+	// requests, but must only affect image/video token billing.
+	require.InDelta(t, withoutMediaArgument.ActualCost, withMediaArgument.ActualCost, 1e-12)
+	require.Greater(t, withMediaArgument.ActualCost, 0.0)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_TokenModeVideoExcludesCampaignFactor(t *testing.T) {
+	groupID := int64(17)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	client, mock := newNewcomerCampaignSQLMock(t)
+	now := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(`(?s)SELECT g\.factor.*FROM newcomer_campaign_membership_grants`).
+		WithArgs(NewcomerCampaignKey, int64(2006), now, newcomerInviteThreshold).
+		WillReturnRows(sqlmock.NewRows([]string{"factor"}).AddRow(0.94))
+
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
+	svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, groupID, "grok-imagine-video")
+	svc.newcomerCampaign = NewNewcomerCampaignService(client)
+	svc.newcomerCampaign.SetClock(func() time.Time { return now })
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:            "openai_campaign_token_video",
+			Model:                "grok-imagine-video",
+			BillingModel:         "grok-imagine-video",
+			VideoCount:           1,
+			VideoResolution:      VideoBillingResolution720P,
+			VideoDurationSeconds: 5,
+			Usage: OpenAIUsage{
+				InputTokens:  1000,
+				OutputTokens: 600,
+			},
+			Duration: time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      1006,
+			GroupID: i64p(groupID),
+			Group:   &Group{ID: groupID, Platform: PlatformGrok, RateMultiplier: 1},
+		},
+		User:    &User{ID: 2006},
+		Account: &Account{ID: 3006, Platform: PlatformGrok},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, string(BillingModeToken), *usageRepo.lastLog.BillingMode)
+	require.InDelta(t, usageRepo.lastLog.TotalCost, usageRepo.lastLog.ActualCost, 1e-12)
+	require.Equal(t, 1.0, usageRepo.lastLog.RateMultiplier)
+	require.Equal(t, 1, usageRepo.lastLog.VideoCount)
+	require.InDelta(t, usageRepo.lastLog.TotalCost, userRepo.lastAmount, 1e-12)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestOpenAIGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {

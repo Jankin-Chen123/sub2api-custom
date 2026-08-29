@@ -100,7 +100,10 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if oauthResp != nil {
 		return oauthResp, nil
 	}
-	order, err := s.createOrderInTx(ctx, req, user, plan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel)
+	// req.Amount is the user's selected balance principal in the platform's
+	// base currency. The selected provider currency only describes the gateway
+	// charge and must not change the campaign fact's currency.
+	order, err := s.createOrderInTx(ctx, req, user, plan, cfg, orderAmount, limitAmount, feeRate, payAmount, payment.DefaultPaymentCurrency, sel)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +152,7 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 	return plan, nil
 }
 
-func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, plan *dbent.SubscriptionPlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, sel *payment.InstanceSelection) (*dbent.PaymentOrder, error) {
+func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, plan *dbent.SubscriptionPlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, principalCurrency string, sel *payment.InstanceSelection) (*dbent.PaymentOrder, error) {
 	tx, err := s.entClient.Tx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -213,6 +216,16 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	if err != nil {
 		return nil, fmt.Errorf("create order: %w", err)
 	}
+	if req.OrderType == payment.OrderTypeBalance {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO newcomer_campaign_payment_facts
+    (order_id, user_id, principal_amount, principal_currency)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (order_id) DO NOTHING`,
+			order.ID, req.UserID, req.Amount, normalizePaymentPrincipalCurrency(principalCurrency)); err != nil {
+			return nil, fmt.Errorf("record newcomer campaign payment principal: %w", err)
+		}
+	}
 	code := fmt.Sprintf("PAY-%d-%d", order.ID, time.Now().UnixNano()%100000)
 	order, err = tx.PaymentOrder.UpdateOneID(order.ID).SetRechargeCode(code).Save(ctx)
 	if err != nil {
@@ -222,6 +235,23 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, fmt.Errorf("commit order transaction: %w", err)
 	}
 	return order, nil
+}
+
+func normalizePaymentPrincipalCurrency(currency string) string {
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+	if len(currency) == 3 {
+		valid := true
+		for i := 0; i < len(currency); i++ {
+			if currency[i] < 'A' || currency[i] > 'Z' {
+				valid = false
+				break
+			}
+		}
+		if valid {
+			return currency
+		}
+	}
+	return payment.DefaultPaymentCurrency
 }
 
 func (s *PaymentService) allocateOutTradeNo(ctx context.Context, tx *dbent.Tx) (string, error) {
@@ -398,6 +428,10 @@ func (s *PaymentService) usesOfficialWxpayVisibleMethod(ctx context.Context) boo
 }
 
 func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.PaymentOrder, req CreateOrderRequest, cfg *PaymentConfig, limitAmount float64, payAmountStr string, payAmount float64, plan *dbent.SubscriptionPlan, sel *payment.InstanceSelection) (*CreateOrderResponse, error) {
+	selectedCurrency := payment.DefaultPaymentCurrency
+	if sel != nil {
+		selectedCurrency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
+	}
 	prov, err := provider.CreateProvider(sel.ProviderKey, sel.InstanceID, sel.Config)
 	if err != nil {
 		slog.Error("[PaymentService] CreateProvider failed", "provider", sel.ProviderKey, "instance", sel.InstanceID, "error", err)
@@ -469,12 +503,14 @@ func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.Paymen
 		return nil, fmt.Errorf("update order with payment details: %w", err)
 	}
 	s.writeAuditLog(ctx, order.ID, "ORDER_CREATED", fmt.Sprintf("user:%d", req.UserID), map[string]any{
-		"paymentAmount":  req.Amount,
-		"creditedAmount": order.Amount,
-		"payAmount":      order.PayAmount,
-		"paymentType":    req.PaymentType,
-		"orderType":      req.OrderType,
-		"paymentSource":  NormalizePaymentSource(req.PaymentSource),
+		"paymentAmount":     req.Amount,
+		"principalCurrency": payment.DefaultPaymentCurrency,
+		"paymentCurrency":   selectedCurrency,
+		"creditedAmount":    order.Amount,
+		"payAmount":         order.PayAmount,
+		"paymentType":       req.PaymentType,
+		"orderType":         req.OrderType,
+		"paymentSource":     NormalizePaymentSource(req.PaymentSource),
 	})
 	resultType := pr.ResultType
 	if resultType == "" {

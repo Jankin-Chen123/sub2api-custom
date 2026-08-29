@@ -131,8 +131,18 @@ func RegisterAdminRoutes(
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
 
+		// 2026-09 迎新活动对账/修复
+		registerNewcomerCampaignRoutes(admin, h)
+
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
+	}
+}
+
+func registerNewcomerCampaignRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	campaign := admin.Group("/campaigns/newcomer")
+	{
+		campaign.POST("/reconcile", h.Admin.NewcomerCampaign.Reconcile)
 	}
 }
 

@@ -796,6 +796,11 @@ type GatewayService struct {
 	tlsFPProfileService   *TLSFingerprintProfileService
 	balanceNotifyService  *BalanceNotifyService
 	userPlatformQuotaRepo UserPlatformQuotaRepository
+	newcomerCampaign      *NewcomerCampaignService
+}
+
+func (s *GatewayService) SetNewcomerCampaignService(campaign *NewcomerCampaignService) {
+	s.newcomerCampaign = campaign
 }
 
 // NewGatewayService creates a new GatewayService

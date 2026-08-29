@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -155,6 +156,7 @@ type RedeemService struct {
 	entClient            *dbent.Client
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	affiliateService     *AffiliateService
+	newcomerCampaign     *NewcomerCampaignService
 }
 
 // NewRedeemService 创建兑换码服务实例
@@ -179,6 +181,12 @@ func NewRedeemService(
 		entClient:            entClient,
 		authCacheInvalidator: authCacheInvalidator,
 		affiliateService:     affiliateService,
+	}
+}
+
+func (s *RedeemService) SetNewcomerCampaignService(campaign *NewcomerCampaignService) {
+	if s != nil {
+		s.newcomerCampaign = campaign
 	}
 }
 
@@ -566,6 +574,14 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 	redeemCode, err = s.redeemRepo.GetByID(ctx, redeemCode.ID)
 	if err != nil {
 		return nil, fmt.Errorf("get updated redeem code: %w", err)
+	}
+	if s.newcomerCampaign != nil {
+		if err := s.newcomerCampaign.OnRedeemCompleted(ctx, userID, redeemCode); err != nil {
+			// Redemption has already committed. Keep the user-visible redemption
+			// successful and leave the repeatable campaign reconciliation to the
+			// repair/status entry point.
+			slog.Warn("newcomer campaign redemption reconciliation failed", "user_id", userID, "redeem_code_id", redeemCode.ID, "error", err)
+		}
 	}
 
 	return redeemCode, nil

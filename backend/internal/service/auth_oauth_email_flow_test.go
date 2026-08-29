@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/stretchr/testify/require"
@@ -550,4 +551,27 @@ func TestFinalizeOAuthEmailAccount_SnapshotsPlatformQuotaDefaults(t *testing.T) 
 	require.Equal(t, int64(99), anthropicRecord.UserID)
 	require.NotNil(t, anthropicRecord.DailyLimitUSD)
 	require.InDelta(t, 5.5, *anthropicRecord.DailyLimitUSD, 0.0001)
+}
+
+func TestBindOAuthAffiliate_CampaignBindingSurvivesDisabledCashRebate(t *testing.T) {
+	client, mock := newNewcomerCampaignSQLMock(t)
+	start, end := NewcomerCampaignWindow()
+	affiliateRepo := &paymentFulfillmentAffiliateRepoStub{}
+	settingService := NewSettingService(&settingRepoStub{values: map[string]string{
+		SettingKeyAffiliateEnabled: "false",
+	}}, nil)
+	affiliateService := NewAffiliateService(affiliateRepo, settingService, nil, nil)
+	campaign := NewNewcomerCampaignService(client, affiliateService)
+	authService := &AuthService{
+		affiliateService: affiliateService,
+		newcomerCampaign: campaign,
+	}
+
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_invites.*FROM user_affiliates ua.*WHERE ua\.aff_code = \$3.*u\.created_at >= \$4.*u\.created_at < \$5`).
+		WithArgs(NewcomerCampaignKey, int64(11), "INVITER11", start, end).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	authService.bindOAuthAffiliate(context.Background(), 11, " INVITER11 ")
+	require.Empty(t, affiliateRepo.accrueCalls, "disabled ordinary affiliate rebates must remain disabled")
+	require.NoError(t, mock.ExpectationsWereMet())
 }

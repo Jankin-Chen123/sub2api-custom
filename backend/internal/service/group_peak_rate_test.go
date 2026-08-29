@@ -204,6 +204,32 @@ func TestPeakMultiplier_GatewayBillingSequence(t *testing.T) {
 	})
 }
 
+func TestCampaignFactorExcludesIndependentImageAndVideoBilling(t *testing.T) {
+	const baseMultiplier = 0.8
+	const campaignFactor = 0.94
+	apiKey := &APIKey{Group: newPeakGroup(false, "", "", 1.0)}
+	apiKey.Group.ImageRateIndependent = true
+	apiKey.Group.ImageRateMultiplier = 0.5
+	apiKey.Group.VideoRateIndependent = true
+	apiKey.Group.VideoRateMultiplier = 0.6
+
+	// Token, search, and audio callers receive base×campaignFactor. The
+	// independent image/video paths deliberately receive only their own rates.
+	tokenMultiplier, _ := computePeakAwareMultipliers(apiKey, baseMultiplier*campaignFactor, time.Time{})
+	_, imageMultiplier := computePeakAwareMultipliers(apiKey, baseMultiplier, time.Time{})
+	videoMultiplier := resolveVideoRateMultiplier(apiKey, baseMultiplier)
+
+	if math.Abs(tokenMultiplier-baseMultiplier*campaignFactor) >= 1e-9 {
+		t.Fatalf("token multiplier should include campaign factor: got %v", tokenMultiplier)
+	}
+	if math.Abs(imageMultiplier-0.5) >= 1e-9 {
+		t.Fatalf("image multiplier must remain independent of campaign factor: got %v", imageMultiplier)
+	}
+	if math.Abs(videoMultiplier-0.6) >= 1e-9 {
+		t.Fatalf("video multiplier must remain independent of campaign factor: got %v", videoMultiplier)
+	}
+}
+
 // TestPeakMultiplier_SnapshotRoundTrip 防回归：认证缓存快照（APIKeyAuthGroupSnapshot）
 // 必须携带高峰倍率 4 字段，否则扣费路径拿到的 apiKey.Group 会缺字段、PeakMultiplierAt 恒降级为 1.0。
 // 调用真实链路 snapshotFromAPIKey → snapshotToAPIKey，验证 peak 配置经快照往返后仍生效。

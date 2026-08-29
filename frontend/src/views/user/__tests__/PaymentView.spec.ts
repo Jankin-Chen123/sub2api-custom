@@ -8,6 +8,7 @@ import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import en from '@/i18n/locales/en'
 import zh from '@/i18n/locales/zh'
 import type { CheckoutInfoResponse, MethodLimit, SubscriptionPlan } from '@/types/payment'
+import type { NewcomerCampaignStatus } from '@/types/campaign'
 
 const routeState = vi.hoisted(() => ({
   path: '/purchase',
@@ -24,6 +25,8 @@ const showError = vi.hoisted(() => vi.fn())
 const showInfo = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
 const getCheckoutInfo = vi.hoisted(() => vi.fn())
+const campaignStoreState = vi.hoisted(() => ({ status: null as NewcomerCampaignStatus | null }))
+const fetchCampaignStatus = vi.hoisted(() => vi.fn())
 const bridgeInvoke = vi.hoisted(() => vi.fn())
 const translate = vi.hoisted(() => vi.fn((key: string) => key))
 
@@ -73,6 +76,13 @@ vi.mock('@/stores/subscriptions', () => ({
   }),
 }))
 
+vi.mock('@/stores/campaign', () => ({
+  useCampaignStore: () => ({
+    status: campaignStoreState.status,
+    fetchStatus: fetchCampaignStatus,
+  }),
+}))
+
 vi.mock('@/stores', () => ({
   useAppStore: () => ({
     showError,
@@ -86,6 +96,11 @@ vi.mock('@/api/payment', () => ({
     getCheckoutInfo,
   },
 }))
+
+beforeEach(() => {
+  campaignStoreState.status = null
+  fetchCampaignStatus.mockReset().mockResolvedValue(null)
+})
 
 vi.mock('@/utils/device', () => ({
   isMobileDevice: () => true,
@@ -119,6 +134,32 @@ function checkoutInfoFixture(overrides: Partial<CheckoutInfoResponse> = {}) {
 
   return {
     data: { ...data, ...overrides },
+  }
+}
+
+function newcomerCampaignFixture(overrides: Partial<NewcomerCampaignStatus> = {}): NewcomerCampaignStatus {
+  return {
+    campaign_key: 'newcomer_202609',
+    name: '2026 年 9 月迎新活动',
+    phase: 'active',
+    starts_at: '2026-08-31T16:00:00.000Z',
+    ends_at: '2026-09-30T15:59:59.000Z',
+    first_recharge: {
+      eligible: true,
+      reward_status: 'pending',
+      reward_amount: 2,
+    },
+    invite_link: 'http://localhost/register?aff=demo',
+    valid_invite_count: 1,
+    next_tier: { key: 'premium', name: '高级', threshold: 2, factor: 0.98, duration_days: 30 },
+    next_tier_progress: 1,
+    next_tier_remaining: 1,
+    tiers: [
+      { key: 'premium', name: '高级', threshold: 2, factor: 0.98, duration_days: 30 },
+      { key: 'gold', name: '黄金', threshold: 5, factor: 0.96, duration_days: 45 },
+      { key: 'diamond', name: '钻石', threshold: 10, factor: 0.94, duration_days: 60 },
+    ],
+    ...overrides,
   }
 }
 
@@ -226,6 +267,63 @@ describe('PaymentView recharge entry', () => {
     expect(wrapper.text()).toContain('payment.tabSubscribe')
     expect(wrapper.text()).toContain('payment.noPlans')
     expect(wrapper.text()).not.toContain('payment.rechargeAccount')
+  })
+})
+
+describe('PaymentView newcomer campaign', () => {
+  it('uses the server-authorized campaign state and defaults the direct entry to 10', async () => {
+    routeState.path = '/purchase'
+    routeState.query = { campaign: 'first-recharge' }
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture())
+    campaignStoreState.status = newcomerCampaignFixture()
+    fetchCampaignStatus.mockResolvedValue(campaignStoreState.status)
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Teleport: true,
+          Transition: false,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const input = wrapper.getComponent(AmountInput)
+    expect(input.props('modelValue')).toBe(10)
+    expect(input.props('campaignAmount')).toBe(10)
+    expect(wrapper.find('[data-test="campaign-recharge-prompt"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="campaign-recharge-breakdown"]').text()).toContain('+¥2.00')
+    expect(wrapper.find('[data-test="campaign-recharge-breakdown"]').text()).toContain(
+      formatPaymentAmount(12, 'CNY'),
+    )
+    expect(fetchCampaignStatus).toHaveBeenCalled()
+  })
+
+  it('does not show or preselect the campaign entry when the server says the user is not eligible', async () => {
+    routeState.path = '/purchase'
+    routeState.query = { campaign: 'first-recharge' }
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture())
+    campaignStoreState.status = newcomerCampaignFixture({
+      first_recharge: { eligible: false, reward_status: 'ineligible', reward_amount: 2 },
+    })
+    fetchCampaignStatus.mockResolvedValue(campaignStoreState.status)
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Teleport: true,
+          Transition: false,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.getComponent(AmountInput).props('modelValue')).not.toBe(10)
+    expect(wrapper.find('[data-test="campaign-recharge-prompt"]').exists()).toBe(false)
   })
 })
 

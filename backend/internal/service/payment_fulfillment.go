@@ -193,6 +193,7 @@ func (s *PaymentService) alreadyProcessed(ctx context.Context, o *dbent.PaymentO
 	}
 	switch cur.Status {
 	case OrderStatusCompleted, OrderStatusRefunded:
+		s.reconcileNewcomerPayment(ctx, o.ID, false)
 		return nil
 	case OrderStatusFailed, OrderStatusPaid, OrderStatusRecharging:
 		return s.executeFulfillment(ctx, o.ID)
@@ -384,7 +385,23 @@ func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrde
 		})
 		s.dispatchPaymentFulfillmentNotification(o, auditAction)
 	}
+	s.reconcileNewcomerPayment(ctx, o.ID, false)
 	return nil
+}
+
+func (s *PaymentService) reconcileNewcomerPayment(ctx context.Context, orderID int64, refunded bool) {
+	if s == nil || s.newcomerCampaign == nil || orderID <= 0 {
+		return
+	}
+	var err error
+	if refunded {
+		err = s.newcomerCampaign.OnPaymentRefunded(ctx, orderID)
+	} else {
+		err = s.newcomerCampaign.OnPaymentCompleted(ctx, orderID)
+	}
+	if err != nil {
+		slog.Warn("newcomer campaign reconciliation failed", "order_id", orderID, "refunded", refunded, "error", err)
+	}
 }
 
 func (s *PaymentService) dispatchPaymentFulfillmentNotification(o *dbent.PaymentOrder, auditAction string) {

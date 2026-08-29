@@ -41,6 +41,10 @@
               <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
               <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
             </div>
+            <div v-if="campaignFirstRechargeVisible" class="rounded-xl border border-primary-200 bg-primary-50 p-4 dark:border-primary-900/40 dark:bg-primary-900/20" data-test="campaign-recharge-prompt">
+              <p class="text-sm font-semibold text-primary-800 dark:text-primary-200">{{ t('campaign.firstRechargeTitle') }}</p>
+              <p class="mt-1 text-xs text-primary-700 dark:text-primary-300">{{ t('campaign.firstRechargeDescription') }}</p>
+            </div>
             <div v-if="checkout.balance_disabled || enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
             </div>
@@ -51,6 +55,8 @@
                 :amounts="[10, 20, 50, 100, 200, 500, 1000, 2000, 5000]"
                 :min="globalMinAmount"
                 :max="globalMaxAmount"
+                :campaign-amount="campaignFirstRechargeVisible ? 10 : undefined"
+                :currency="selectedCurrency"
               />
               <p v-if="amountError" class="mt-2 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
             </div>
@@ -82,6 +88,26 @@
                 <p v-if="balanceRechargeMultiplier !== 1" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
                   {{ t('payment.rechargeRatePreview', { currency: selectedCurrency, usd: balanceRechargeMultiplier.toFixed(2) }) }}
                 </p>
+              </div>
+            </div>
+            <div v-if="campaignFirstRechargeVisible && validAmount >= 10" class="card border border-primary-200 p-6 dark:border-primary-900/40" data-test="campaign-recharge-breakdown">
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('campaign.rechargeAmount') }}</span>
+                  <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(validAmount) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('campaign.rechargeFee') }}</span>
+                  <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('campaign.gift') }}</span>
+                  <span class="font-semibold text-amber-600 dark:text-amber-300">+¥2.00</span>
+                </div>
+                <div class="flex justify-between border-t border-primary-200 pt-2 font-semibold dark:border-primary-900/40">
+                  <span class="text-primary-800 dark:text-primary-200">{{ t('campaign.estimatedArrival') }}</span>
+                  <span class="text-lg text-primary-700 dark:text-primary-300">{{ formatSelectedPaymentAmount(campaignExpectedArrival) }}</span>
+                </div>
               </div>
             </div>
             <button :class="['btn w-full py-3 text-base font-medium', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
@@ -262,6 +288,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePaymentStore } from '@/stores/payment'
 import { useSubscriptionStore } from '@/stores/subscriptions'
+import { useCampaignStore } from '@/stores/campaign'
 import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
@@ -300,10 +327,19 @@ const router = useRouter()
 const authStore = useAuthStore()
 const paymentStore = usePaymentStore()
 const subscriptionStore = useSubscriptionStore()
+const campaignStore = useCampaignStore()
 const appStore = useAppStore()
 
 const user = computed(() => authStore.user)
 const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)
+const campaignStatus = computed(() => campaignStore.status)
+const campaignFirstRechargeVisible = computed(() => {
+  const first = campaignStatus.value?.first_recharge
+  return campaignStatus.value?.phase === 'active'
+    && !!first?.eligible
+    && selectedCurrency.value === DEFAULT_PAYMENT_CURRENCY
+    && (first.reward_status === 'pending' || first.reward_status === 'qualified')
+})
 
 function getDaysRemaining(expiresAt: string): number {
   const diff = new Date(expiresAt).getTime() - Date.now()
@@ -525,6 +561,7 @@ const subscriptionUsdToCnyRate = computed(() => {
   return Number.isFinite(rate) && rate > 0 ? rate : 0
 })
 const creditedAmount = computed(() => Math.round((validAmount.value * balanceRechargeMultiplier.value) * 100) / 100)
+const campaignExpectedArrival = computed(() => Math.round((creditedAmount.value + (campaignFirstRechargeVisible.value ? 2 : 0)) * 100) / 100)
 
 // Adaptive grid: center single card, 2-col for 2 plans, 3-col for 3+
 const planGridClass = computed(() => {
@@ -1097,9 +1134,11 @@ async function resumeWechatPaymentFromQuery() {
 }
 
 onMounted(async () => {
+  let restoredRecovery = false
   try {
     const res = await paymentAPI.getCheckoutInfo()
     checkout.value = res.data
+    await campaignStore.fetchStatus()
     if (enabledMethods.value.length) {
       const order: readonly string[] = METHOD_ORDER
       const sorted = [...enabledMethods.value].sort((a, b) => {
@@ -1123,6 +1162,7 @@ onMounted(async () => {
         { resumeToken: routeResumeToken },
       )
       if (restored) {
+        restoredRecovery = true
         paymentState.value = restored
         paymentPhase.value = 'paying'
         const restoredMethod = normalizeVisibleMethod(restored.paymentType)
@@ -1135,6 +1175,14 @@ onMounted(async () => {
       }
     }
     await resumeWechatPaymentFromQuery()
+    if (
+      !restoredRecovery
+      && !hasWechatResumeQuery(route.query)
+      && route.query.campaign === 'first-recharge'
+      && campaignFirstRechargeVisible.value
+    ) {
+      amount.value = 10
+    }
     if (checkout.value.balance_disabled) {
       activeTab.value = 'subscription'
     }

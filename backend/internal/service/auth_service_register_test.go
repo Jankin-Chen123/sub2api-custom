@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -627,6 +628,33 @@ func TestAuthService_Register_Success(t *testing.T) {
 	require.Equal(t, 2, user.Concurrency)
 	require.Len(t, repo.created, 1)
 	require.True(t, user.CheckPassword("password"))
+}
+
+func TestAuthService_Register_CampaignBindingSurvivesDisabledCashRebate(t *testing.T) {
+	// Ordinary affiliate binding must stay disabled, while the September
+	// newcomer relationship is still created from the same signup code.
+	repo := &userRepoStub{nextID: 11}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled: "true",
+		SettingKeyAffiliateEnabled:    "false",
+	}, nil, nil)
+	affiliateRepo := &paymentFulfillmentAffiliateRepoStub{}
+	affiliateService := NewAffiliateService(affiliateRepo, service.settingService, nil, nil)
+	client, mock := newNewcomerCampaignSQLMock(t)
+	campaign := NewNewcomerCampaignService(client, affiliateService)
+	service.affiliateService = affiliateService
+	service.newcomerCampaign = campaign
+
+	start, end := NewcomerCampaignWindow()
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_invites.*FROM user_affiliates ua.*WHERE ua\.aff_code = \$3.*u\.created_at >= \$4.*u\.created_at < \$5`).
+		WithArgs(NewcomerCampaignKey, int64(11), "INVITER11", start, end).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	_, user, err := service.RegisterWithVerification(context.Background(), "newuser@example.com", "password", "", "", "", " inviter11 ")
+	require.NoError(t, err)
+	require.NotNil(t, user)
+	require.Empty(t, affiliateRepo.accrueCalls, "campaign binding must not create ordinary cash rebate")
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestAuthService_ValidateToken_ExpiredReturnsClaimsWithError(t *testing.T) {

@@ -23,6 +23,17 @@
 
       <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
       <div class="flex min-w-0 items-center gap-1 sm:gap-3">
+        <!-- Server-authorized newcomer first-recharge shortcut -->
+        <router-link
+          v-if="showFirstRechargeShortcut"
+          to="/purchase?campaign=first-recharge"
+          class="flex max-w-[9.5rem] items-center gap-1 rounded-lg px-1.5 py-1.5 text-left text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-900/20 sm:max-w-none sm:px-2.5"
+          data-test="first-recharge-shortcut"
+        >
+          <span class="truncate">{{ t('campaign.firstRechargeShortcut') }}</span>
+          <span class="hidden text-[11px] font-normal text-primary-600 dark:text-primary-400 sm:inline">{{ t('campaign.firstRechargeShortcutHint') }}</span>
+        </router-link>
+
         <!-- Announcement Bell -->
         <AnnouncementBell v-if="user" />
 
@@ -53,6 +64,15 @@
 
         <!-- Subscription Progress (for users with active subscriptions) -->
         <SubscriptionProgressMini v-if="user" />
+
+        <!-- Activity membership badge; activity membership never changes concurrency. -->
+        <span
+          v-if="user && currentCampaignMembership"
+          class="hidden items-center rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 dark:bg-primary-900/20 dark:text-primary-300 sm:flex"
+          data-test="campaign-membership-badge"
+        >
+          {{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}
+        </span>
 
         <!-- Balance Display -->
         <div
@@ -137,6 +157,15 @@
                   {{ displayName }}
                 </div>
                 <div class="text-xs text-gray-500 dark:text-dark-400">{{ user.email }}</div>
+                <div v-if="currentCampaignMembership" class="mt-2 rounded-lg bg-primary-50 px-2.5 py-2 dark:bg-primary-900/20" data-test="campaign-membership-menu">
+                  <div class="text-xs font-semibold text-primary-700 dark:text-primary-300">
+                    {{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}
+                  </div>
+                  <div class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">
+                    {{ t('campaign.membershipFactor', { factor: currentCampaignMembership.factor }) }}
+                    · {{ t('campaign.membershipRemaining', { days: membershipRemainingDays(currentCampaignMembership.expires_at) }) }}
+                  </div>
+                </div>
               </div>
 
               <!-- Balance (mobile only) -->
@@ -258,6 +287,7 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
+import { useCampaignStore } from '@/stores/campaign'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
@@ -269,6 +299,7 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
 const onboardingStore = useOnboardingStore()
+const campaignStore = useCampaignStore()
 
 const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)
@@ -284,6 +315,23 @@ const balanceAvailableText = computed(() => t('common.availableBalance') === 'co
 const balanceFrozenText = computed(() => t('common.frozenBalance') === 'common.frozenBalance' ? '冻结金额' : t('common.frozenBalance'))
 const balanceTotalText = computed(() => t('common.totalBalance') === 'common.totalBalance' ? '总余额' : t('common.totalBalance'))
 const balanceFrozenLabel = computed(() => `${balanceFrozenText.value} ${formatHeaderMoney(frozenBalance.value)}`)
+const currentCampaignMembership = computed(() => campaignStore.status?.current_membership ?? null)
+const showFirstRechargeShortcut = computed(() => {
+  const first = campaignStore.status?.first_recharge
+  return campaignStore.status?.phase === 'active'
+    && !!first?.eligible
+    && (first.reward_status === 'pending' || first.reward_status === 'qualified')
+})
+
+function campaignTierLabel(key: string, fallback: string): string {
+  const translated = t(`campaign.tiers.${key}`)
+  return translated === `campaign.tiers.${key}` ? fallback : translated
+}
+
+function membershipRemainingDays(expiresAt: string): number {
+  const remaining = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+  return Math.max(0, remaining)
+}
 
 // 只在标准模式的管理员下显示新手引导按钮
 const showOnboardingButton = computed(() => {
@@ -374,6 +422,9 @@ function handleClickOutside(event: MouseEvent) {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  if (user.value) {
+    void campaignStore.fetchStatus()
+  }
 })
 
 onBeforeUnmount(() => {

@@ -22,6 +22,11 @@ type UserHandler struct {
 	emailCache            service.EmailCache
 	affiliateService      *service.AffiliateService
 	userPlatformQuotaRepo service.UserPlatformQuotaRepository
+	newcomerCampaign      *service.NewcomerCampaignService
+}
+
+func (h *UserHandler) SetNewcomerCampaignService(campaign *service.NewcomerCampaignService) {
+	h.newcomerCampaign = campaign
 }
 
 // NewUserHandler creates a new UserHandler
@@ -230,6 +235,76 @@ func (h *UserHandler) TransferAffiliateQuota(c *gin.Context) {
 		"transferred_quota": transferred,
 		"balance":           balance,
 	})
+}
+
+// GetNewcomerCampaign returns the server-owned state of the September 2026
+// newcomer campaign.
+// GET /api/v1/user/campaigns/newcomer
+func (h *UserHandler) GetNewcomerCampaign(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	if h.newcomerCampaign == nil {
+		response.ErrorFrom(c, service.ErrServiceUnavailable)
+		return
+	}
+	status, err := h.newcomerCampaign.GetStatus(c.Request.Context(), subject.UserID, requestOrigin(c))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, status)
+}
+
+// ReconcileNewcomerCampaign reruns the activity repair path for the current
+// user. It is deliberately idempotent and does not alter ordinary affiliate
+// cash-rebate state.
+// POST /api/v1/user/campaigns/newcomer/reconcile
+func (h *UserHandler) ReconcileNewcomerCampaign(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	if h.newcomerCampaign == nil {
+		response.ErrorFrom(c, service.ErrServiceUnavailable)
+		return
+	}
+	if _, err := h.newcomerCampaign.BackfillPaymentFactsForUser(c.Request.Context(), subject.UserID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if err := h.newcomerCampaign.ReconcileUser(c.Request.Context(), subject.UserID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	status, err := h.newcomerCampaign.GetStatus(c.Request.Context(), subject.UserID, requestOrigin(c))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, status)
+}
+
+func requestOrigin(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+	proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto"))
+	if proto == "" {
+		if c.Request.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	host := strings.TrimSpace(c.Request.Host)
+	if host == "" {
+		return ""
+	}
+	return proto + "://" + host
 }
 
 type StartIdentityBindingRequest struct {

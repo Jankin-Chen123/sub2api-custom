@@ -105,8 +105,10 @@ func (s *OpenAIGatewayService) RecordCyberPolicyUsageLog(ctx context.Context, in
 	}
 }
 
-// ResolveUserGroupRateMultiplier resolves the same cached multiplier used by OpenAI usage billing.
-func (s *OpenAIGatewayService) ResolveUserGroupRateMultiplier(ctx context.Context, userID, groupID int64, groupDefaultMultiplier float64) float64 {
+// ResolveBaseUserGroupRateMultiplier resolves the cached group/user multiplier
+// before any campaign factor is applied. Callers that persist a pricing
+// snapshot can use this value and then apply their final pricing layer once.
+func (s *OpenAIGatewayService) ResolveBaseUserGroupRateMultiplier(ctx context.Context, userID, groupID int64, groupDefaultMultiplier float64) float64 {
 	if s == nil {
 		return groupDefaultMultiplier
 	}
@@ -115,6 +117,15 @@ func (s *OpenAIGatewayService) ResolveUserGroupRateMultiplier(ctx context.Contex
 		resolver = newUserGroupRateResolver(nil, nil, resolveUserGroupRateCacheTTL(s.cfg), nil, "service.openai_gateway")
 	}
 	return resolver.Resolve(ctx, userID, groupID, groupDefaultMultiplier)
+}
+
+// ResolveUserGroupRateMultiplier resolves the same cached multiplier used by OpenAI usage billing.
+func (s *OpenAIGatewayService) ResolveUserGroupRateMultiplier(ctx context.Context, userID, groupID int64, groupDefaultMultiplier float64) float64 {
+	base := s.ResolveBaseUserGroupRateMultiplier(ctx, userID, groupID, groupDefaultMultiplier)
+	if s.newcomerCampaign != nil {
+		return s.newcomerCampaign.ApplyMembershipFactor(ctx, userID, base)
+	}
+	return base
 }
 
 // openAIUsagePricingAt 返回本次用量记录使用的定价时刻：优先请求级 PricingAt
@@ -166,21 +177,29 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 
 	// Get rate multiplier
-	multiplier := 1.0
+	baseMultiplier := 1.0
 	if s.cfg != nil {
-		multiplier = s.cfg.Default.RateMultiplier
+		baseMultiplier = s.cfg.Default.RateMultiplier
 	}
 	if apiKey.GroupID != nil && apiKey.Group != nil {
-		multiplier = s.ResolveUserGroupRateMultiplier(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+		baseMultiplier = s.ResolveBaseUserGroupRateMultiplier(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+	}
+	multiplier := baseMultiplier
+	if s.newcomerCampaign != nil {
+		multiplier = s.newcomerCampaign.ApplyMembershipFactor(ctx, user.ID, multiplier)
 	}
 	// token 倍率叠加高峰因子（token 计费含图片 token，图片按次倍率不受影响）。
 	// 高峰因子按请求级 PricingAt 现算（与利润门 D 同源同刻，跨峰谷请求不中途
 	// 变价）；未装配 PricingAt 的路径回退记录时刻，保持既有行为。不并入上面的
 	// Resolve，以免污染 user:group 倍率缓存。
-	baseMultiplier := multiplier
 	pricingAt := openAIUsagePricingAt(input)
-	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, baseMultiplier, pricingAt)
+	multiplier, _ = computePeakAwareMultipliers(apiKey, multiplier, pricingAt)
+	_, imageMultiplier := computePeakAwareMultipliers(apiKey, baseMultiplier, pricingAt)
 	videoMultiplier := resolveVideoRateMultiplier(apiKey, baseMultiplier)
+	// Token-priced images/videos are still independent media billing paths and
+	// must not receive the newcomer factor. Ordinary text token billing keeps
+	// multiplier, which already includes the campaign factor.
+	mediaTokenMultiplier, _ := computePeakAwareMultipliers(apiKey, baseMultiplier, pricingAt)
 
 	var cost *CostBreakdown
 	var err error
@@ -223,11 +242,12 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		multiplier,
 		imageMultiplier,
 		videoMultiplier,
-		baseMultiplier,
+		multiplier,
 		tokens,
 		serviceTier,
 		longContextBillingGate,
 		pricingAt,
+		mediaTokenMultiplier,
 	)
 	if err != nil {
 		if !isUsagePricingUnavailableError(err) {
@@ -260,7 +280,8 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			responseModels := s.filterCNProviderBillingModelCandidates(ctx, account, apiKey, usageBillingModelCandidates(responseModel))
 			responseCost, responseErr := s.calculateOpenAIRecordUsageCost(
 				ctx, result, apiKey, responseModels, multiplier, imageMultiplier,
-				videoMultiplier, baseMultiplier, tokens, serviceTier, longContextBillingGate, pricingAt,
+				videoMultiplier, multiplier, tokens, serviceTier, longContextBillingGate, pricingAt,
+				mediaTokenMultiplier,
 			)
 			// 基线定价源以 baselineBillingModel 为准：它正是 calculateOpenAIRecordUsageCost
 			// 内部做渠道定价判断时使用的模型，且"首候选有渠道价"必然意味着首候选就是实际
@@ -370,6 +391,8 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.RateMultiplier = videoMultiplier
 	} else if result.ImageCount > 0 && (cost == nil || cost.BillingMode != string(BillingModeToken)) {
 		usageLog.RateMultiplier = imageMultiplier
+	} else if (isVideoUsage || result.ImageCount > 0) && cost != nil && cost.BillingMode == string(BillingModeToken) {
+		usageLog.RateMultiplier = mediaTokenMultiplier
 	} else {
 		usageLog.RateMultiplier = multiplier
 	}
@@ -511,13 +534,18 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	serviceTier string,
 	longContextBillingGate *bool,
 	pricingAt time.Time,
+	mediaTokenMultiplier ...float64,
 ) (*CostBreakdown, error) {
+	tokenMultiplier := multiplier
+	if len(mediaTokenMultiplier) > 0 && result != nil && (result.ImageCount > 0 || result.VideoCount > 0) {
+		tokenMultiplier = mediaTokenMultiplier[0]
+	}
 	billingModel := firstUsageBillingModel(billingModels)
 	if result != nil && result.WebSearchCalls > 0 {
 		// Codex alpha/search 网页搜索按次计费：上游不返回 usage/token 字段，单价只取
 		// 分组覆盖价（nil 时默认 0.01 = 官方 $10/1000 次），不参与渠道级模型定价。
-		// 倍率与 image/video 按次口径一致：使用不含高峰因子的基础倍率
-		//（用户专属 > 分组 rate_multiplier > 系统默认），与分组表单的价格预览承诺一致。
+		// 搜索属于常规用户计费，沿用包含用户专属/分组/系统倍率及迎新因子的
+		// webSearchMultiplier；图片和视频的独立倍率不参与此处。
 		return s.billingService.CalculateWebSearchCost(result.WebSearchCalls, webSearchPricePerCallFromAPIKey(apiKey), webSearchMultiplier), nil
 	}
 	if isGrokVideoUsageResult(result, billingModels) {
@@ -559,7 +587,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 				ctx,
 				apiKey,
 				candidate,
-				multiplier,
+				tokenMultiplier,
 				pricingAt,
 				tokens,
 				serviceTier,

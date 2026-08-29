@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
@@ -343,6 +344,51 @@ func TestGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputTokens(t *
 	require.InDelta(t, imageOutput, usageRepo.lastLog.ImageOutputCost, 1e-12)
 	require.InDelta(t, expectedActual, usageRepo.lastLog.ActualCost, 1e-12)
 	require.InDelta(t, expectedActual, userRepo.lastAmount, 1e-12)
+}
+
+func TestGatewayServiceRecordUsage_TokenModeImageExcludesCampaignFactor(t *testing.T) {
+	groupID := int64(903)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	client, mock := newNewcomerCampaignSQLMock(t)
+	now := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(`(?s)SELECT g\.factor.*FROM newcomer_campaign_membership_grants`).
+		WithArgs(NewcomerCampaignKey, int64(603), now, newcomerInviteThreshold).
+		WillReturnRows(sqlmock.NewRows([]string{"factor"}).AddRow(0.94))
+
+	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
+	svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, groupID, "gemini-image")
+	svc.newcomerCampaign = NewNewcomerCampaignService(client)
+	svc.newcomerCampaign.SetClock(func() time.Time { return now })
+
+	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
+		Result: &ForwardResult{
+			RequestID:  "gateway_campaign_token_image",
+			Model:      "gemini-image",
+			ImageCount: 1,
+			Usage: ClaudeUsage{
+				InputTokens:       1000,
+				OutputTokens:      600,
+				ImageOutputTokens: 100,
+			},
+			Duration: time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      803,
+			GroupID: i64p(groupID),
+			Group:   &Group{ID: groupID, RateMultiplier: 1},
+		},
+		User:    &User{ID: 603},
+		Account: &Account{ID: 703},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, string(BillingModeToken), *usageRepo.lastLog.BillingMode)
+	require.InDelta(t, usageRepo.lastLog.TotalCost, usageRepo.lastLog.ActualCost, 1e-12)
+	require.Equal(t, 1.0, usageRepo.lastLog.RateMultiplier)
+	require.InDelta(t, usageRepo.lastLog.TotalCost, userRepo.lastAmount, 1e-12)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {

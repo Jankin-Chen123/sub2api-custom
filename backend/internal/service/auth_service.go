@@ -84,6 +84,7 @@ type AuthService struct {
 	emailQueueService     *EmailQueueService
 	promoService          *PromoService
 	affiliateService      *AffiliateService
+	newcomerCampaign      *NewcomerCampaignService
 	defaultSubAssigner    DefaultSubscriptionAssigner
 	userPlatformQuotaRepo UserPlatformQuotaRepository
 }
@@ -152,6 +153,10 @@ func (s *AuthService) SetTencentCaptchaService(tencentCaptchaService *TencentCap
 
 func (s *AuthService) SetAliyunCaptchaService(aliyunCaptchaService *AliyunCaptchaService) {
 	s.aliyunCaptchaService = aliyunCaptchaService
+}
+
+func (s *AuthService) SetNewcomerCampaignService(campaign *NewcomerCampaignService) {
+	s.newcomerCampaign = campaign
 }
 
 // Register 用户注册，返回token和用户
@@ -272,6 +277,11 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 				// 邀请返利码绑定失败不影响注册，只记录日志
 				logger.LegacyPrintf("service.auth", "[Auth] Failed to bind affiliate inviter for user %d: %v", user.ID, err)
 			}
+		}
+	}
+	if s.newcomerCampaign != nil {
+		if err := s.newcomerCampaign.OnUserRegistered(ctx, user.ID, affiliateCode); err != nil {
+			logger.LegacyPrintf("service.auth", "[Auth] Failed to bind newcomer campaign inviter for user %d: %v", user.ID, err)
 		}
 	}
 
@@ -974,15 +984,22 @@ func authSourceSignupSettings(defaults *AuthSourceDefaultSettings, signupSource 
 // bindOAuthAffiliate initializes the affiliate profile and binds the inviter
 // for an OAuth-registered user. Failures are logged but never block registration.
 func (s *AuthService) bindOAuthAffiliate(ctx context.Context, userID int64, affiliateCode string) {
-	if s.affiliateService == nil || userID <= 0 {
+	if userID <= 0 {
 		return
 	}
-	if _, err := s.affiliateService.EnsureUserAffiliate(ctx, userID); err != nil {
-		logger.LegacyPrintf("service.auth", "[Auth] Failed to initialize affiliate profile for user %d: %v", userID, err)
+	if s.affiliateService != nil {
+		if _, err := s.affiliateService.EnsureUserAffiliate(ctx, userID); err != nil {
+			logger.LegacyPrintf("service.auth", "[Auth] Failed to initialize affiliate profile for user %d: %v", userID, err)
+		}
+		if code := strings.TrimSpace(affiliateCode); code != "" {
+			if err := s.affiliateService.BindInviterByCode(ctx, userID, code); err != nil {
+				logger.LegacyPrintf("service.auth", "[Auth] Failed to bind affiliate inviter for user %d: %v", userID, err)
+			}
+		}
 	}
-	if code := strings.TrimSpace(affiliateCode); code != "" {
-		if err := s.affiliateService.BindInviterByCode(ctx, userID, code); err != nil {
-			logger.LegacyPrintf("service.auth", "[Auth] Failed to bind affiliate inviter for user %d: %v", userID, err)
+	if s.newcomerCampaign != nil {
+		if err := s.newcomerCampaign.OnUserRegistered(ctx, userID, affiliateCode); err != nil {
+			logger.LegacyPrintf("service.auth", "[Auth] Failed to bind newcomer campaign inviter for user %d: %v", userID, err)
 		}
 	}
 }

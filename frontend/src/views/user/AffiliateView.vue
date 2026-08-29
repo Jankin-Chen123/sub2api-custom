@@ -44,6 +44,57 @@
           </div>
         </div>
 
+        <div v-if="campaignStatus" class="card border border-primary-200 p-6 dark:border-primary-900/40" data-test="campaign-invite-progress">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ campaignStatus.name }}</h3>
+              <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('campaign.inviteQualification') }}</p>
+            </div>
+            <span class="self-start rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/20 dark:text-primary-300">
+              {{ t(`campaign.phase.${campaignStatus.phase}`) }}
+            </span>
+          </div>
+
+          <div class="mt-5 rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
+            <div class="flex items-baseline justify-between gap-3">
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('campaign.validInvites') }}</span>
+              <span class="text-2xl font-semibold text-primary-600 dark:text-primary-400">{{ formatCount(campaignStatus.valid_invite_count) }}</span>
+            </div>
+            <div v-if="campaignStatus.next_tier" class="mt-3">
+              <div class="flex justify-between gap-3 text-xs text-gray-500 dark:text-dark-400">
+                <span>{{ t('campaign.nextTier') }}: {{ campaignTierLabel(campaignStatus.next_tier.key, campaignStatus.next_tier.name) }}</span>
+                <span>{{ t('campaign.tierProgress', { current: campaignStatus.next_tier_progress, threshold: campaignStatus.next_tier.threshold }) }}</span>
+              </div>
+              <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
+                <div class="h-full rounded-full bg-primary-500 transition-all" :style="{ width: `${campaignProgressPercent}%` }"></div>
+              </div>
+              <p class="mt-2 text-xs text-gray-500 dark:text-dark-400">
+                {{ t('campaign.tierRemaining', { count: campaignStatus.next_tier_remaining }) }}
+              </p>
+            </div>
+            <p v-else class="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+              {{ t('campaign.allTiersReached') }}
+            </p>
+          </div>
+
+          <div class="mt-5">
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('campaign.tiersTitle') }}</p>
+            <div class="mt-3 grid gap-2 sm:grid-cols-3">
+              <div v-for="tier in campaignStatus.tiers" :key="tier.key" class="rounded-xl border border-gray-200 px-3 py-3 dark:border-dark-700">
+                <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ campaignTierLabel(tier.key, tier.name) }}</div>
+                <div class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+                  {{ t('campaign.tierRequirement', { threshold: tier.threshold, factor: tier.factor, days: tier.duration_days }) }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="campaignStatus.current_membership" class="mt-4 rounded-xl bg-primary-50 px-4 py-3 text-sm dark:bg-primary-900/20">
+            <span class="font-semibold text-primary-800 dark:text-primary-200">{{ t('campaign.currentMembership') }}: {{ campaignTierLabel(campaignStatus.current_membership.tier_key, campaignStatus.current_membership.tier_name) }}</span>
+            <span class="ml-2 text-primary-700 dark:text-primary-300">{{ t('campaign.membershipFactor', { factor: campaignStatus.current_membership.factor }) }} · {{ t('campaign.membershipRemaining', { days: membershipRemainingDays(campaignStatus.current_membership.expires_at) }) }}</span>
+          </div>
+        </div>
+
         <div class="card p-6">
           <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.title') }}</h3>
           <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.description') }}</p>
@@ -63,7 +114,7 @@
             <div class="space-y-2">
               <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('affiliate.inviteLink') }}</p>
               <div class="flex flex-col items-stretch gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-dark-700 dark:bg-dark-900 sm:flex-row sm:items-center">
-                <code class="min-w-0 break-all text-sm text-gray-700 dark:text-gray-300 sm:flex-1 sm:truncate">{{ inviteLink }}</code>
+                <code class="min-w-0 break-all text-sm text-gray-700 dark:text-gray-300 sm:flex-1 sm:truncate">{{ campaignInviteLink }}</code>
                 <button class="btn btn-secondary btn-sm w-full sm:w-auto sm:shrink-0" @click="copyInviteLink">
                   <Icon name="copy" size="sm" />
                   <span>{{ t('affiliate.copyLink') }}</span>
@@ -148,6 +199,7 @@ import userAPI from '@/api/user'
 import type { UserAffiliateDetail } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+import { useCampaignStore } from '@/stores/campaign'
 import { useClipboard } from '@/composables/useClipboard'
 import { formatCurrency, formatDateTime } from '@/utils/format'
 import { extractApiErrorMessage } from '@/utils/apiError'
@@ -155,17 +207,35 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const campaignStore = useCampaignStore()
 const { copyToClipboard } = useClipboard()
 
 const loading = ref(true)
 const transferring = ref(false)
 const detail = ref<UserAffiliateDetail | null>(null)
+const campaignStatus = computed(() => campaignStore.status)
 
 const inviteLink = computed(() => {
   if (!detail.value) return ''
   if (typeof window === 'undefined') return `/register?aff=${encodeURIComponent(detail.value.aff_code)}`
   return `${window.location.origin}/register?aff=${encodeURIComponent(detail.value.aff_code)}`
 })
+
+const campaignInviteLink = computed(() => campaignStatus.value?.invite_link || inviteLink.value)
+const campaignProgressPercent = computed(() => {
+  const next = campaignStatus.value?.next_tier
+  if (!next) return 100
+  return Math.min(100, Math.max(0, Math.round((campaignStatus.value?.next_tier_progress ?? 0) / next.threshold * 100)))
+})
+
+function campaignTierLabel(key: string, fallback: string): string {
+  const translated = t(`campaign.tiers.${key}`)
+  return translated === `campaign.tiers.${key}` ? fallback : translated
+}
+
+function membershipRemainingDays(expiresAt: string): number {
+  return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000))
+}
 
 // Rebate rate is a percentage in the range [0, 100]; backend already clamps it.
 // We trim trailing zeros (e.g. 20.00 → "20", 12.50 → "12.5") for a cleaner UI.
@@ -200,8 +270,8 @@ async function copyCode(): Promise<void> {
 }
 
 async function copyInviteLink(): Promise<void> {
-  if (!inviteLink.value) return
-  await copyToClipboard(inviteLink.value, t('affiliate.linkCopied'))
+  if (!campaignInviteLink.value) return
+  await copyToClipboard(campaignInviteLink.value, t('affiliate.linkCopied'))
 }
 
 async function transferQuota(): Promise<void> {
@@ -223,5 +293,6 @@ async function transferQuota(): Promise<void> {
 
 onMounted(() => {
   void loadAffiliateDetail()
+  void campaignStore.fetchStatus()
 })
 </script>

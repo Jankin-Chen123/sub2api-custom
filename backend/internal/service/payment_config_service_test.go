@@ -401,6 +401,16 @@ func newPaymentConfigServiceTestClient(t *testing.T) *dbent.Client {
 
 	drv := entsql.OpenDB(dialect.SQLite, db)
 	client := enttest.NewClient(t, enttest.WithOptions(dbent.Driver(drv)))
+	if _, err := db.Exec(`
+CREATE TABLE IF NOT EXISTS newcomer_campaign_payment_facts (
+    order_id INTEGER PRIMARY KEY REFERENCES payment_orders(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    principal_amount DECIMAL NOT NULL CHECK (principal_amount > 0),
+    principal_currency TEXT NOT NULL DEFAULT 'CNY',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`); err != nil {
+		t.Fatalf("create newcomer campaign payment facts table: %v", err)
+	}
 	t.Cleanup(func() { _ = client.Close() })
 	return client
 }

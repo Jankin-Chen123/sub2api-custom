@@ -69,6 +69,7 @@ func TestCreateOrderInTx_WritesProviderSnapshot(t *testing.T) {
 		ctx,
 		CreateOrderRequest{
 			UserID:      user.ID,
+			Amount:      88,
 			PaymentType: payment.TypeAlipay,
 			OrderType:   payment.OrderTypeBalance,
 			ClientIP:    "127.0.0.1",
@@ -84,10 +85,11 @@ func TestCreateOrderInTx_WritesProviderSnapshot(t *testing.T) {
 			MaxPendingOrders: 3,
 			OrderTimeoutMin:  30,
 		},
-		88,
+		105.6,
 		88,
 		0,
-		88,
+		90.2,
+		"CNY",
 		&payment.InstanceSelection{
 			InstanceID:     strconv.FormatInt(instance.ID, 10),
 			ProviderKey:    payment.TypeAlipay,
@@ -109,6 +111,15 @@ func TestCreateOrderInTx_WritesProviderSnapshot(t *testing.T) {
 	require.NotContains(t, order.ProviderSnapshot, "secretKey")
 	require.NotContains(t, order.ProviderSnapshot, "supported_types")
 	require.NotContains(t, order.ProviderSnapshot, "instance_name")
+	rows, err := client.QueryContext(ctx, "SELECT principal_amount, principal_currency FROM newcomer_campaign_payment_facts WHERE order_id = ?", order.ID)
+	require.NoError(t, err)
+	defer rows.Close()
+	require.True(t, rows.Next())
+	var principalAmount float64
+	var principalCurrency string
+	require.NoError(t, rows.Scan(&principalAmount, &principalCurrency))
+	require.Equal(t, 88.0, principalAmount, "campaign fact must use req.Amount, not credited amount or pay_amount")
+	require.Equal(t, "CNY", principalCurrency)
 }
 
 func TestBuildPaymentOrderProviderSnapshot_UsesWxpayJSAPIAppIDForOpenIDOrders(t *testing.T) {

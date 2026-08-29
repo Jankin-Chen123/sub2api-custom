@@ -71,6 +71,39 @@ export default {
       'The administrator enabled the entry but has not configured an online recharge URL. Please contact admin.'
   },
 
+  campaign: {
+    firstRechargeShortcut: 'First-recharge bonus',
+    firstRechargeShortcutHint: 'Recharge ¥10, get ¥2',
+    firstRechargeTitle: 'Newcomer first-recharge bonus',
+    firstRechargeDescription: 'Your first completed online recharge during the campaign earns an extra ¥2 when the recharge amount is at least ¥10.',
+    firstRechargeBadge: 'First recharge +¥2',
+    rechargeAmount: 'Recharge amount',
+    rechargeFee: 'Payment fee',
+    gift: 'Campaign bonus',
+    estimatedArrival: 'Estimated credited amount',
+    validInvites: 'Valid invites',
+    nextTier: 'Next membership tier',
+    tierProgress: '{current}/{threshold} valid invites',
+    tierRemaining: '{count} more valid invite(s) needed',
+    allTiersReached: 'All membership tiers reached',
+    tiersTitle: 'Membership tiers',
+    tierRequirement: '{threshold} valid invites · ×{factor} · {days} days',
+    currentMembership: 'Current activity membership',
+    membershipFactor: 'Factor ×{factor}',
+    membershipRemaining: '{days} days remaining',
+    inviteQualification: 'A new user counts after registering through this link and completing at least ¥10 in online recharges or redeem-code balance within 14 days.',
+    phase: {
+      upcoming: 'Upcoming',
+      active: 'In progress',
+      ended: 'Ended'
+    },
+    tiers: {
+      premium: 'Premium',
+      gold: 'Gold',
+      diamond: 'Diamond'
+    }
+  },
+
   // Custom Page (iframe embed)
   customPage: {
     title: 'Custom Page',

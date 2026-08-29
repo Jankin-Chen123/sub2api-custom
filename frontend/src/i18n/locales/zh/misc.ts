@@ -69,6 +69,39 @@ export default {
     notConfiguredDesc: '管理员已开启入口，但尚未配置在线充值链接，请联系管理员。'
   },
 
+  campaign: {
+    firstRechargeShortcut: '首充福利',
+    firstRechargeShortcutHint: '满 ¥10 赠 ¥2',
+    firstRechargeTitle: '迎新首充福利',
+    firstRechargeDescription: '活动期间首次完成真实在线充值，单笔满 ¥10 可额外获得 ¥2 不可提现额度。',
+    firstRechargeBadge: '首充 +¥2',
+    rechargeAmount: '充值金额',
+    rechargeFee: '手续费',
+    gift: '活动赠送',
+    estimatedArrival: '预计到账',
+    validInvites: '有效邀请',
+    nextTier: '下一档会员',
+    tierProgress: '{current}/{threshold} 个有效邀请',
+    tierRemaining: '还需 {count} 个有效邀请',
+    allTiersReached: '已达到全部会员档位',
+    tiersTitle: '会员档位',
+    tierRequirement: '{threshold} 个有效邀请 · ×{factor} · {days} 天',
+    currentMembership: '当前活动会员',
+    membershipFactor: '计费因子 ×{factor}',
+    membershipRemaining: '剩余 {days} 天',
+    inviteQualification: '新用户通过此链接注册，并在注册后 14 天内累计完成至少 ¥10 在线充值或兑换码兑换后计为有效邀请。',
+    phase: {
+      upcoming: '即将开始',
+      active: '进行中',
+      ended: '已结束'
+    },
+    tiers: {
+      premium: '高级',
+      gold: '黄金',
+      diamond: '钻石'
+    }
+  },
+
   // Custom Page (iframe embed)
   customPage: {
     title: '自定义页面',

@@ -31,7 +31,11 @@ func (s *GatewayService) getUserGroupRateMultiplier(ctx context.Context, userID,
 
 // ResolveUserGroupRateMultiplier resolves the same cached multiplier used by usage billing.
 func (s *GatewayService) ResolveUserGroupRateMultiplier(ctx context.Context, userID, groupID int64, groupDefaultMultiplier float64) float64 {
-	return s.getUserGroupRateMultiplier(ctx, userID, groupID, groupDefaultMultiplier)
+	base := s.getUserGroupRateMultiplier(ctx, userID, groupID, groupDefaultMultiplier)
+	if s != nil && s.newcomerCampaign != nil {
+		return s.newcomerCampaign.ApplyMembershipFactor(ctx, userID, base)
+	}
+	return base
 }
 
 // RecordUsageInput 记录使用量的输入参数。
@@ -796,13 +800,17 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	// 获取费率倍数（优先级：用户专属 > 分组默认 > 系统默认）
-	multiplier := 1.0
+	baseMultiplier := 1.0
 	if s.cfg != nil {
-		multiplier = s.cfg.Default.RateMultiplier
+		baseMultiplier = s.cfg.Default.RateMultiplier
 	}
 	if apiKey.GroupID != nil && apiKey.Group != nil {
 		groupDefault := apiKey.Group.RateMultiplier
-		multiplier = s.ResolveUserGroupRateMultiplier(ctx, user.ID, *apiKey.GroupID, groupDefault)
+		baseMultiplier = s.getUserGroupRateMultiplier(ctx, user.ID, *apiKey.GroupID, groupDefault)
+	}
+	multiplier := baseMultiplier
+	if s.newcomerCampaign != nil {
+		multiplier = s.newcomerCampaign.ApplyMembershipFactor(ctx, user.ID, multiplier)
 	}
 	// token 倍率叠加高峰因子（token 计费含图片 token，图片按次倍率不受影响）。高峰因子按请求时刻现算，
 	// 不并入上面的 getUserGroupRateMultiplier，以免污染 user:group 倍率缓存。
@@ -810,7 +818,8 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	if pricingAt.IsZero() {
 		pricingAt = timezone.Now()
 	}
-	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, pricingAt)
+	multiplier, _ = computePeakAwareMultipliers(apiKey, multiplier, pricingAt)
+	_, imageMultiplier := computePeakAwareMultipliers(apiKey, baseMultiplier, pricingAt)
 
 	// 确定计费模型
 	concreteBillingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
@@ -839,7 +848,12 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	// 计算费用
-	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, pricingAt, opts)
+	// Media is billed independently from the newcomer membership discount. A
+	// channel may still opt into token billing for an image request, so keep a
+	// token-shaped media multiplier that contains the existing base/peak policy
+	// but not the campaign factor.
+	mediaTokenMultiplier, _ := computePeakAwareMultipliers(apiKey, baseMultiplier, pricingAt)
+	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, pricingAt, opts, mediaTokenMultiplier)
 	// response_model：按上游成功响应自报的模型计费（渠道显式开启才生效）。
 	// 采纳条件见 responseModelBillingDeclaration + hasIdentifiedResponseModelPricing
 	// + responseModelBillingAdoptable。任一条件不满足都静默回落基线，即开启本模式前的
@@ -851,7 +865,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		result.ImageCount > 0 || result.AudioUsage != nil || result.SearchCount > 0,
 	); responseModel != "" && !strings.EqualFold(responseModel, strings.TrimSpace(billingModel)) {
 		if identified, responseChannelPriced := s.hasIdentifiedResponseModelPricing(ctx, responseModel, apiKey); identified {
-			responseCost := s.calculateRecordUsageCost(ctx, result, apiKey, responseModel, multiplier, imageMultiplier, pricingAt, opts)
+			responseCost := s.calculateRecordUsageCost(ctx, result, apiKey, responseModel, multiplier, imageMultiplier, pricingAt, opts, mediaTokenMultiplier)
 			baselineChannelPriced := s.resolveChannelPricing(ctx, billingModel, apiKey) != nil
 			if responseModelBillingAdoptable(cost, responseCost, baselineChannelPriced, responseChannelPriced) {
 				// billingModel 到此为止只是定价查表的入参，后续流程只消费 cost，
@@ -873,6 +887,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	accountRateMultiplier := account.BillingRateMultiplier()
 	usageLog := s.buildRecordUsageLog(ctx, input, result, apiKey, user, account, subscription,
 		requestedModel, multiplier, imageMultiplier, accountRateMultiplier, billingType, cacheTTLOverridden, cost, opts)
+	if result.ImageCount > 0 && cost != nil && cost.BillingMode == string(BillingModeToken) {
+		usageLog.RateMultiplier = mediaTokenMultiplier
+	}
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
@@ -942,11 +959,16 @@ func (s *GatewayService) calculateRecordUsageCost(
 	imageMultiplier float64,
 	pricingAt time.Time,
 	opts *recordUsageOpts,
+	mediaTokenMultiplier ...float64,
 ) *CostBreakdown {
 	// 图片生成：渠道定价为 token 计费时走 token 路径，否则走图片计费
 	if result.ImageCount > 0 {
 		if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil && resolved.Mode == BillingModeToken {
-			return s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, pricingAt, opts)
+			tokenMultiplier := multiplier
+			if len(mediaTokenMultiplier) > 0 {
+				tokenMultiplier = mediaTokenMultiplier[0]
+			}
+			return s.calculateTokenCost(ctx, result, apiKey, billingModel, tokenMultiplier, pricingAt, opts)
 		}
 		return s.calculateImageCost(ctx, result, apiKey, billingModel, imageMultiplier)
 	}
