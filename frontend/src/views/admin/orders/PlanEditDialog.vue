@@ -77,10 +77,75 @@
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.currencyHint') }}</p>
         </div>
       </div>
-      <div>
-        <label class="input-label">{{ t('payment.admin.features') }}</label>
-        <textarea v-model="planFeaturesText" rows="3" class="input" :placeholder="t('payment.admin.featuresPlaceholder')"></textarea>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.featuresHint') }}</p>
+      <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-800/50">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <label class="input-label">{{ t('payment.admin.features') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.featuresHint') }}</p>
+          </div>
+          <button
+            type="button"
+            data-test="feature-add"
+            class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary-500/40 px-3 py-2 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:text-primary-300 dark:hover:bg-primary-950/40"
+            @click="addFeature"
+          >
+            <Icon name="plus" size="sm" />
+            {{ t('payment.admin.featuresAdd') }}
+          </button>
+        </div>
+
+        <div v-if="featureItems.length" class="mt-4 space-y-2">
+          <div v-for="(_, index) in featureItems" :key="index" class="flex items-center gap-2">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-xs font-semibold text-primary-700 dark:text-primary-300">
+              {{ index + 1 }}
+            </span>
+            <input
+              v-model="featureItems[index]"
+              :data-test="`plan-feature-input-${index}`"
+              type="text"
+              class="input min-w-0 flex-1"
+              :placeholder="t('payment.admin.featuresItemPlaceholder')"
+              :aria-label="t('payment.admin.featuresItemLabel', { index: index + 1 })"
+            />
+            <div class="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                :data-test="`feature-move-up-${index}`"
+                class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-white hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-dark-700 dark:hover:text-primary-300"
+                :aria-label="t('payment.admin.featuresMoveUp')"
+                :title="t('payment.admin.featuresMoveUp')"
+                :disabled="index === 0"
+                @click="moveFeature(index, -1)"
+              >
+                <Icon name="arrowUp" size="sm" />
+              </button>
+              <button
+                type="button"
+                :data-test="`feature-move-down-${index}`"
+                class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-white hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-dark-700 dark:hover:text-primary-300"
+                :aria-label="t('payment.admin.featuresMoveDown')"
+                :title="t('payment.admin.featuresMoveDown')"
+                :disabled="index === featureItems.length - 1"
+                @click="moveFeature(index, 1)"
+              >
+                <Icon name="arrowDown" size="sm" />
+              </button>
+              <button
+                type="button"
+                :data-test="`feature-remove-${index}`"
+                class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                :aria-label="t('payment.admin.featuresRemove', { index: index + 1 })"
+                :title="t('payment.admin.featuresRemove', { index: index + 1 })"
+                @click="removeFeature(index)"
+              >
+                <Icon name="trash" size="sm" />
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else class="mt-4 rounded-lg border border-dashed border-gray-300 px-3 py-3 text-sm text-gray-500 dark:border-dark-600 dark:text-dark-400">
+          {{ t('payment.admin.featuresEmpty') }}
+        </div>
       </div>
       <div class="flex items-center gap-3">
         <label class="text-sm text-gray-700 dark:text-gray-300">{{ t('payment.admin.forSale') }}</label>
@@ -141,7 +206,7 @@ const appStore = useAppStore()
 
 const saving = ref(false)
 const planForm = reactive({ name: '', group_id: null as number | null, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', daily_limit_usd: 0, weekly_limit_usd: 0, monthly_limit_usd: 0, sort_order: 0, for_sale: true })
-const planFeaturesText = ref('')
+const featureItems = ref<string[]>([])
 
 const validityUnitOptions = computed(() => [
   { value: 'days', label: t('payment.admin.days') },
@@ -189,21 +254,43 @@ const subscriptionCnyPreview = computed(() => {
   }
 })
 
+function normalizeFeatureItems(features: unknown): string[] {
+  if (Array.isArray(features)) return features.map(String).map(feature => feature.trim()).filter(Boolean)
+  if (typeof features === 'string') return features.split('\n').map(feature => feature.trim()).filter(Boolean)
+  return []
+}
+
+function addFeature() {
+  featureItems.value.push('')
+}
+
+function removeFeature(index: number) {
+  featureItems.value.splice(index, 1)
+}
+
+function moveFeature(index: number, offset: -1 | 1) {
+  const targetIndex = index + offset
+  if (targetIndex < 0 || targetIndex >= featureItems.value.length) return
+
+  const [feature] = featureItems.value.splice(index, 1)
+  featureItems.value.splice(targetIndex, 0, feature)
+}
+
 // Reset form when dialog opens
 watch(() => props.show, (visible) => {
   if (!visible) return
   if (props.plan) {
     Object.assign(planForm, { name: props.plan.name, group_id: props.plan.group_id, description: props.plan.description, price: props.plan.price, original_price: props.plan.original_price || 0, currency: props.plan.currency || '', validity_days: props.plan.validity_days, validity_unit: props.plan.validity_unit || 'days', daily_limit_usd: props.plan.daily_limit_usd || 0, weekly_limit_usd: props.plan.weekly_limit_usd || 0, monthly_limit_usd: props.plan.monthly_limit_usd || 0, sort_order: props.plan.sort_order || 0, for_sale: props.plan.for_sale })
-    planFeaturesText.value = (props.plan.features || []).join('\n')
+    featureItems.value = normalizeFeatureItems(props.plan.features)
   } else {
     Object.assign(planForm, { name: '', group_id: null, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', daily_limit_usd: 0, weekly_limit_usd: 0, monthly_limit_usd: 0, sort_order: 0, for_sale: true })
-    planFeaturesText.value = ''
+    featureItems.value = []
   }
-})
+}, { immediate: true })
 
 /** Build request payload with snake_case keys matching backend JSON tags */
 function buildPlanPayload() {
-  const features = planFeaturesText.value.split('\n').map(f => f.trim()).filter(Boolean).join('\n')
+  const features = featureItems.value.map(feature => feature.trim()).filter(Boolean).join('\n')
   return {
     name: planForm.name,
     group_id: planForm.group_id,

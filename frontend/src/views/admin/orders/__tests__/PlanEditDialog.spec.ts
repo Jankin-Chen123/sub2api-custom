@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 
 import PlanEditDialog from '../PlanEditDialog.vue'
 import type { AdminGroup } from '@/types'
+import type { SubscriptionPlan } from '@/types/payment'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -115,15 +116,17 @@ const groupFixture = (overrides: Partial<AdminGroup>): AdminGroup => ({
 
 function mountDialog({
   groups = [],
+  plan = null,
   paymentConfig = null,
 }: {
   groups?: AdminGroup[]
+  plan?: SubscriptionPlan | null
   paymentConfig?: Record<string, unknown> | null
 } = {}) {
   return mount(PlanEditDialog, {
     props: {
       show: true,
-      plan: null,
+      plan,
       groups,
       paymentConfig,
     },
@@ -192,5 +195,37 @@ describe('PlanEditDialog', () => {
 
     expect(options).toContain('OpenAI + Claude + Gemini + Grok — composite (1.2x)')
     expect(options).not.toContain('Standard OpenAI — openai (1x)')
+  })
+
+  it('edits each card benefit in its own row', async () => {
+    const plan: SubscriptionPlan = {
+      id: 9,
+      group_id: 1,
+      name: 'Pro plan',
+      description: 'A plan',
+      price: 15,
+      original_price: 18,
+      currency: 'USD',
+      validity_days: 30,
+      validity_unit: 'days',
+      features: ['Redemption supported', 'Priority channel'],
+      for_sale: true,
+      sort_order: 1,
+    }
+    const wrapper = mountDialog({ plan })
+    await flushPromises()
+
+    const inputs = () => wrapper.findAll('input[data-test^="plan-feature-input-"]')
+    expect(inputs()).toHaveLength(2)
+    expect((inputs()[0].element as HTMLInputElement).value).toBe('Redemption supported')
+
+    await inputs()[0].setValue('Faster responses')
+    await wrapper.get('[data-test="feature-add"]').trigger('click')
+    expect(inputs()).toHaveLength(3)
+
+    await wrapper.get('[data-test="feature-move-down-0"]').trigger('click')
+    expect((inputs()[0].element as HTMLInputElement).value).toBe('Priority channel')
+    await wrapper.get('[data-test="feature-remove-2"]').trigger('click')
+    expect(inputs()).toHaveLength(2)
   })
 })

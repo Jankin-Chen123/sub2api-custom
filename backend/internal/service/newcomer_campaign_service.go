@@ -89,6 +89,28 @@ type NewcomerCampaignStatus struct {
 	Tiers             []NewcomerCampaignTier      `json:"tiers"`
 }
 
+// nextNewcomerCampaignTier selects the first configured tier that is both
+// above the user's effective membership and not yet reached by invite count.
+// The tier order and thresholds come from the persisted admin configuration;
+// the frozen defaults are deliberately not consulted here.
+func nextNewcomerCampaignTier(tiers []NewcomerCampaignTier, validInviteCount int, membership *NewcomerMembershipStatus) (*NewcomerCampaignTier, int) {
+	startIndex := 0
+	if membership != nil {
+		for i := range tiers {
+			if tiers[i].Key == membership.TierKey {
+				startIndex = i + 1
+				break
+			}
+		}
+	}
+	for i := startIndex; i < len(tiers); i++ {
+		if validInviteCount < tiers[i].Threshold {
+			return &tiers[i], tiers[i].Threshold - validInviteCount
+		}
+	}
+	return nil, 0
+}
+
 type newcomerCampaignClock func() time.Time
 
 type newcomerAffiliateEnsurer interface {
@@ -1231,7 +1253,16 @@ func (s *NewcomerCampaignService) GetStatus(ctx context.Context, userID int64, o
 	} else if !now.Before(end) {
 		phase = "ended"
 	}
-	tiers := s.configuredCampaignTiers(ctx)
+	var tiers []NewcomerCampaignTier
+	if s.persistentConfig {
+		var err error
+		tiers, err = loadNewcomerCampaignTiers(ctx, s.db)
+		if err != nil {
+			return nil, fmt.Errorf("load newcomer campaign tier config: %w", err)
+		}
+	} else {
+		tiers = s.configuredCampaignTiers(ctx)
+	}
 	status := &NewcomerCampaignStatus{
 		CampaignKey: NewcomerCampaignKey,
 		Name:        NewcomerCampaignName,
@@ -1260,19 +1291,13 @@ WHERE campaign_key = $1 AND inviter_id = $2 AND status = 'qualified'
 	if err != nil {
 		return nil, err
 	}
-	for i := range status.Tiers {
-		if status.ValidInviteCount < status.Tiers[i].Threshold {
-			status.NextTier = &status.Tiers[i]
-			status.NextTierProgress = status.ValidInviteCount
-			status.NextTierRemaining = status.Tiers[i].Threshold - status.ValidInviteCount
-			break
-		}
-	}
 	membership, err := s.loadEffectiveMembership(ctx, userID, now, status.ValidInviteCount)
 	if err != nil {
 		return nil, err
 	}
 	status.CurrentMembership = membership
+	status.NextTier, status.NextTierRemaining = nextNewcomerCampaignTier(status.Tiers, status.ValidInviteCount, membership)
+	status.NextTierProgress = status.ValidInviteCount
 	return status, nil
 }
 

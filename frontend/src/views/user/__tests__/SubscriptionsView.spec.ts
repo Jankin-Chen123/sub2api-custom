@@ -5,6 +5,7 @@ import SubscriptionsView from '../SubscriptionsView.vue'
 const getMySubscriptions = vi.hoisted(() => vi.fn())
 const getAvailablePlans = vi.hoisted(() => vi.fn())
 const purchasePlan = vi.hoisted(() => vi.fn())
+const activateSubscription = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
 const showSuccess = vi.hoisted(() => vi.fn())
 
@@ -13,7 +14,7 @@ vi.mock('@/api/subscriptions', () => ({
     getMySubscriptions,
     getAvailablePlans,
     purchasePlan,
-    activateSubscription: vi.fn(),
+    activateSubscription,
   },
 }))
 
@@ -40,12 +41,23 @@ vi.mock('vue-i18n', async () => {
           'userSubscriptions.purchase': 'Buy Subscription',
           'userSubscriptions.purchaseConfirmTitle': 'Confirm Subscription Purchase',
           'userSubscriptions.purchaseConfirm': 'Use your balance to buy “{name}”?',
+          'userSubscriptions.confirmPayment': 'Confirm Payment',
+          'userSubscriptions.activate': 'Activate Now',
+          'userSubscriptions.activateAfterExpiry': 'Wait for expiry',
+          'userSubscriptions.activateBlocked': 'Another subscription is active. Wait for it to expire before activating this card.',
+          'userSubscriptions.current': 'Currently active',
+          'userSubscriptions.manage': 'Manage subscriptions',
+          'userSubscriptions.manageTitle': 'Purchased subscriptions',
+          'userSubscriptions.manageHint': 'Only one subscription card can be active at a time.',
+          'userSubscriptions.manageEmpty': 'No subscriptions to manage.',
+          'userSubscriptions.openManager': 'View purchased subscriptions',
           'userSubscriptions.purchaseSuccess': 'Subscription purchased.',
           'userSubscriptions.purchaseFailed': 'Purchase failed.',
           'userSubscriptions.planValidity': '{days} days',
           'userSubscriptions.validity': 'Validity',
           'userSubscriptions.noActiveSubscriptions': 'No Active Subscriptions',
           'userSubscriptions.noPurchasedSubscriptionsDesc': 'Purchased cards appear here.',
+          'userSubscriptions.status.active': 'Active',
           'userSubscriptions.daily': 'Daily',
           'userSubscriptions.weekly': 'Weekly',
           'userSubscriptions.monthly': 'Monthly',
@@ -80,6 +92,8 @@ describe('SubscriptionsView purchase confirmation', () => {
     getMySubscriptions.mockResolvedValue([])
     getAvailablePlans.mockResolvedValue([plan])
     purchasePlan.mockResolvedValue({})
+    activateSubscription.mockReset()
+    activateSubscription.mockResolvedValue({})
     showError.mockReset()
     showSuccess.mockReset()
   })
@@ -100,17 +114,19 @@ describe('SubscriptionsView purchase confirmation', () => {
     })
     await flushPromises()
 
-    await wrapper.get('button').trigger('click')
+    await wrapper.get('[data-test="plan-purchase-7"]').trigger('click')
     await flushPromises()
 
     expect(purchasePlan).not.toHaveBeenCalled()
     expect(document.body.textContent).toContain('Confirm Subscription Purchase')
     expect(document.body.textContent).toContain('Use your balance to buy “Starter”?')
     expect(document.body.textContent).toContain('$5.00')
+    expect(document.body.textContent).not.toContain('Payment method')
+    expect(document.body.textContent).not.toContain('Account balance')
     expect(document.body.textContent).not.toContain('(5)')
 
     const confirmButton = Array.from(document.body.querySelectorAll('button')).find(
-      (button) => button.textContent?.trim() === 'Confirm',
+      (button) => button.textContent?.trim() === 'Confirm Payment',
     )
     expect(confirmButton).toBeDefined()
     confirmButton?.click()
@@ -147,6 +163,98 @@ describe('SubscriptionsView purchase confirmation', () => {
     expect(wrapper.text()).toContain('No Active Subscriptions')
     expect(wrapper.text()).not.toContain('Expired subscription')
     expect(wrapper.find('button').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('shows pending cards in the management menu and refreshes after activation', async () => {
+    const pendingSubscription = {
+      id: 21,
+      user_id: 1,
+      group_id: 3,
+      status: 'pending',
+      expires_at: null,
+      validity_days: 30,
+      daily_usage_usd: 0,
+      weekly_usage_usd: 0,
+      monthly_usage_usd: 0,
+      group: { name: 'Starter', platform: 'openai', rate_multiplier: 1 },
+    }
+    const activeSubscription = {
+      ...pendingSubscription,
+      status: 'active',
+      expires_at: '2099-01-01T00:00:00Z',
+    }
+    getMySubscriptions
+      .mockResolvedValueOnce([pendingSubscription])
+      .mockResolvedValueOnce([activeSubscription])
+
+    const wrapper = mount(SubscriptionsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-test="manage-subscriptions"]').trigger('click')
+    const activateButton = wrapper.get('[data-test="activate-subscription-21"]')
+    expect(activateButton.text()).toContain('Activate Now')
+    await activateButton.trigger('click')
+    await flushPromises()
+
+    expect(activateSubscription).toHaveBeenCalledWith(21)
+    expect(wrapper.text()).toContain('Active')
+    expect(wrapper.find('[data-test="activate-subscription-21"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('disables other pending cards while one subscription is active', async () => {
+    const activeSubscription = {
+      id: 31,
+      user_id: 1,
+      group_id: 3,
+      status: 'active',
+      starts_at: '2099-01-01T00:00:00Z',
+      expires_at: '2099-02-01T00:00:00Z',
+      validity_days: 31,
+      daily_usage_usd: 0,
+      weekly_usage_usd: 0,
+      monthly_usage_usd: 0,
+      group: { name: 'Current', platform: 'openai', rate_multiplier: 1 },
+    }
+    const pendingSubscription = {
+      id: 32,
+      user_id: 1,
+      group_id: 4,
+      status: 'pending',
+      starts_at: '2099-01-01T00:00:00Z',
+      expires_at: null,
+      validity_days: 30,
+      daily_usage_usd: 0,
+      weekly_usage_usd: 0,
+      monthly_usage_usd: 0,
+      group: { name: 'Next', platform: 'anthropic', rate_multiplier: 1 },
+    }
+    getMySubscriptions.mockResolvedValue([pendingSubscription, activeSubscription])
+
+    const wrapper = mount(SubscriptionsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-test="manage-subscriptions"]').trigger('click')
+    const activateButton = wrapper.get('[data-test="activate-subscription-32"]')
+    expect(activateButton.attributes('disabled')).toBeDefined()
+    expect(activateButton.text()).toContain('Wait for expiry')
+    expect(wrapper.get('[data-test="managed-subscription-31"]').text()).toContain('Currently active')
+
     wrapper.unmount()
   })
 })

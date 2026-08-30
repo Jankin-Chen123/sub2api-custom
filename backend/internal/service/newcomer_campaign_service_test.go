@@ -94,6 +94,73 @@ func TestNewcomerCampaignTiersAreConfiguredOnce(t *testing.T) {
 	require.Equal(t, 0.98, NewcomerCampaignTiers()[0].Factor)
 }
 
+func TestNextNewcomerCampaignTierUsesConfiguredThresholdsAndEffectiveMembership(t *testing.T) {
+	tiers := []NewcomerCampaignTier{
+		{Key: "premium", Name: "高级", Threshold: 2},
+		{Key: "gold", Name: "黄金", Threshold: 4},
+		{Key: "diamond", Name: "钻石", Threshold: 9},
+	}
+	tests := []struct {
+		name          string
+		validInvites  int
+		membership    *NewcomerMembershipStatus
+		wantTierKey   string
+		wantThreshold int
+		wantRemaining int
+	}{
+		{
+			name:          "no membership targets configured premium threshold",
+			validInvites:  1,
+			wantTierKey:   "premium",
+			wantThreshold: 2,
+			wantRemaining: 1,
+		},
+		{
+			name:          "manual premium targets configured gold threshold",
+			validInvites:  1,
+			membership:    &NewcomerMembershipStatus{TierKey: "premium"},
+			wantTierKey:   "gold",
+			wantThreshold: 4,
+			wantRemaining: 3,
+		},
+		{
+			name:          "reached gold threshold skips to diamond",
+			validInvites:  4,
+			membership:    &NewcomerMembershipStatus{TierKey: "premium"},
+			wantTierKey:   "diamond",
+			wantThreshold: 9,
+			wantRemaining: 5,
+		},
+		{
+			name:          "manual gold targets diamond despite low invite count",
+			validInvites:  1,
+			membership:    &NewcomerMembershipStatus{TierKey: "gold"},
+			wantTierKey:   "diamond",
+			wantThreshold: 9,
+			wantRemaining: 8,
+		},
+		{
+			name:         "manual diamond has no higher tier",
+			validInvites: 1,
+			membership:   &NewcomerMembershipStatus{TierKey: "diamond"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tier, remaining := nextNewcomerCampaignTier(tiers, tt.validInvites, tt.membership)
+			require.Equal(t, tt.wantRemaining, remaining)
+			if tt.wantTierKey == "" {
+				require.Nil(t, tier)
+				return
+			}
+			require.NotNil(t, tier)
+			require.Equal(t, tt.wantTierKey, tier.Key)
+			require.Equal(t, tt.wantThreshold, tier.Threshold)
+		})
+	}
+}
+
 func TestNewcomerCampaignFirstRechargeThresholdAndEndBoundary(t *testing.T) {
 	start, end := NewcomerCampaignWindow()
 	completedAt := start.Add(time.Hour)

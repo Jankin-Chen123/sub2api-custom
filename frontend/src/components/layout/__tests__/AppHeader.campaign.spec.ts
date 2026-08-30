@@ -5,7 +5,7 @@ import type { NewcomerCampaignStatus } from '@/types/campaign'
 
 const campaignStoreState = vi.hoisted(() => ({ status: null as NewcomerCampaignStatus | null }))
 const fetchCampaignStatus = vi.hoisted(() => vi.fn())
-const translate = vi.hoisted(() => vi.fn((key: string) => key))
+const translate = vi.hoisted(() => vi.fn((key: string) => key === 'campaign.membershipUserSuffix' ? '用户' : key))
 const routerPush = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-i18n', async () => {
@@ -76,6 +76,7 @@ describe('AppHeader newcomer campaign controls', () => {
     campaignStoreState.status = statusFixture({ eligible: true, reward_status: 'pending', reward_amount: 2 })
     fetchCampaignStatus.mockReset().mockResolvedValue(campaignStoreState.status)
     routerPush.mockReset()
+    translate.mockClear()
   })
 
   it('shows the authorized direct recharge link and membership details without concurrency', async () => {
@@ -97,7 +98,8 @@ describe('AppHeader newcomer campaign controls', () => {
     expect(wrapper.get('[data-test="first-recharge-shortcut"]').classes()).toContain('border')
     expect(wrapper.get('[data-test="first-recharge-shortcut"]').text()).toContain('campaign.firstRechargeShortcutHint')
     expect(wrapper.find('[data-test="campaign-membership-badge"]').exists()).toBe(false)
-    expect(wrapper.get('[data-test="campaign-membership-summary"]').text()).toContain('黄金')
+    expect(wrapper.get('[data-test="campaign-membership-summary"]').text()).toContain('黄金用户')
+    expect(wrapper.get('[data-test="campaign-membership-summary"]').text()).not.toContain('96%')
     await wrapper.get('button[aria-label="common.userMenu"]').trigger('click')
     expect(wrapper.get('[data-test="campaign-membership-menu"]').text()).toContain('campaign.membershipOriginalFactor')
     expect(wrapper.get('[data-test="campaign-membership-details"]').classes()).not.toContain('rounded-xl')
@@ -124,5 +126,49 @@ describe('AppHeader newcomer campaign controls', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="first-recharge-shortcut"]').exists()).toBe(false)
+  })
+
+  it('renders the next tier and remaining count supplied from dynamic server configuration', async () => {
+    campaignStoreState.status = {
+      ...statusFixture({ eligible: true, reward_status: 'pending', reward_amount: 2 }),
+      valid_invite_count: 1,
+      next_tier: { key: 'gold', name: '黄金', threshold: 4, factor: 0.96, duration_days: 45 },
+      next_tier_progress: 1,
+      next_tier_remaining: 3,
+      current_membership: {
+        tier_key: 'premium',
+        tier_name: '高级',
+        factor: 0.98,
+        starts_at: '2026-09-03T00:00:00.000Z',
+        expires_at: '2026-10-03T00:00:00.000Z',
+      },
+      tiers: [
+        { key: 'premium', name: '高级', threshold: 2, factor: 0.98, duration_days: 30 },
+        { key: 'gold', name: '黄金', threshold: 4, factor: 0.96, duration_days: 45 },
+        { key: 'diamond', name: '钻石', threshold: 9, factor: 0.94, duration_days: 60 },
+      ],
+    }
+    fetchCampaignStatus.mockResolvedValue(campaignStoreState.status)
+
+    const wrapper = shallowMount(AppHeader, {
+      global: {
+        stubs: {
+          'router-link': { template: '<a :to="to"><slot /></a>', props: ['to'] },
+          Icon: true,
+          LocaleSwitcher: true,
+          SubscriptionProgressMini: true,
+          AnnouncementBell: true,
+          Transition: false,
+        },
+      },
+    })
+    await flushPromises()
+    await wrapper.get('button[aria-label="common.userMenu"]').trigger('click')
+
+    expect(wrapper.get('[data-test="campaign-membership-details"]').text()).toContain('1/4')
+    expect(translate).toHaveBeenCalledWith('campaign.tierUpgradeRemaining', {
+      count: 3,
+      tier: '黄金',
+    })
   })
 })

@@ -142,10 +142,7 @@
                   class="rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
                   :class="campaignTierTheme(currentCampaignMembership.tier_key).badge"
                 >
-                  {{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}
-                </span>
-                <span class="text-xs font-medium" :class="campaignTierTheme(currentCampaignMembership.tier_key).text">
-                  {{ membershipPercent(currentCampaignMembership.factor) }}%
+                  {{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}{{ t('campaign.membershipUserSuffix') }}
                 </span>
               </div>
               <div v-else class="text-xs text-gray-500 dark:text-dark-400">
@@ -187,7 +184,6 @@
                         {{ t('campaign.membershipOriginalFactor', { percent: membershipPercent(currentCampaignMembership.factor) }) }}
                       </span>
                     </span>
-                    <Icon name="chevronDown" size="md" class="rotate-180 shrink-0 text-gray-400 dark:text-slate-300" aria-hidden="true" />
                   </div>
                 </div>
 
@@ -388,7 +384,10 @@ const membershipProgressLabel = computed(() => {
 const membershipProgressHint = computed(() => {
   const status = campaignStore.status
   if (!status?.next_tier) return t('campaign.allTiersReached')
-  return t('campaign.tierRemaining', { count: status.next_tier_remaining })
+  return t('campaign.tierUpgradeRemaining', {
+    count: status.next_tier_remaining,
+    tier: campaignTierLabel(status.next_tier.key, status.next_tier.name),
+  })
 })
 const showFirstRechargeShortcut = computed(() => {
   const first = campaignStore.status?.first_recharge

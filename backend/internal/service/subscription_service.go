@@ -36,6 +36,7 @@ var (
 	ErrSubscriptionPlanNotFound        = infraerrors.NotFound("SUBSCRIPTION_PLAN_NOT_FOUND", "subscription plan is not available")
 	ErrSubscriptionBalanceInsufficient = infraerrors.BadRequest("SUBSCRIPTION_BALANCE_INSUFFICIENT", "insufficient balance to purchase this subscription")
 	ErrSubscriptionNotPending          = infraerrors.Conflict("SUBSCRIPTION_NOT_PENDING", "subscription card is not waiting for activation")
+	ErrSubscriptionAlreadyActive       = infraerrors.Conflict("SUBSCRIPTION_ALREADY_ACTIVE", "another subscription is already active for this user")
 	ErrSubscriptionAssignConflict      = infraerrors.Conflict("SUBSCRIPTION_ASSIGN_CONFLICT", "subscription exists but request conflicts with existing assignment semantics")
 	ErrSubscriptionNotRevoked          = infraerrors.Conflict("SUBSCRIPTION_NOT_REVOKED", "subscription is not revoked")
 	ErrSubscriptionRestoreConflict     = infraerrors.Conflict("SUBSCRIPTION_RESTORE_CONFLICT", "subscription already exists for this user and group")
@@ -357,6 +358,15 @@ func (s *SubscriptionService) ActivatePurchasedSubscription(ctx context.Context,
 	}
 	defer func() { _ = tx.Rollback() }()
 	txCtx := dbent.NewTxContext(ctx, tx)
+	// Serialize activation attempts for the same user. Without taking the user
+	// row lock first, two different pending cards could both observe that no
+	// active card exists and become active concurrently.
+	if _, err := tx.User.Query().
+		Where(user.IDEQ(userID)).
+		ForUpdate().
+		Only(txCtx); err != nil {
+		return nil, ErrSubscriptionNotFound
+	}
 	sub, err := s.userSubRepo.GetByIDForUpdate(txCtx, subscriptionID)
 	if err != nil || sub.UserID != userID {
 		return nil, ErrSubscriptionNotFound
@@ -365,6 +375,20 @@ func (s *SubscriptionService) ActivatePurchasedSubscription(ctx context.Context,
 		return nil, ErrSubscriptionNotPending
 	}
 	now := s.now()
+	activeSubscriptions, err := tx.UserSubscription.Query().
+		Where(
+			usersubscription.UserIDEQ(userID),
+			usersubscription.StatusEQ(SubscriptionStatusActive),
+			usersubscription.ExpiresAtGT(now),
+		).
+		ForUpdate().
+		All(txCtx)
+	if err != nil {
+		return nil, fmt.Errorf("check active subscription before activation: %w", err)
+	}
+	if len(activeSubscriptions) > 0 {
+		return nil, ErrSubscriptionAlreadyActive
+	}
 	days := sub.ValidityDays
 	if days <= 0 {
 		days = 30
