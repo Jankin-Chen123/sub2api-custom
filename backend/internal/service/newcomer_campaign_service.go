@@ -349,9 +349,9 @@ func (s *NewcomerCampaignService) ensureCampaignEligibilityWithClient(ctx contex
 	_, err := client.ExecContext(ctx, `
 INSERT INTO newcomer_campaign_eligible_users
     (campaign_key, user_id, registered_at, window_start, window_end, capture_deadline)
-SELECT $1, u.id, u.created_at, $2, $3, $3 + INTERVAL '14 days'
+SELECT $1, u.id, u.created_at, $2::timestamptz, $3::timestamptz, $3::timestamptz + INTERVAL '14 days'
 FROM users u
-WHERE u.id = $4 AND u.created_at >= $2 AND u.created_at < $3
+WHERE u.id = $4 AND u.created_at >= $2::timestamptz AND u.created_at < $3::timestamptz
 ON CONFLICT (campaign_key, user_id) DO NOTHING`, NewcomerCampaignKey, start, end, userID)
 	if err != nil {
 		return fmt.Errorf("persist newcomer campaign eligibility snapshot: %w", err)
@@ -1652,7 +1652,7 @@ func (s *NewcomerCampaignService) ReconcileAll(ctx context.Context) (int, error)
 WITH candidate_ids AS (
     SELECT u.id
     FROM users u
-    WHERE u.created_at >= $2 AND u.created_at < $3
+    WHERE u.created_at >= $2::timestamptz AND u.created_at < $3::timestamptz
       AND u.role <> 'admin' AND u.deleted_at IS NULL
     UNION
     SELECT inviter_id AS id
@@ -1672,8 +1672,8 @@ WITH candidate_ids AS (
     FROM newcomer_campaign_payment_facts pf
     JOIN payment_orders pfo ON pfo.id = pf.order_id
     JOIN users pfu ON pfu.id = pf.user_id
-    WHERE pfu.created_at >= $2 AND pfu.created_at < $3
-      AND pfo.created_at < $3 + INTERVAL '14 days'
+    WHERE pfu.created_at >= $2::timestamptz AND pfu.created_at < $3::timestamptz
+      AND pfo.created_at < $3::timestamptz + INTERVAL '14 days'
 )
 SELECT u.id
 FROM users u

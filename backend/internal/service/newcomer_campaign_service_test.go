@@ -758,7 +758,7 @@ func TestNewcomerCampaignEligibilitySnapshotUsesConfiguredWindow(t *testing.T) {
 	mock.ExpectQuery(`(?s)SELECT starts_at, ends_at.*FROM newcomer_campaign_config`).
 		WithArgs(NewcomerCampaignKey).
 		WillReturnRows(sqlmock.NewRows([]string{"starts_at", "ends_at"}).AddRow(start, end))
-	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_eligible_users.*ON CONFLICT \(campaign_key, user_id\) DO NOTHING`).
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_eligible_users.*SELECT \$1, u\.id, u\.created_at, \$2::timestamptz, \$3::timestamptz, \$3::timestamptz \+ INTERVAL '14 days'.*WHERE u\.id = \$4 AND u\.created_at >= \$2::timestamptz AND u\.created_at < \$3::timestamptz.*ON CONFLICT \(campaign_key, user_id\) DO NOTHING`).
 		WithArgs(NewcomerCampaignKey, start, end, int64(7)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	require.NoError(t, svc.ensureCampaignEligibility(context.Background(), 7))
