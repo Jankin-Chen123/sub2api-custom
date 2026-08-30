@@ -91,6 +91,10 @@ export default {
     currentMembership: 'Current activity membership',
     membershipFactor: 'Factor ×{factor}',
     membershipRemaining: '{days} days remaining',
+    membershipUserSuffix: ' user',
+    membershipOriginalFactor: 'Original factor {percent}%',
+    membershipBenefitRemaining: '{days} days of benefits remaining',
+    days: 'days',
     inviteQualification: 'A new user counts after registering through this link and completing at least ¥10 in online recharges or redeem-code balance within 14 days.',
     phase: {
       upcoming: 'Upcoming',

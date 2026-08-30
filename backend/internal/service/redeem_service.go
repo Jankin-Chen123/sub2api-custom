@@ -145,6 +145,11 @@ type RedeemAffiliateBatchReviewResult struct {
 	TotalRebate float64 `json:"total_rebate"`
 }
 
+type newcomerCampaignReconciler interface {
+	OnRedeemCompleted(context.Context, int64, *RedeemCode) error
+	ReconcileUser(context.Context, int64) error
+}
+
 // RedeemService 兑换码服务
 type RedeemService struct {
 	redeemRepo           RedeemCodeRepository
@@ -156,7 +161,7 @@ type RedeemService struct {
 	entClient            *dbent.Client
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	affiliateService     *AffiliateService
-	newcomerCampaign     *NewcomerCampaignService
+	newcomerCampaign     newcomerCampaignReconciler
 }
 
 // NewRedeemService 创建兑换码服务实例
@@ -677,10 +682,19 @@ func (s *RedeemService) ReviewAffiliateRedeem(ctx context.Context, id int64, dec
 		if err := tx.Commit(); err != nil {
 			return nil, fmt.Errorf("commit affiliate review transaction: %w", err)
 		}
-		return s.redeemRepo.GetByID(ctx, id)
+		updated, err := s.redeemRepo.GetByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		s.reconcileCampaignAfterRedeemReview(ctx, updated)
+		return updated, nil
 	}
 
 	if code.AffiliateRebateStatus == AffiliateRebateStatusApproved {
+		// Keep an already-approved code idempotent, but still run the
+		// campaign repair hook. This covers an earlier failed callback and
+		// makes the review endpoint self-healing.
+		s.reconcileCampaignAfterRedeemReview(ctx, code)
 		return code, nil
 	}
 	if s.affiliateService == nil || !s.affiliateService.IsEnabled(ctx) {
@@ -704,7 +718,12 @@ func (s *RedeemService) ReviewAffiliateRedeem(ctx context.Context, id int64, dec
 		if err := tx.Commit(); err != nil {
 			return nil, err
 		}
-		return s.redeemRepo.GetByID(ctx, id)
+		updated, err := s.redeemRepo.GetByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		s.reconcileCampaignAfterRedeemReview(ctx, updated)
+		return updated, nil
 	}
 
 	rebate, err := s.affiliateService.AccrueInviteRebateForRedeemCode(txCtx, *lockedCode.UsedBy, lockedCode.ID, lockedCode.Value)
@@ -717,7 +736,28 @@ func (s *RedeemService) ReviewAffiliateRedeem(ctx context.Context, id int64, dec
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit affiliate review transaction: %w", err)
 	}
-	return s.redeemRepo.GetByID(ctx, id)
+	updated, err := s.redeemRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// The review result is already committed. A campaign repair failure is
+	// logged by the helper and must never turn a successful review into an API
+	// failure.
+	s.reconcileCampaignAfterRedeemReview(ctx, updated)
+	return updated, nil
+}
+
+// reconcileCampaignAfterRedeemReview keeps the activity qualification in sync
+// with an administrator changing a used balance code to free/excluded. The
+// affiliate rebate switch is intentionally not consulted here: this is an
+// activity-state repair, not a cash-rebate operation.
+func (s *RedeemService) reconcileCampaignAfterRedeemReview(ctx context.Context, code *RedeemCode) {
+	if s == nil || s.newcomerCampaign == nil || code == nil || code.UsedBy == nil {
+		return
+	}
+	if err := s.newcomerCampaign.OnRedeemCompleted(ctx, *code.UsedBy, code); err != nil {
+		slog.Warn("newcomer campaign reconciliation after redeem review failed", "user_id", *code.UsedBy, "redeem_code_id", code.ID, "affiliate_rebate_status", code.AffiliateRebateStatus, "error", err)
+	}
 }
 
 // ReviewAffiliateRedeems applies one affiliate-review decision to a batch of
@@ -765,6 +805,7 @@ func (s *RedeemService) ReviewAffiliateRedeems(ctx context.Context, ids []int64,
 	defer func() { _ = tx.Rollback() }()
 	txCtx := dbent.NewTxContext(ctx, tx)
 	result := &RedeemAffiliateBatchReviewResult{}
+	campaignUserIDs := make(map[int64]struct{})
 
 	for _, id := range uniqueIDs {
 		code, err := reviewRepo.GetByIDForUpdate(txCtx, id)
@@ -788,11 +829,13 @@ func (s *RedeemService) ReviewAffiliateRedeems(ctx context.Context, ids []int64,
 			if err := reviewRepo.UpdateAffiliateReview(txCtx, id, AffiliateRebateStatusExcluded, nil, time.Now().UTC()); err != nil {
 				return nil, err
 			}
+			campaignUserIDs[*code.UsedBy] = struct{}{}
 			result.Processed++
 			continue
 		}
 
 		if code.AffiliateRebateStatus == AffiliateRebateStatusApproved {
+			campaignUserIDs[*code.UsedBy] = struct{}{}
 			result.Skipped++
 			continue
 		}
@@ -803,12 +846,22 @@ func (s *RedeemService) ReviewAffiliateRedeems(ctx context.Context, ids []int64,
 		if err := reviewRepo.UpdateAffiliateReview(txCtx, id, AffiliateRebateStatusApproved, &rebate, time.Now().UTC()); err != nil {
 			return nil, err
 		}
+		campaignUserIDs[*code.UsedBy] = struct{}{}
 		result.Processed++
 		result.TotalRebate += rebate
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit affiliate batch review transaction: %w", err)
+	}
+	if s.newcomerCampaign != nil {
+		if s.newcomerCampaign != nil {
+			for userID := range campaignUserIDs {
+				if err := s.newcomerCampaign.ReconcileUser(ctx, userID); err != nil {
+					slog.Warn("newcomer campaign batch reconciliation after redeem review failed", "user_id", userID, "error", err)
+				}
+			}
+		}
 	}
 	return result, nil
 }

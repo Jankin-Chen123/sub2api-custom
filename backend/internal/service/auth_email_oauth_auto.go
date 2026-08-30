@@ -190,22 +190,61 @@ func (s *AuthService) createEmailOAuthUser(ctx context.Context, email, username,
 		Status:       StatusActive,
 		SignupSource: providerType,
 	}
-	if err := s.userRepo.Create(ctx, user); err != nil {
-		if errors.Is(err, ErrEmailExists) {
-			existing, loadErr := s.userRepo.GetByEmail(ctx, email)
-			if loadErr != nil {
-				return nil, ErrServiceUnavailable
-			}
-			return existing, nil
+	createAndPersist := func(execCtx context.Context) error {
+		if err := s.userRepo.Create(execCtx, user); err != nil {
+			return err
 		}
-		return nil, ErrServiceUnavailable
+		if invitationRedeemCode != nil {
+			if err := s.useOAuthRegistrationInvitation(execCtx, invitationRedeemCode.ID, user.ID); err != nil {
+				return err
+			}
+		}
+		if strings.TrimSpace(affiliateCode) != "" && s.newcomerCampaign != nil {
+			if err := s.newcomerCampaign.PersistReferralIntent(execCtx, user.ID, affiliateCode, providerType); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	needsTx := s.entClient != nil && (invitationRedeemCode != nil || (strings.TrimSpace(affiliateCode) != "" && s.newcomerCampaign != nil))
+	if needsTx {
+		tx, txErr := s.entClient.Tx(ctx)
+		if txErr != nil {
+			return nil, ErrServiceUnavailable
+		}
+		defer func() { _ = tx.Rollback() }()
+		if txErr := createAndPersist(dbent.NewTxContext(ctx, tx)); txErr != nil {
+			if errors.Is(txErr, ErrEmailExists) {
+				existing, loadErr := s.userRepo.GetByEmail(ctx, email)
+				if loadErr != nil {
+					return nil, ErrServiceUnavailable
+				}
+				return existing, nil
+			}
+			return nil, ErrServiceUnavailable
+		}
+		if txErr := tx.Commit(); txErr != nil {
+			return nil, ErrServiceUnavailable
+		}
+	} else {
+		if err := s.userRepo.Create(ctx, user); err != nil {
+			if errors.Is(err, ErrEmailExists) {
+				existing, loadErr := s.userRepo.GetByEmail(ctx, email)
+				if loadErr != nil {
+					return nil, ErrServiceUnavailable
+				}
+				return existing, nil
+			}
+			return nil, ErrServiceUnavailable
+		}
 	}
 	s.postAuthUserBootstrap(ctx, user, providerType, false)
 	s.assignSubscriptions(ctx, user.ID, grantPlan.Subscriptions, "auto assigned by signup defaults")
 	// snapshot user × platform quota（fail-open）
 	_ = s.snapshotPlatformQuotaDefaults(ctx, user.ID, &grantPlan)
-	s.bindOAuthAffiliate(ctx, user.ID, affiliateCode)
-	if invitationRedeemCode != nil {
+	s.bindOAuthAffiliate(ctx, user.ID, affiliateCode, providerType)
+	if invitationRedeemCode != nil && !needsTx {
 		if err := s.useOAuthRegistrationInvitation(ctx, invitationRedeemCode.ID, user.ID); err != nil {
 			_ = s.RollbackOAuthEmailAccountCreation(ctx, user.ID, invitationCode)
 			return nil, ErrInvitationCodeInvalid

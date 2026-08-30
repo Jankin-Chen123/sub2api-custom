@@ -41,3 +41,30 @@ export interface NewcomerCampaignStatus {
   current_membership?: NewcomerMembershipStatus
   tiers: NewcomerCampaignTier[]
 }
+
+export interface NewcomerCampaignAdminConfig {
+  campaign_key: string
+  name: string
+  phase: NewcomerCampaignPhase | string
+  starts_at: string
+  ends_at: string
+  tiers: NewcomerCampaignTier[]
+}
+
+export interface NewcomerCampaignAdminUserMembership {
+  user_id: number
+  email: string
+  username: string
+  valid_invite_count: number
+  manual_membership?: NewcomerMembershipStatus
+  current_membership?: NewcomerMembershipStatus
+}
+
+export interface NewcomerCampaignAdminMembershipInput {
+  tier_key: string
+  factor?: number
+  starts_at?: string
+  expires_at?: string
+  duration_days?: number
+  reason?: string
+}

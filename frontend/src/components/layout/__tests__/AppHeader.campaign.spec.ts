@@ -94,9 +94,14 @@ describe('AppHeader newcomer campaign controls', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-test="first-recharge-shortcut"]').attributes('to')).toBe('/purchase?campaign=first-recharge')
-    expect(wrapper.get('[data-test="campaign-membership-badge"]').text()).toContain('黄金')
+    expect(wrapper.get('[data-test="first-recharge-shortcut"]').classes()).toContain('border')
+    expect(wrapper.get('[data-test="first-recharge-shortcut"]').text()).toContain('campaign.firstRechargeShortcutHint')
+    expect(wrapper.find('[data-test="campaign-membership-badge"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="campaign-membership-summary"]').text()).toContain('黄金')
     await wrapper.get('button[aria-label="common.userMenu"]').trigger('click')
-    expect(wrapper.get('[data-test="campaign-membership-menu"]').text()).toContain('campaign.membershipFactor')
+    expect(wrapper.get('[data-test="campaign-membership-menu"]').text()).toContain('campaign.membershipOriginalFactor')
+    expect(wrapper.get('[data-test="campaign-membership-details"]').classes()).not.toContain('rounded-xl')
+    expect(wrapper.get('[data-test="campaign-membership-details"]').classes()).not.toContain('shadow-lg')
     expect(wrapper.text()).not.toContain('concurrency')
   })
 

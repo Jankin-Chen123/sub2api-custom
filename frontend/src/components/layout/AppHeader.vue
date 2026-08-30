@@ -27,11 +27,15 @@
         <router-link
           v-if="showFirstRechargeShortcut"
           to="/purchase?campaign=first-recharge"
-          class="flex max-w-[9.5rem] items-center gap-1 rounded-lg px-1.5 py-1.5 text-left text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-900/20 sm:max-w-none sm:px-2.5"
+          class="group hidden shrink-0 items-center gap-2 rounded-lg border border-primary-500/60 bg-primary-50/40 px-2.5 py-1.5 text-left transition-colors hover:border-primary-500 hover:bg-primary-50 dark:border-primary-400/50 dark:bg-primary-950/20 dark:hover:border-primary-300 dark:hover:bg-primary-900/30 sm:flex"
           data-test="first-recharge-shortcut"
+          :aria-label="`${t('campaign.firstRechargeShortcut')} ${t('campaign.firstRechargeShortcutHint')}`"
         >
-          <span class="truncate">{{ t('campaign.firstRechargeShortcut') }}</span>
-          <span class="hidden text-[11px] font-normal text-primary-600 dark:text-primary-400 sm:inline">{{ t('campaign.firstRechargeShortcutHint') }}</span>
+          <Icon name="gift" size="md" :stroke-width="1.8" class="shrink-0 text-amber-500 dark:text-amber-300" />
+          <span class="flex min-w-0 flex-col leading-tight">
+            <span class="whitespace-nowrap text-xs font-semibold text-primary-800 dark:text-primary-100">{{ t('campaign.firstRechargeShortcut') }}</span>
+            <span class="whitespace-nowrap text-[11px] font-normal text-primary-600 dark:text-primary-300">{{ t('campaign.firstRechargeShortcutHint') }}</span>
+          </span>
         </router-link>
 
         <!-- Announcement Bell -->
@@ -64,15 +68,6 @@
 
         <!-- Subscription Progress (for users with active subscriptions) -->
         <SubscriptionProgressMini v-if="user" />
-
-        <!-- Activity membership badge; activity membership never changes concurrency. -->
-        <span
-          v-if="user && currentCampaignMembership"
-          class="hidden items-center rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 dark:bg-primary-900/20 dark:text-primary-300 sm:flex"
-          data-test="campaign-membership-badge"
-        >
-          {{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}
-        </span>
 
         <!-- Balance Display -->
         <div
@@ -127,6 +122,7 @@
             @click="toggleDropdown"
             class="flex items-center gap-2 rounded-xl p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-dark-800"
             :aria-label="t('common.userMenu')"
+            data-test="user-menu-trigger"
           >
             <div class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 text-sm font-medium text-white shadow-sm">
               <img
@@ -137,11 +133,22 @@
               >
               <span v-else>{{ userInitials }}</span>
             </div>
-            <div class="hidden text-left md:block">
-              <div class="text-sm font-medium text-gray-900 dark:text-white">
+            <div class="hidden min-w-0 text-left md:block">
+              <div class="max-w-[10rem] truncate text-sm font-medium text-gray-900 dark:text-white">
                 {{ displayName }}
               </div>
-              <div class="text-xs text-gray-500 dark:text-dark-400">
+              <div v-if="currentCampaignMembership" class="mt-0.5 flex items-center gap-1.5" data-test="campaign-membership-summary">
+                <span
+                  class="rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+                  :class="campaignTierTheme(currentCampaignMembership.tier_key).badge"
+                >
+                  {{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}
+                </span>
+                <span class="text-xs font-medium" :class="campaignTierTheme(currentCampaignMembership.tier_key).text">
+                  {{ membershipPercent(currentCampaignMembership.factor) }}%
+                </span>
+              </div>
+              <div v-else class="text-xs text-gray-500 dark:text-dark-400">
                 {{ t('admin.users.roles.' + user.role) }}
               </div>
             </div>
@@ -150,20 +157,66 @@
 
           <!-- Dropdown Menu -->
           <transition name="dropdown">
-            <div v-if="dropdownOpen" class="dropdown right-0 mt-2 w-56">
+            <div v-if="dropdownOpen" class="dropdown right-0 mt-2 w-[min(22rem,calc(100vw-1rem))] overflow-hidden p-0">
               <!-- User Info -->
-              <div class="border-b border-gray-100 px-4 py-3 dark:border-dark-700">
-                <div class="text-sm font-medium text-gray-900 dark:text-white">
+              <div class="border-b border-gray-100 px-5 py-4 dark:border-dark-700">
+                <div class="text-sm font-semibold text-gray-900 dark:text-white">
                   {{ displayName }}
                 </div>
                 <div class="text-xs text-gray-500 dark:text-dark-400">{{ user.email }}</div>
-                <div v-if="currentCampaignMembership" class="mt-2 rounded-lg bg-primary-50 px-2.5 py-2 dark:bg-primary-900/20" data-test="campaign-membership-menu">
-                  <div class="text-xs font-semibold text-primary-700 dark:text-primary-300">
-                    {{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}
+              </div>
+
+              <!-- Campaign membership card; benefit details stay inside this same information card. -->
+              <div v-if="currentCampaignMembership" data-test="campaign-membership-menu">
+                <div class="relative overflow-hidden border-b border-primary-100 bg-gradient-to-br from-white via-primary-50 to-cyan-50 px-5 py-5 text-gray-900 dark:border-dark-700 dark:from-dark-950 dark:via-dark-900 dark:to-dark-800 dark:text-white">
+                  <div class="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-primary-400/10 blur-2xl dark:bg-primary-400/20"></div>
+                  <div class="absolute -bottom-12 -left-8 h-24 w-24 rounded-full bg-cyan-400/10 blur-2xl dark:bg-cyan-400/15"></div>
+                  <div class="relative flex items-center gap-3">
+                    <span
+                      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg ring-1 ring-white/25"
+                      :class="campaignTierTheme(currentCampaignMembership.tier_key).icon"
+                      aria-hidden="true"
+                    >
+                      <CampaignTierIcon :tier-key="currentCampaignMembership.tier_key" />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-lg font-semibold text-gray-900 dark:text-white">
+                        {{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}{{ t('campaign.membershipUserSuffix') }}
+                      </span>
+                      <span class="mt-0.5 block text-sm text-gray-500 dark:text-slate-300">
+                        {{ t('campaign.membershipOriginalFactor', { percent: membershipPercent(currentCampaignMembership.factor) }) }}
+                      </span>
+                    </span>
+                    <Icon name="chevronDown" size="md" class="rotate-180 shrink-0 text-gray-400 dark:text-slate-300" aria-hidden="true" />
                   </div>
-                  <div class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">
-                    {{ t('campaign.membershipFactor', { factor: currentCampaignMembership.factor }) }}
-                    · {{ t('campaign.membershipRemaining', { days: membershipRemainingDays(currentCampaignMembership.expires_at) }) }}
+                </div>
+
+                <div class="bg-white px-5 py-4 dark:bg-dark-800" data-test="campaign-membership-details">
+                  <div class="flex items-center gap-3 border-b border-gray-100 pb-3 dark:border-dark-700">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-500 dark:bg-amber-900/20 dark:text-amber-300" aria-hidden="true">
+                      <Icon name="calendar" size="md" />
+                    </span>
+                    <span class="text-sm text-gray-500 dark:text-dark-400">
+                      {{ t('campaign.membershipBenefitRemaining', { days: membershipRemainingDays(currentCampaignMembership.expires_at) }) }}
+                    </span>
+                  </div>
+
+                  <div class="pt-3">
+                    <div class="flex items-center justify-between gap-3 text-sm">
+                      <span class="text-gray-500 dark:text-dark-400">{{ t('campaign.validInvites') }}</span>
+                      <span class="font-semibold" :class="campaignTierTheme(currentCampaignMembership.tier_key).text">
+                        {{ membershipProgressLabel }}
+                      </span>
+                    </div>
+                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
+                      <div
+                        class="h-full rounded-full bg-primary-500 transition-all"
+                        :style="{ width: `${membershipProgressPercent}%` }"
+                      ></div>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500 dark:text-dark-400">
+                      {{ membershipProgressHint }}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -287,6 +340,7 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
+import CampaignTierIcon from '@/components/common/CampaignTierIcon.vue'
 import { useCampaignStore } from '@/stores/campaign'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
@@ -316,6 +370,26 @@ const balanceFrozenText = computed(() => t('common.frozenBalance') === 'common.f
 const balanceTotalText = computed(() => t('common.totalBalance') === 'common.totalBalance' ? '总余额' : t('common.totalBalance'))
 const balanceFrozenLabel = computed(() => `${balanceFrozenText.value} ${formatHeaderMoney(frozenBalance.value)}`)
 const currentCampaignMembership = computed(() => campaignStore.status?.current_membership ?? null)
+const membershipProgressTarget = computed(() => {
+  const status = campaignStore.status
+  if (!status) return 0
+  return status.next_tier?.threshold ?? status.tiers.at(-1)?.threshold ?? status.valid_invite_count
+})
+const membershipProgressPercent = computed(() => {
+  const target = membershipProgressTarget.value
+  if (!target) return 0
+  return Math.min(100, Math.max(0, Math.round((campaignStore.status?.valid_invite_count ?? 0) / target * 100)))
+})
+const membershipProgressLabel = computed(() => {
+  const current = campaignStore.status?.valid_invite_count ?? 0
+  const target = membershipProgressTarget.value
+  return target ? `${current}/${target}` : `${current}`
+})
+const membershipProgressHint = computed(() => {
+  const status = campaignStore.status
+  if (!status?.next_tier) return t('campaign.allTiersReached')
+  return t('campaign.tierRemaining', { count: status.next_tier_remaining })
+})
 const showFirstRechargeShortcut = computed(() => {
   const first = campaignStore.status?.first_recharge
   return campaignStore.status?.phase === 'active'
@@ -326,6 +400,32 @@ const showFirstRechargeShortcut = computed(() => {
 function campaignTierLabel(key: string, fallback: string): string {
   const translated = t(`campaign.tiers.${key}`)
   return translated === `campaign.tiers.${key}` ? fallback : translated
+}
+
+function membershipPercent(factor: number): number {
+  return Math.round(Number(factor) * 100)
+}
+
+function campaignTierTheme(key: string): { badge: string; text: string; icon: string } {
+  if (key === 'gold') {
+    return {
+      badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+      text: 'text-amber-600 dark:text-amber-300',
+      icon: 'bg-gradient-to-br from-amber-300 via-orange-400 to-rose-500 text-white'
+    }
+  }
+  if (key === 'diamond') {
+    return {
+      badge: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
+      text: 'text-violet-600 dark:text-violet-300',
+      icon: 'bg-gradient-to-br from-violet-400 via-indigo-500 to-blue-600 text-white'
+    }
+  }
+  return {
+    badge: 'bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-200',
+    text: 'text-primary-600 dark:text-primary-300',
+    icon: 'bg-gradient-to-br from-teal-400 via-cyan-500 to-sky-600 text-white'
+  }
 }
 
 function membershipRemainingDays(expiresAt: string): number {
@@ -400,6 +500,10 @@ async function handleLogout() {
   } catch (error) {
     // Ignore logout errors - still redirect to login
     console.error('Logout error:', error)
+  } finally {
+    // Clear the campaign snapshot immediately, even when the logout request
+    // fails, so a subsequent account cannot observe the previous user's state.
+    campaignStore.reset()
   }
   await router.push('/login')
 }

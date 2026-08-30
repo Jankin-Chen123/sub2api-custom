@@ -167,10 +167,10 @@ describe('AffiliateView newcomer campaign progress', () => {
     expect(campaign.text()).toContain('campaign.validInvites')
     expect(campaign.text()).toContain('3')
     expect(campaign.text()).toContain('campaign.tierProgress')
-    expect(campaign.text()).toContain('0.96')
+    expect(campaign.text()).toContain('96%')
     expect(campaign.find('.bg-primary-500').attributes('style')).toContain('width: 60%')
     expect(wrapper.text()).toContain('http://localhost/register?aff=campaign')
-    expect(fetchCampaignStatus).toHaveBeenCalled()
+    expect(fetchCampaignStatus).toHaveBeenCalledWith(true)
   })
 
   it('does not invent campaign progress when the campaign endpoint has no state', async () => {

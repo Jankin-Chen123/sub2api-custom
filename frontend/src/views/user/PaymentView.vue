@@ -525,6 +525,9 @@ async function onPaymentSuccess() {
   const completedPayment = { ...paymentState.value }
   removeRecoverySnapshot()
   authStore.refreshUser()
+  if (paymentState.value.orderType === 'balance') {
+    void campaignStore.reconcile()
+  }
   if (paymentState.value.orderType === 'subscription') {
     subscriptionStore.fetchActiveSubscriptions(true).catch(() => {})
   }
@@ -1138,7 +1141,9 @@ onMounted(async () => {
   try {
     const res = await paymentAPI.getCheckoutInfo()
     checkout.value = res.data
-    await campaignStore.fetchStatus()
+    // Payment pages can be entered from a return URL immediately after a
+    // webhook. Refresh the server-authoritative campaign state on entry.
+    await campaignStore.fetchStatus(true)
     if (enabledMethods.value.length) {
       const order: readonly string[] = METHOD_ORDER
       const sorted = [...enabledMethods.value].sort((a, b) => {

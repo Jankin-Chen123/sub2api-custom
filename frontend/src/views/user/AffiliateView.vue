@@ -79,11 +79,30 @@
 
           <div class="mt-5">
             <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('campaign.tiersTitle') }}</p>
-            <div class="mt-3 grid gap-2 sm:grid-cols-3">
-              <div v-for="tier in campaignStatus.tiers" :key="tier.key" class="rounded-xl border border-gray-200 px-3 py-3 dark:border-dark-700">
-                <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ campaignTierLabel(tier.key, tier.name) }}</div>
-                <div class="mt-1 text-xs text-gray-500 dark:text-dark-400">
-                  {{ t('campaign.tierRequirement', { threshold: tier.threshold, factor: tier.factor, days: tier.duration_days }) }}
+            <div class="mt-3 grid gap-3 sm:grid-cols-3">
+              <div
+                v-for="tier in campaignStatus.tiers"
+                :key="tier.key"
+                class="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 text-gray-900 shadow-sm dark:border-slate-700/80 dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 dark:text-white"
+                :data-test="`campaign-tier-${tier.key}`"
+              >
+                <div class="absolute -right-8 -top-10 h-24 w-24 rounded-full blur-2xl" :class="campaignTierTheme(tier.key).glow"></div>
+                <div class="relative flex items-center gap-3">
+                  <span
+                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl shadow-lg ring-1 ring-white/25"
+                    :class="campaignTierTheme(tier.key).icon"
+                    aria-hidden="true"
+                  >
+                    <CampaignTierIcon :tier-key="tier.key" size="sm" />
+                  </span>
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ campaignTierLabel(tier.key, tier.name) }}{{ t('campaign.membershipUserSuffix') }}</span>
+                    <span class="mt-0.5 block text-xl font-semibold" :class="campaignTierTheme(tier.key).text">{{ membershipPercent(tier.factor) }}%</span>
+                  </span>
+                </div>
+                <div class="relative mt-4 flex items-center justify-between gap-2 border-t border-gray-200 pt-3 text-xs text-gray-500 dark:border-white/10 dark:text-slate-300">
+                  <span>{{ tier.threshold }} {{ t('campaign.validInvites') }}</span>
+                  <span>{{ tier.duration_days }} {{ t('campaign.days') }}</span>
                 </div>
               </div>
             </div>
@@ -194,6 +213,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import CampaignTierIcon from '@/components/common/CampaignTierIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
 import userAPI from '@/api/user'
 import type { UserAffiliateDetail } from '@/types'
@@ -231,6 +251,32 @@ const campaignProgressPercent = computed(() => {
 function campaignTierLabel(key: string, fallback: string): string {
   const translated = t(`campaign.tiers.${key}`)
   return translated === `campaign.tiers.${key}` ? fallback : translated
+}
+
+function membershipPercent(factor: number): number {
+  return Math.round(Number(factor) * 100)
+}
+
+function campaignTierTheme(key: string): { text: string; icon: string; glow: string } {
+  if (key === 'gold') {
+    return {
+      text: 'text-amber-600 dark:text-amber-300',
+      icon: 'bg-gradient-to-br from-amber-300 via-orange-400 to-rose-500 text-white',
+      glow: 'bg-amber-400/10 dark:bg-amber-400/20'
+    }
+  }
+  if (key === 'diamond') {
+    return {
+      text: 'text-violet-600 dark:text-violet-300',
+      icon: 'bg-gradient-to-br from-violet-400 via-indigo-500 to-blue-600 text-white',
+      glow: 'bg-violet-400/10 dark:bg-violet-400/20'
+    }
+  }
+  return {
+    text: 'text-primary-600 dark:text-primary-300',
+    icon: 'bg-gradient-to-br from-teal-400 via-cyan-500 to-sky-600 text-white',
+    glow: 'bg-primary-400/10 dark:bg-primary-400/20'
+  }
 }
 
 function membershipRemainingDays(expiresAt: string): number {
@@ -293,6 +339,8 @@ async function transferQuota(): Promise<void> {
 
 onMounted(() => {
   void loadAffiliateDetail()
-  void campaignStore.fetchStatus()
+  // The invitation page is an explicit activity entry point; do not show a
+  // stale count after a payment/refund or an admin redeem-code review.
+  void campaignStore.fetchStatus(true)
 })
 </script>

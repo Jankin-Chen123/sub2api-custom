@@ -694,6 +694,18 @@ const routes: RouteRecordRaw[] = [
     redirect: '/admin/affiliates/invites'
   },
   {
+    path: '/admin/campaigns/newcomer',
+    name: 'AdminNewcomerCampaign',
+    component: () => import('@/views/admin/NewcomerCampaignView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Newcomer Campaign Management',
+      titleKey: 'admin.newcomerCampaign.title',
+      descriptionKey: 'admin.newcomerCampaign.description'
+    }
+  },
+  {
     path: '/admin/affiliates/invites',
     name: 'AdminAffiliateInvites',
     component: () => import('@/views/admin/affiliates/AdminAffiliateInvitesView.vue'),

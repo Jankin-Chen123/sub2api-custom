@@ -73,7 +73,7 @@
         </section>
 
         <!-- Empty State -->
-        <div v-if="subscriptions.length === 0" class="card p-12 text-center">
+        <div v-if="visibleSubscriptions.length === 0" class="card p-12 text-center">
           <div
             class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700"
           >
@@ -90,7 +90,7 @@
         <!-- Subscriptions Grid -->
       <div v-else class="mx-auto grid max-w-5xl gap-6 lg:grid-cols-2">
         <div
-          v-for="subscription in subscriptions"
+          v-for="subscription in visibleSubscriptions"
           :key="subscription.id"
           class="flex min-h-[380px] flex-col overflow-hidden rounded-2xl border bg-white dark:bg-dark-800"
           :class="platformBorderClass(subscription.group?.platform || '')"
@@ -346,7 +346,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
@@ -386,6 +386,16 @@ const purchasingPlanId = ref<number | null>(null)
 const activatingSubscriptionId = ref<number | null>(null)
 const purchaseConfirmOpen = ref(false)
 const pendingPurchasePlan = ref<SubscriptionPlan | null>(null)
+const currentTime = ref(Date.now())
+let expiryRefreshTimer: ReturnType<typeof setInterval> | undefined
+
+const visibleSubscriptions = computed(() =>
+  subscriptions.value.filter((subscription) => {
+    if (subscription.status === 'expired') return false
+    if (subscription.status !== 'active' || !subscription.expires_at) return true
+    return new Date(subscription.expires_at).getTime() > currentTime.value
+  }),
+)
 
 const purchaseConfirmMessage = computed(() => {
   const planName = pendingPurchasePlan.value?.name || ''
@@ -566,5 +576,14 @@ function formatResetTime(windowStart: string | null, windowHours: number): strin
 
 onMounted(() => {
   loadSubscriptions()
+  expiryRefreshTimer = setInterval(() => {
+    currentTime.value = Date.now()
+  }, 60_000)
+})
+
+onBeforeUnmount(() => {
+  if (expiryRefreshTimer) {
+    clearInterval(expiryRefreshTimer)
+  }
 })
 </script>

@@ -41,4 +41,49 @@ describe('GroupOptionItem description layout', () => {
     expect(descriptionElement?.classes()).toContain('line-clamp-3')
     expect(wrapper.find('[title]').attributes('title')).toBe(description)
   })
+
+  it('shows the final campaign rate with the existing rate presentation', () => {
+    const wrapper = mount(GroupOptionItem, {
+      props: {
+        name: 'Example group',
+        platform: 'openai',
+        rateMultiplier: 0.15,
+        userRateMultiplier: 0.14,
+        campaignFactor: 0.96,
+      },
+      global: {
+        stubs: {
+          GroupBadge: true,
+        },
+      },
+    })
+
+    const ratePill = wrapper.get('[data-test="group-rate-pill"]')
+    expect(ratePill.text()).toContain('0.14x')
+    expect(ratePill.text()).toContain('0.1344x')
+    expect(ratePill.text()).not.toContain('0.15x')
+    expect(ratePill.text()).not.toContain('→')
+    expect(ratePill.attributes('title')).toBe('campaign.membershipFactor')
+  })
+
+  it('keeps the original rate presentation without an active campaign factor', () => {
+    const wrapper = mount(GroupOptionItem, {
+      props: {
+        name: 'Example group',
+        platform: 'openai',
+        rateMultiplier: 0.15,
+        campaignFactor: null,
+      },
+      global: {
+        stubs: {
+          GroupBadge: true,
+        },
+      },
+    })
+
+    const ratePill = wrapper.get('[data-test="group-rate-pill"]')
+    expect(ratePill.text()).toContain('0.15x')
+    expect(ratePill.text()).not.toContain('→')
+    expect(ratePill.attributes('title')).toBeUndefined()
+  })
 })

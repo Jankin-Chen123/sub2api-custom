@@ -120,4 +120,33 @@ describe('SubscriptionsView purchase confirmation', () => {
     expect(showSuccess).toHaveBeenCalled()
     wrapper.unmount()
   })
+
+  it('does not render expired subscriptions in the current subscriptions list', async () => {
+    getMySubscriptions.mockResolvedValue([
+      {
+        id: 12,
+        user_id: 1,
+        group_id: 3,
+        status: 'expired',
+        expires_at: '2020-01-01T00:00:00Z',
+        validity_days: 30,
+        group: { name: 'Expired subscription', platform: 'openai' },
+      },
+    ])
+
+    const wrapper = mount(SubscriptionsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No Active Subscriptions')
+    expect(wrapper.text()).not.toContain('Expired subscription')
+    expect(wrapper.find('button').exists()).toBe(true)
+    wrapper.unmount()
+  })
 })

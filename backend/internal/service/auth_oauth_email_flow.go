@@ -283,6 +283,22 @@ func (s *AuthService) FinalizeOAuthEmailAccount(
 	}
 
 	signupSource = normalizeOAuthSignupSource(signupSource)
+	if s.newcomerCampaign != nil {
+		// This flow creates the local user before finalization, so its normal
+		// post-create bootstrap has not run yet. Persist the activity-owned
+		// inviter code while the caller's finalization transaction is open.
+		if err := s.newcomerCampaign.EnsureCampaignInviteCode(ctx, user.ID); err != nil {
+			return err
+		}
+	}
+	if strings.TrimSpace(affiliateCode) != "" && s.newcomerCampaign != nil {
+		// Persist before consuming the one-time invitation or applying other
+		// finalization steps.  A failure is actionable and must be retried by
+		// the caller; silently continuing would lose the referral intent.
+		if err := s.newcomerCampaign.PersistReferralIntent(ctx, user.ID, affiliateCode, signupSource); err != nil {
+			return err
+		}
+	}
 	invitationRedeemCode, err := s.validateOAuthRegistrationInvitation(ctx, invitationCode)
 	if err != nil {
 		return err
@@ -298,7 +314,7 @@ func (s *AuthService) FinalizeOAuthEmailAccount(
 	s.assignSubscriptions(ctx, user.ID, grantPlan.Subscriptions, "auto assigned by signup defaults")
 	// snapshot user × platform quota（fail-open）
 	_ = s.snapshotPlatformQuotaDefaults(ctx, user.ID, &grantPlan)
-	s.bindOAuthAffiliate(ctx, user.ID, affiliateCode)
+	s.bindOAuthAffiliate(ctx, user.ID, affiliateCode, signupSource)
 	return nil
 }
 

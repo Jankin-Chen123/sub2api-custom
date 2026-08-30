@@ -166,6 +166,7 @@ export default {
     redeem: 'Redeem / Check In',
     affiliate: 'Affiliate Rebates',
     affiliateManagement: 'Affiliate Rebates',
+    newcomerCampaign: 'Newcomer Campaign',
     affiliateInviteRecords: 'Invite Records',
     affiliateRebateRecords: 'Rebate Records',
     affiliateTransferRecords: 'Transfer Records',

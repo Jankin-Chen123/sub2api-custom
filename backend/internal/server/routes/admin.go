@@ -142,6 +142,11 @@ func RegisterAdminRoutes(
 func registerNewcomerCampaignRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	campaign := admin.Group("/campaigns/newcomer")
 	{
+		campaign.GET("/config", h.Admin.NewcomerCampaign.GetConfig)
+		campaign.PUT("/config", h.Admin.NewcomerCampaign.UpdateConfig)
+		campaign.GET("/users/:user_id/membership", h.Admin.NewcomerCampaign.GetUserMembership)
+		campaign.PUT("/users/:user_id/membership", h.Admin.NewcomerCampaign.SetUserMembership)
+		campaign.DELETE("/users/:user_id/membership", h.Admin.NewcomerCampaign.ClearUserMembership)
 		campaign.POST("/reconcile", h.Admin.NewcomerCampaign.Reconcile)
 	}
 }

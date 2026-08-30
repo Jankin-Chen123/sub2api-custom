@@ -354,7 +354,7 @@ func TestGatewayServiceRecordUsage_TokenModeImageExcludesCampaignFactor(t *testi
 	now := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
 	mock.ExpectQuery(`(?s)SELECT g\.factor.*FROM newcomer_campaign_membership_grants`).
 		WithArgs(NewcomerCampaignKey, int64(603), now, newcomerInviteThreshold).
-		WillReturnRows(sqlmock.NewRows([]string{"factor"}).AddRow(0.94))
+		WillReturnRows(sqlmock.NewRows([]string{"factor", "expires_at"}).AddRow(0.94, now.Add(time.Hour)))
 
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
 	svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, groupID, "gemini-image")

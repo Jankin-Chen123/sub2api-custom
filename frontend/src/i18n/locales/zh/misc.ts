@@ -89,6 +89,10 @@ export default {
     currentMembership: '当前活动会员',
     membershipFactor: '计费因子 ×{factor}',
     membershipRemaining: '剩余 {days} 天',
+    membershipUserSuffix: '用户',
+    membershipOriginalFactor: '原倍率 {percent}%',
+    membershipBenefitRemaining: '权益剩余 {days} 天',
+    days: '天',
     inviteQualification: '新用户通过此链接注册，并在注册后 14 天内累计完成至少 ¥10 在线充值或兑换码兑换后计为有效邀请。',
     phase: {
       upcoming: '即将开始',

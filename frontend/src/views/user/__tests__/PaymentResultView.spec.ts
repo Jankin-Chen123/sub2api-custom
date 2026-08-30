@@ -11,6 +11,7 @@ const verifyOrder = vi.hoisted(() => vi.fn())
 const verifyOrderPublic = vi.hoisted(() => vi.fn())
 const resolveOrderPublicByResumeToken = vi.hoisted(() => vi.fn())
 const refreshUser = vi.hoisted(() => vi.fn())
+const reconcileCampaign = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -40,6 +41,12 @@ vi.mock('@/stores/payment', () => ({
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
     refreshUser,
+  }),
+}))
+
+vi.mock('@/stores/campaign', () => ({
+  useCampaignStore: () => ({
+    reconcile: reconcileCampaign,
   }),
 }))
 
@@ -99,6 +106,7 @@ describe('PaymentResultView', () => {
     verifyOrderPublic.mockReset()
     resolveOrderPublicByResumeToken.mockReset()
     refreshUser.mockReset()
+    reconcileCampaign.mockReset()
     refreshUser.mockResolvedValue({})
     window.localStorage.clear()
   })
@@ -200,6 +208,7 @@ describe('PaymentResultView', () => {
     expect(pollOrderStatus).not.toHaveBeenCalled()
     expect(resolveOrderPublicByResumeToken).toHaveBeenCalledWith('resume-authoritative')
     expect(refreshUser).toHaveBeenCalledTimes(1)
+    expect(reconcileCampaign).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('payment.result.success')
     expect(wrapper.text()).toContain('103.00')
     expect(wrapper.text()).toContain('100.00')

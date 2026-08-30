@@ -6,6 +6,7 @@ import (
 	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/stretchr/testify/require"
@@ -46,11 +47,13 @@ func TestBuildPaymentOrderProviderSnapshot_ExcludesSensitiveConfig(t *testing.T)
 func TestCreateOrderInTx_WritesProviderSnapshot(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
+	campaignStart, _ := NewcomerCampaignWindow()
 
 	user, err := client.User.Create().
 		SetEmail("snapshot@example.com").
 		SetPasswordHash("hash").
 		SetUsername("snapshot-user").
+		SetCreatedAt(campaignStart.Add(time.Hour)).
 		Save(ctx)
 	require.NoError(t, err)
 
@@ -64,7 +67,7 @@ func TestCreateOrderInTx_WritesProviderSnapshot(t *testing.T) {
 		Save(ctx)
 	require.NoError(t, err)
 
-	svc := &PaymentService{entClient: client}
+	svc := &PaymentService{entClient: client, now: func() time.Time { return campaignStart.Add(time.Hour) }}
 	order, err := svc.createOrderInTx(
 		ctx,
 		CreateOrderRequest{
@@ -120,6 +123,45 @@ func TestCreateOrderInTx_WritesProviderSnapshot(t *testing.T) {
 	require.NoError(t, rows.Scan(&principalAmount, &principalCurrency))
 	require.Equal(t, 88.0, principalAmount, "campaign fact must use req.Amount, not credited amount or pay_amount")
 	require.Equal(t, "CNY", principalCurrency)
+}
+
+func TestCreateOrderInTx_PaymentFactHonorsCampaignWindowAndCaptureCutoff(t *testing.T) {
+	ctx := context.Background()
+	start, end := NewcomerCampaignWindow()
+	captureEnd := end.Add(newcomerCampaignCaptureGrace)
+	client := newPaymentConfigServiceTestClient(t)
+
+	create := func(t *testing.T, email string, userCreatedAt, now time.Time) int64 {
+		t.Helper()
+		user, err := client.User.Create().
+			SetEmail(email).
+			SetPasswordHash("hash").
+			SetUsername(email).
+			SetCreatedAt(userCreatedAt).
+			Save(ctx)
+		require.NoError(t, err)
+		svc := &PaymentService{entClient: client, now: func() time.Time { return now }}
+		order, err := svc.createOrderInTx(ctx, CreateOrderRequest{
+			UserID: user.ID, Amount: 10, PaymentType: payment.TypeAlipay,
+			OrderType: payment.OrderTypeBalance, ClientIP: "127.0.0.1", SrcHost: "test",
+		}, &User{ID: user.ID, Email: email, Username: email}, nil,
+			&PaymentConfig{MaxPendingOrders: 3, OrderTimeoutMin: 30},
+			10, 10, 0, 10, "CNY", nil)
+		require.NoError(t, err)
+		return order.ID
+	}
+
+	beforeID := create(t, "campaign-fact-before@example.invalid", start.Add(-time.Hour), start.Add(-time.Minute))
+	insideID := create(t, "campaign-fact-inside@example.invalid", start.Add(time.Hour), start.Add(2*time.Hour))
+	afterID := create(t, "campaign-fact-after@example.invalid", start.Add(time.Hour), captureEnd.Add(time.Hour))
+
+	var beforeCount, insideCount, afterCount int
+	require.NoError(t, client.QueryRowContext(ctx, "SELECT COUNT(*) FROM newcomer_campaign_payment_facts WHERE order_id = ?", beforeID).Scan(&beforeCount))
+	require.NoError(t, client.QueryRowContext(ctx, "SELECT COUNT(*) FROM newcomer_campaign_payment_facts WHERE order_id = ?", insideID).Scan(&insideCount))
+	require.NoError(t, client.QueryRowContext(ctx, "SELECT COUNT(*) FROM newcomer_campaign_payment_facts WHERE order_id = ?", afterID).Scan(&afterCount))
+	require.Equal(t, 0, beforeCount, "orders before campaign start must not create campaign facts")
+	require.Equal(t, 1, insideCount, "orders for campaign users inside the window must create campaign facts")
+	require.Equal(t, 0, afterCount, "orders after campaign capture cutoff must not create campaign facts")
 }
 
 func TestBuildPaymentOrderProviderSnapshot_UsesWxpayJSAPIAppIDForOpenIDOrders(t *testing.T) {

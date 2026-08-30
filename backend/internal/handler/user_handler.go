@@ -237,8 +237,9 @@ func (h *UserHandler) TransferAffiliateQuota(c *gin.Context) {
 	})
 }
 
-// GetNewcomerCampaign returns the server-owned state of the September 2026
-// newcomer campaign.
+// GetNewcomerCampaign returns the server-owned state of the long-lived
+// newcomer campaign. The fixed campaign key retains invitation/reward history
+// while the administrator-controlled window governs new eligibility.
 // GET /api/v1/user/campaigns/newcomer
 func (h *UserHandler) GetNewcomerCampaign(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)

@@ -250,7 +250,7 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		Status:       StatusActive,
 	}
 
-	if err := s.createUserAndClaimInvitation(ctx, user, invitationRedeemCode); err != nil {
+	if err := s.createUserAndClaimInvitation(ctx, user, invitationRedeemCode, affiliateCode, "email"); err != nil {
 		// 优先检查邮箱冲突错误（竞态条件下可能发生）
 		switch {
 		case errors.Is(err, ErrEmailExists):
@@ -280,7 +280,7 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		}
 	}
 	if s.newcomerCampaign != nil {
-		if err := s.newcomerCampaign.OnUserRegistered(ctx, user.ID, affiliateCode); err != nil {
+		if err := s.newcomerCampaign.OnUserRegisteredWithSource(ctx, user.ID, affiliateCode, "email"); err != nil {
 			logger.LegacyPrintf("service.auth", "[Auth] Failed to bind newcomer campaign inviter for user %d: %v", user.ID, err)
 		}
 	}
@@ -779,7 +779,7 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 				SignupSource: signupSource,
 			}
 
-			if s.entClient != nil && invitationRedeemCode != nil {
+			if s.entClient != nil && (invitationRedeemCode != nil || (strings.TrimSpace(affiliateCode) != "" && s.newcomerCampaign != nil)) {
 				tx, err := s.entClient.Tx(ctx)
 				if err != nil {
 					logger.LegacyPrintf("service.auth", "[Auth] Failed to begin transaction for oauth registration: %v", err)
@@ -800,8 +800,15 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 						return nil, nil, ErrServiceUnavailable
 					}
 				} else {
-					if err := s.redeemRepo.Use(txCtx, invitationRedeemCode.ID, newUser.ID); err != nil {
-						return nil, nil, ErrInvitationCodeInvalid
+					if invitationRedeemCode != nil {
+						if err := s.redeemRepo.Use(txCtx, invitationRedeemCode.ID, newUser.ID); err != nil {
+							return nil, nil, ErrInvitationCodeInvalid
+						}
+					}
+					if strings.TrimSpace(affiliateCode) != "" && s.newcomerCampaign != nil {
+						if err := s.newcomerCampaign.PersistReferralIntent(txCtx, newUser.ID, affiliateCode, signupSource); err != nil {
+							return nil, nil, ErrServiceUnavailable
+						}
 					}
 					if err := tx.Commit(); err != nil {
 						logger.LegacyPrintf("service.auth", "[Auth] Failed to commit oauth registration transaction: %v", err)
@@ -813,7 +820,7 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 					s.assignSubscriptions(ctx, user.ID, grantPlan.Subscriptions, "auto assigned by signup defaults")
 					// snapshot user × platform quota（fail-open）
 					_ = s.snapshotPlatformQuotaDefaults(ctx, user.ID, &grantPlan)
-					s.bindOAuthAffiliate(ctx, user.ID, affiliateCode)
+					s.bindOAuthAffiliate(ctx, user.ID, affiliateCode, signupSource)
 				}
 			} else {
 				if err := s.userRepo.Create(ctx, newUser); err != nil {
@@ -834,7 +841,7 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 					s.assignSubscriptions(ctx, user.ID, grantPlan.Subscriptions, "auto assigned by signup defaults")
 					// snapshot user × platform quota（fail-open）
 					_ = s.snapshotPlatformQuotaDefaults(ctx, user.ID, &grantPlan)
-					s.bindOAuthAffiliate(ctx, user.ID, affiliateCode)
+					s.bindOAuthAffiliate(ctx, user.ID, affiliateCode, signupSource)
 					if invitationRedeemCode != nil {
 						if err := s.redeemRepo.Use(ctx, invitationRedeemCode.ID, user.ID); err != nil {
 							return nil, nil, ErrInvitationCodeInvalid
@@ -983,7 +990,7 @@ func authSourceSignupSettings(defaults *AuthSourceDefaultSettings, signupSource 
 
 // bindOAuthAffiliate initializes the affiliate profile and binds the inviter
 // for an OAuth-registered user. Failures are logged but never block registration.
-func (s *AuthService) bindOAuthAffiliate(ctx context.Context, userID int64, affiliateCode string) {
+func (s *AuthService) bindOAuthAffiliate(ctx context.Context, userID int64, affiliateCode string, signupSources ...string) {
 	if userID <= 0 {
 		return
 	}
@@ -998,7 +1005,11 @@ func (s *AuthService) bindOAuthAffiliate(ctx context.Context, userID int64, affi
 		}
 	}
 	if s.newcomerCampaign != nil {
-		if err := s.newcomerCampaign.OnUserRegistered(ctx, userID, affiliateCode); err != nil {
+		signupSource := "oauth"
+		if len(signupSources) > 0 && strings.TrimSpace(signupSources[0]) != "" {
+			signupSource = signupSources[0]
+		}
+		if err := s.newcomerCampaign.OnUserRegisteredWithSource(ctx, userID, affiliateCode, signupSource); err != nil {
 			logger.LegacyPrintf("service.auth", "[Auth] Failed to bind newcomer campaign inviter for user %d: %v", userID, err)
 		}
 	}
@@ -1013,6 +1024,13 @@ func (s *AuthService) postAuthUserBootstrap(ctx context.Context, user *User, sig
 		signupSource = "email"
 	}
 	s.updateUserSignupSource(ctx, user.ID, signupSource)
+	if s.newcomerCampaign != nil {
+		if err := s.newcomerCampaign.EnsureCampaignInviteCode(ctx, user.ID); err != nil {
+			// Campaign mapping is an independent, fail-open bootstrap concern;
+			// reconciliation can retry it without blocking account creation.
+			logger.LegacyPrintf("service.auth", "[Auth] Failed to persist newcomer campaign invite code for user %d: %v", user.ID, err)
+		}
+	}
 
 	if touchLogin {
 		s.touchUserLogin(ctx, user.ID)
@@ -1301,7 +1319,7 @@ func (s *AuthService) createUserWithRegistrationEmailGuard(ctx context.Context, 
 //
 // 无邀请码时保持原单次创建路径（不开事务）；entClient 缺失的异常配置下退化为顺序执行，
 // 并发正确性仍由 Use 的条件更新兜底（可能产生孤儿用户，但不会放行第二个注册）。
-func (s *AuthService) createUserAndClaimInvitation(ctx context.Context, user *User, invitation *RedeemCode) error {
+func (s *AuthService) createUserAndClaimInvitation(ctx context.Context, user *User, invitation *RedeemCode, affiliateCode, signupSource string) error {
 	commitUser := func(execCtx context.Context) error {
 		if err := s.createUserWithRegistrationEmailGuard(execCtx, user); err != nil {
 			return err
@@ -1322,7 +1340,8 @@ func (s *AuthService) createUserAndClaimInvitation(ctx context.Context, user *Us
 		return nil
 	}
 
-	if invitation == nil {
+	needsCampaignIntent := strings.TrimSpace(affiliateCode) != "" && s.newcomerCampaign != nil
+	if invitation == nil && !needsCampaignIntent {
 		return commitUser(ctx)
 	}
 	if s.entClient == nil {
@@ -1338,6 +1357,11 @@ func (s *AuthService) createUserAndClaimInvitation(ctx context.Context, user *Us
 	execCtx := dbent.NewTxContext(ctx, tx)
 	if err := commitUser(execCtx); err != nil {
 		return err
+	}
+	if needsCampaignIntent {
+		if err := s.newcomerCampaign.PersistReferralIntent(execCtx, user.ID, affiliateCode, signupSource); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to commit registration transaction: %v", err)

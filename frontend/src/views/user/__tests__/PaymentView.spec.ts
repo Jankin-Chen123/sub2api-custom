@@ -27,6 +27,7 @@ const showWarning = vi.hoisted(() => vi.fn())
 const getCheckoutInfo = vi.hoisted(() => vi.fn())
 const campaignStoreState = vi.hoisted(() => ({ status: null as NewcomerCampaignStatus | null }))
 const fetchCampaignStatus = vi.hoisted(() => vi.fn())
+const reconcileCampaign = vi.hoisted(() => vi.fn())
 const bridgeInvoke = vi.hoisted(() => vi.fn())
 const translate = vi.hoisted(() => vi.fn((key: string) => key))
 
@@ -80,6 +81,7 @@ vi.mock('@/stores/campaign', () => ({
   useCampaignStore: () => ({
     status: campaignStoreState.status,
     fetchStatus: fetchCampaignStatus,
+    reconcile: reconcileCampaign,
   }),
 }))
 
@@ -100,6 +102,7 @@ vi.mock('@/api/payment', () => ({
 beforeEach(() => {
   campaignStoreState.status = null
   fetchCampaignStatus.mockReset().mockResolvedValue(null)
+  reconcileCampaign.mockReset().mockResolvedValue(null)
 })
 
 vi.mock('@/utils/device', () => ({
@@ -298,7 +301,7 @@ describe('PaymentView newcomer campaign', () => {
     expect(wrapper.find('[data-test="campaign-recharge-breakdown"]').text()).toContain(
       formatPaymentAmount(12, 'CNY'),
     )
-    expect(fetchCampaignStatus).toHaveBeenCalled()
+    expect(fetchCampaignStatus).toHaveBeenCalledWith(true)
   })
 
   it('does not show or preselect the campaign entry when the server says the user is not eligible', async () => {

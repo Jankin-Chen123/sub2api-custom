@@ -168,7 +168,11 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	if tm <= 0 {
 		tm = defaultOrderTimeoutMin
 	}
-	exp := time.Now().Add(time.Duration(tm) * time.Minute)
+	createdAt := time.Now()
+	if s != nil && s.now != nil {
+		createdAt = s.now()
+	}
+	exp := createdAt.Add(time.Duration(tm) * time.Minute)
 	outTradeNo, err := s.allocateOutTradeNo(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -195,6 +199,7 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		SetOrderType(req.OrderType).
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(exp).
+		SetCreatedAt(createdAt).
 		SetClientIP(req.ClientIP).
 		SetSrcHost(req.SrcHost)
 	if req.SrcURL != "" {
@@ -217,13 +222,33 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, fmt.Errorf("create order: %w", err)
 	}
 	if req.OrderType == payment.OrderTypeBalance {
-		if _, err := tx.ExecContext(ctx, `
+		if s.newcomerCampaign != nil && s.newcomerCampaign.persistentConfig {
+			if err := s.newcomerCampaign.RecordPaymentFactInTx(ctx, tx, order.ID, req.UserID, req.Amount, normalizePaymentPrincipalCurrency(principalCurrency)); err != nil {
+				return nil, err
+			}
+		} else {
+			// Facts are only needed for users who joined during the campaign and
+			// are captured while the final invite qualification window is open.
+			// The campaign's global cutoff is campaign end + 14 days; after it no
+			// newly-created balance order should grow this activity table forever.
+			campaignStart, campaignEnd := NewcomerCampaignWindow()
+			campaignCaptureEnd := campaignEnd.Add(newcomerCampaignCaptureGrace)
+			if _, err := tx.ExecContext(ctx, `
 INSERT INTO newcomer_campaign_payment_facts
     (order_id, user_id, principal_amount, principal_currency)
-VALUES ($1, $2, $3, $4)
+SELECT $1, $2, $3, $4
+WHERE EXISTS (
+    SELECT 1 FROM users u
+    WHERE u.id = $2 AND u.created_at >= $5 AND u.created_at < $6
+)
+  AND EXISTS (
+    SELECT 1 FROM payment_orders po
+    WHERE po.id = $1 AND po.created_at >= $5 AND po.created_at < $7
+)
 ON CONFLICT (order_id) DO NOTHING`,
-			order.ID, req.UserID, req.Amount, normalizePaymentPrincipalCurrency(principalCurrency)); err != nil {
-			return nil, fmt.Errorf("record newcomer campaign payment principal: %w", err)
+				order.ID, req.UserID, req.Amount, normalizePaymentPrincipalCurrency(principalCurrency), campaignStart, campaignEnd, campaignCaptureEnd); err != nil {
+				return nil, fmt.Errorf("record newcomer campaign payment principal: %w", err)
+			}
 		}
 	}
 	code := fmt.Sprintf("PAY-%d-%d", order.ID, time.Now().UnixNano()%100000)

@@ -26,8 +26,18 @@
     <div class="flex shrink-0 items-center gap-2 pt-0.5">
       <div class="flex shrink-0 flex-col items-end gap-1">
         <!-- Rate pill (platform color) -->
-        <span v-if="rateMultiplier !== undefined" :class="['inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold', ratePillClass]">
-          <template v-if="hasCustomRate">
+        <span
+          v-if="rateMultiplier !== undefined"
+          data-test="group-rate-pill"
+          :class="['inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold', ratePillClass]"
+          :title="campaignRateTitle"
+        >
+          <template v-if="hasCampaignRate">
+            <!-- 复用原有的“原倍率删除线 + 最终倍率高亮”样式。 -->
+            <span class="mr-1 line-through opacity-50">{{ campaignBaseRate }}x</span>
+            <span class="font-bold">{{ formattedCampaignRate }}x</span>
+          </template>
+          <template v-else-if="hasCustomRate">
             <span class="mr-1 line-through opacity-50">{{ rateMultiplier }}x</span>
             <span class="font-bold">{{ userRateMultiplier }}x</span>
           </template>
@@ -65,6 +75,7 @@ import GroupBadge from './GroupBadge.vue'
 import type { SubscriptionType, GroupPlatform } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
+import { formatMultiplier } from '@/utils/formatters'
 
 const { t } = useI18n()
 
@@ -74,6 +85,7 @@ interface Props {
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
   userRateMultiplier?: number | null
+  campaignFactor?: number | null
   peakRateEnabled?: boolean
   peakStart?: string
   peakEnd?: string
@@ -88,6 +100,7 @@ const props = withDefaults(defineProps<Props>(), {
   selected: false,
   showCheckmark: true,
   userRateMultiplier: null,
+  campaignFactor: null,
   peakRateEnabled: false
 })
 
@@ -99,6 +112,39 @@ const hasCustomRate = computed(() => {
     props.rateMultiplier !== undefined &&
     props.userRateMultiplier !== props.rateMultiplier
   )
+})
+
+const baseRate = computed(() => props.userRateMultiplier ?? props.rateMultiplier)
+
+// The first value keeps the existing group-rate presentation. The bold value
+// next to it is the final rate after applying the campaign factor.
+const campaignBaseRate = computed(() => baseRate.value)
+
+const hasCampaignRate = computed(() => {
+  const factor = props.campaignFactor
+  return (
+    props.subscriptionType !== 'subscription' &&
+    baseRate.value !== undefined &&
+    factor !== null &&
+    factor !== undefined &&
+    Number.isFinite(factor) &&
+    factor > 0 &&
+    factor !== 1
+  )
+})
+
+const formattedCampaignRate = computed(() => {
+  if (!hasCampaignRate.value || baseRate.value === undefined || props.campaignFactor === undefined || props.campaignFactor === null) {
+    return ''
+  }
+  return formatMultiplier(baseRate.value * props.campaignFactor)
+})
+
+const campaignRateTitle = computed(() => {
+  if (!hasCampaignRate.value || props.campaignFactor === undefined || props.campaignFactor === null) {
+    return undefined
+  }
+  return t('campaign.membershipFactor', { factor: formatMultiplier(props.campaignFactor) })
 })
 
 const appStore = useAppStore()

@@ -289,14 +289,30 @@ func (s *SubscriptionService) PurchaseSubscription(ctx context.Context, userID, 
 	if group.Status != StatusActive || group.SubscriptionType != SubscriptionTypeSubscription || plan.Price <= 0 {
 		return nil, ErrSubscriptionPlanNotFound
 	}
-	exists, err := tx.UserSubscription.Query().
+	// The user/group relation is unique for all non-revoked rows. An expired
+	// subscription is no longer an active entitlement, so release that row's
+	// unique slot before creating the new pending purchase card. Keeping the
+	// old row soft-deleted preserves the history for administrators.
+	existing, err := tx.UserSubscription.Query().
 		Where(usersubscription.UserIDEQ(userID), usersubscription.GroupIDEQ(plan.GroupID)).
-		Exist(txCtx)
-	if err != nil {
+		ForUpdate().
+		Only(txCtx)
+	if err != nil && !dbent.IsNotFound(err) {
 		return nil, err
 	}
-	if exists {
-		return nil, ErrSubscriptionAlreadyExists
+	if err == nil {
+		now := time.Now()
+		if s.now != nil {
+			now = s.now()
+		}
+		if !isExpiredSubscriptionRecord(existing.Status, existing.ExpiresAt, now) {
+			return nil, ErrSubscriptionAlreadyExists
+		}
+		if _, err := tx.UserSubscription.UpdateOneID(existing.ID).
+			SetDeletedAt(now).
+			Save(txCtx); err != nil {
+			return nil, err
+		}
 	}
 	updated, err := tx.User.Update().
 		Where(user.IDEQ(userID), user.BalanceGTE(plan.Price)).
@@ -974,7 +990,7 @@ func (s *SubscriptionService) ListUserSubscriptions(ctx context.Context, userID 
 	}
 	normalizeExpiredWindows(subs)
 	normalizeSubscriptionStatus(subs)
-	return subs, nil
+	return excludeExpiredSubscriptions(subs), nil
 }
 
 // ListActiveUserSubscriptions 获取用户的所有有效订阅
@@ -1048,6 +1064,22 @@ func normalizeSubscriptionStatus(subs []UserSubscription) {
 			sub.Status = SubscriptionStatusExpired
 		}
 	}
+}
+
+func isExpiredSubscriptionRecord(status string, expiresAt, now time.Time) bool {
+	return status == SubscriptionStatusExpired ||
+		(status == SubscriptionStatusActive && !expiresAt.After(now))
+}
+
+func excludeExpiredSubscriptions(subs []UserSubscription) []UserSubscription {
+	visible := make([]UserSubscription, 0, len(subs))
+	for i := range subs {
+		if subs[i].Status == SubscriptionStatusExpired {
+			continue
+		}
+		visible = append(visible, subs[i])
+	}
+	return visible
 }
 
 // startOfDay 返回给定时间所在日期的零点（保持原时区）

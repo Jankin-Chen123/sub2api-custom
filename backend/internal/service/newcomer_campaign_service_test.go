@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +26,32 @@ func newNewcomerCampaignSQLMock(t *testing.T) (*dbent.Client, sqlmock.Sqlmock) {
 		_ = db.Close()
 	})
 	return client, mock
+}
+
+// signalQueryMatcher lets concurrency tests know that the driver's query has
+// actually started without relying on a scheduler-sensitive sleep.
+type signalQueryMatcher struct {
+	started chan struct{}
+	once    sync.Once
+}
+
+func (m *signalQueryMatcher) Match(expectedSQL, actualSQL string) error {
+	m.once.Do(func() { close(m.started) })
+	return sqlmock.QueryMatcherRegexp.Match(expectedSQL, actualSQL)
+}
+
+func newSignallingNewcomerCampaignSQLMock(t *testing.T) (*dbent.Client, sqlmock.Sqlmock, <-chan struct{}) {
+	t.Helper()
+	started := make(chan struct{})
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(&signalQueryMatcher{started: started}))
+	require.NoError(t, err)
+	drv := entsql.OpenDB(dialect.Postgres, db)
+	client := dbent.NewClient(dbent.Driver(drv))
+	t.Cleanup(func() {
+		_ = client.Close()
+		_ = db.Close()
+	})
+	return client, mock, started
 }
 
 type newcomerBalanceCacheInvalidatorStub struct {
@@ -127,6 +154,8 @@ func TestNewcomerCampaignFirstRechargeGrantIsIdempotent(t *testing.T) {
 	lockOrder := `(?s)SELECT status.*FROM payment_orders.*WHERE id = \$1 AND user_id = \$2 AND order_type = 'balance'.*FOR UPDATE`
 
 	mock.ExpectBegin()
+	mock.ExpectExec(`SELECT set_config\('sub2api\.balance_credit_kind', 'campaign_reward', true\)`).
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(lockOrder).WithArgs(int64(99), int64(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(OrderStatusCompleted))
 	mock.ExpectExec(insert).
@@ -142,6 +171,8 @@ func TestNewcomerCampaignFirstRechargeGrantIsIdempotent(t *testing.T) {
 	// A repeated callback sees the same idempotency key and must not credit the
 	// user a second time.
 	mock.ExpectBegin()
+	mock.ExpectExec(`SELECT set_config\('sub2api\.balance_credit_kind', 'campaign_reward', true\)`).
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(lockOrder).WithArgs(int64(99), int64(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(OrderStatusCompleted))
 	mock.ExpectExec(insert).
@@ -162,6 +193,8 @@ func TestNewcomerCampaignRewardInvalidatesBalanceAndAuthCachesAfterCommit(t *tes
 
 	lockOrder := `(?s)SELECT status.*FROM payment_orders.*WHERE id = \$1 AND user_id = \$2 AND order_type = 'balance'.*FOR UPDATE`
 	mock.ExpectBegin()
+	mock.ExpectExec(`SELECT set_config\('sub2api\.balance_credit_kind', 'campaign_reward', true\)`).
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(lockOrder).WithArgs(int64(99), int64(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(OrderStatusCompleted))
 	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_reward_ledger.*ON CONFLICT \(idempotency_key\) DO NOTHING`).
@@ -176,16 +209,29 @@ func TestNewcomerCampaignRewardInvalidatesBalanceAndAuthCachesAfterCommit(t *tes
 	require.Equal(t, []int64{7}, balanceCache.calls)
 	require.Equal(t, []int64{7}, authCache.calls)
 
+	mock.ExpectBegin()
 	mock.ExpectQuery(`(?s)SELECT COALESCE\(SUM\(amount\), 0\).*FROM newcomer_campaign_reward_ledger`).
 		WithArgs(NewcomerCampaignKey, int64(7), int64(99)).
 		WillReturnRows(sqlmock.NewRows([]string{"sum"}).AddRow(newcomerRewardAmount))
-	mock.ExpectBegin()
 	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_reward_ledger.*entry_type, amount, idempotency_key.*'revoke'`).
 		WithArgs(NewcomerCampaignKey, int64(7), int64(99), newcomerRewardAmount,
 			"newcomer_202609:first-recharge:revoke:99", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(2, 1))
-	mock.ExpectExec(`(?s)UPDATE users\s+SET balance = GREATEST\(balance - \$1, 0\).*WHERE id = \$2`).
+	mock.ExpectQuery(`(?s)INSERT INTO newcomer_campaign_clawback_debts.*RETURNING id`).
+		WithArgs(NewcomerCampaignKey, int64(7), int64(99), newcomerRewardAmount,
+			"newcomer_202609:first-recharge:clawback:99", sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(3)))
+	mock.ExpectQuery(`(?s)SELECT balance.*FROM users.*FOR UPDATE`).
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(newcomerRewardAmount))
+	mock.ExpectExec(`(?s)UPDATE users\s+SET balance = balance - \$1.*WHERE id = \$2`).
 		WithArgs(newcomerRewardAmount, int64(7)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_clawback_allocations`).
+		WithArgs(int64(3), int64(7), newcomerRewardAmount, "99", "newcomer-clawback:3:first_recharge_refund:99").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)UPDATE newcomer_campaign_clawback_debts.*SET recovered_amount`).
+		WithArgs(newcomerRewardAmount, int64(3)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 	require.NoError(t, svc.revokeFirstRechargeReward(context.Background(), 7, 99, "refund"))
@@ -196,31 +242,77 @@ func TestNewcomerCampaignRewardInvalidatesBalanceAndAuthCachesAfterCommit(t *tes
 
 func TestNewcomerCampaignRefundReversalIsIdempotent(t *testing.T) {
 	client, mock := newNewcomerCampaignSQLMock(t)
+	mock.ExpectBegin()
 	mock.ExpectQuery(`(?s)SELECT COALESCE\(SUM\(amount\), 0\).*FROM newcomer_campaign_reward_ledger`).
 		WithArgs(NewcomerCampaignKey, int64(7), int64(99)).
 		WillReturnRows(sqlmock.NewRows([]string{"sum"}).AddRow(newcomerRewardAmount))
-	mock.ExpectBegin()
 	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_reward_ledger.*entry_type, amount, idempotency_key.*'revoke'`).
 		WithArgs(NewcomerCampaignKey, int64(7), int64(99), newcomerRewardAmount,
 			"newcomer_202609:first-recharge:revoke:99", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(2, 1))
-	mock.ExpectExec(`(?s)UPDATE users\s+SET balance = GREATEST\(balance - \$1, 0\).*WHERE id = \$2`).
+	mock.ExpectQuery(`(?s)INSERT INTO newcomer_campaign_clawback_debts.*RETURNING id`).
+		WithArgs(NewcomerCampaignKey, int64(7), int64(99), newcomerRewardAmount,
+			"newcomer_202609:first-recharge:clawback:99", sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(3)))
+	mock.ExpectQuery(`(?s)SELECT balance.*FROM users.*FOR UPDATE`).
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(newcomerRewardAmount))
+	mock.ExpectExec(`(?s)UPDATE users\s+SET balance = balance - \$1.*WHERE id = \$2`).
 		WithArgs(newcomerRewardAmount, int64(7)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_clawback_allocations`).
+		WithArgs(int64(3), int64(7), newcomerRewardAmount, "99", "newcomer-clawback:3:first_recharge_refund:99").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)UPDATE newcomer_campaign_clawback_debts.*SET recovered_amount`).
+		WithArgs(newcomerRewardAmount, int64(3)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
 	svc := NewNewcomerCampaignService(client)
 	require.NoError(t, svc.revokeFirstRechargeReward(context.Background(), 7, 99, "refund"))
 
+	mock.ExpectBegin()
 	mock.ExpectQuery(`(?s)SELECT COALESCE\(SUM\(amount\), 0\).*FROM newcomer_campaign_reward_ledger`).
 		WithArgs(NewcomerCampaignKey, int64(7), int64(99)).
 		WillReturnRows(sqlmock.NewRows([]string{"sum"}).AddRow(newcomerRewardAmount))
-	mock.ExpectBegin()
 	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_reward_ledger.*entry_type, amount, idempotency_key.*'revoke'`).
 		WithArgs(NewcomerCampaignKey, int64(7), int64(99), newcomerRewardAmount,
 			"newcomer_202609:first-recharge:revoke:99", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
+	require.NoError(t, svc.revokeFirstRechargeReward(context.Background(), 7, 99, "refund"))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewcomerCampaignRefundCreatesPendingClawbackForUnavailableBalance(t *testing.T) {
+	client, mock := newNewcomerCampaignSQLMock(t)
+	mock.ExpectBegin()
+	mock.ExpectQuery(`(?s)SELECT COALESCE\(SUM\(amount\), 0\).*FROM newcomer_campaign_reward_ledger`).
+		WithArgs(NewcomerCampaignKey, int64(7), int64(99)).
+		WillReturnRows(sqlmock.NewRows([]string{"sum"}).AddRow(newcomerRewardAmount))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_reward_ledger.*entry_type, amount, idempotency_key.*'revoke'`).
+		WithArgs(NewcomerCampaignKey, int64(7), int64(99), newcomerRewardAmount,
+			"newcomer_202609:first-recharge:revoke:99", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(2, 1))
+	mock.ExpectQuery(`(?s)INSERT INTO newcomer_campaign_clawback_debts.*RETURNING id`).
+		WithArgs(NewcomerCampaignKey, int64(7), int64(99), newcomerRewardAmount,
+			"newcomer_202609:first-recharge:clawback:99", sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(3)))
+	mock.ExpectQuery(`(?s)SELECT balance.*FROM users.*FOR UPDATE`).
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.75))
+	mock.ExpectExec(`(?s)UPDATE users\s+SET balance = balance - \$1.*WHERE id = \$2`).
+		WithArgs(0.75, int64(7)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_clawback_allocations`).
+		WithArgs(int64(3), int64(7), 0.75, "99", "newcomer-clawback:3:first_recharge_refund:99").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)UPDATE newcomer_campaign_clawback_debts.*SET recovered_amount`).
+		WithArgs(0.75, int64(3)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	svc := NewNewcomerCampaignService(client)
 	require.NoError(t, svc.revokeFirstRechargeReward(context.Background(), 7, 99, "refund"))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -234,7 +326,7 @@ func TestNewcomerCampaignInviteQualificationUsesOnlinePaymentsAndRedeemCodes(t *
 	mock.ExpectQuery(`(?s)SELECT COUNT\(\*\).*FROM newcomer_campaign_invites.*LEFT JOIN newcomer_campaign_payment_facts f.*f\.order_id IS NULL`).
 		WithArgs(NewcomerCampaignKey, int64(11)).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
-	mock.ExpectExec(`(?s)WITH consumption AS.*f\.principal_amount \* CASE.*WHEN po\.status = 'REFUNDED' THEN 0.*WHEN po\.status = 'PARTIALLY_REFUNDED' THEN.*WHEN po\.amount > 0 THEN.*LEAST\(GREATEST\(COALESCE\(po\.refund_amount, 0\) / po\.amount, 0\), 1\).*JOIN redeem_codes rc.*rc\.used_by = i\.invitee_id.*rc\.type = 'balance'.*rc\.status = 'used'.*rc\.value > 0.*COALESCE\(rc\.affiliate_rebate_status, 'not_applicable'\) <> 'excluded'.*rc\.used_at IS NOT NULL.*NOT EXISTS.*payment_orders internal_po.*internal_po\.recharge_code = rc\.code.*qualification_deadline`).
+	mock.ExpectExec(`(?s)WITH consumption AS.*f\.principal_amount \* CASE.*WHEN po\.status = 'REFUNDED' THEN 0.*WHEN po\.status = 'PARTIALLY_REFUNDED' THEN.*WHEN po\.amount > 0 THEN.*LEAST\(GREATEST\(COALESCE\(po\.refund_amount, 0\) / po\.amount, 0\), 1\).*JOIN redeem_codes rc.*rc\.used_by = i\.invitee_id.*rc\.type = 'balance'.*rc\.status = 'used'.*rc\.value > 0.*COALESCE\(rc\.affiliate_rebate_status, 'not_applicable'\) <> 'excluded'.*rc\.used_at IS NOT NULL.*NOT EXISTS.*payment_orders internal_po.*internal_po\.recharge_code = rc\.code.*ordered_consumption AS.*SUM\(c\.amount\) OVER.*MIN\(c\.occurred_at\).*c\.cumulative_amount >= \$3.*qualified_at = CASE.*totals\.qualified_at`).
 		WithArgs(NewcomerCampaignKey, int64(11), newcomerInviteThreshold, now, newcomerPrincipalCurrency).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -249,6 +341,8 @@ func TestNewcomerCampaignInviteQualificationUsesOnlinePaymentsAndRedeemCodes(t *
 func TestNewcomerCampaignRewardSkipsRefundedOrderWhileHoldingOrderLock(t *testing.T) {
 	client, mock := newNewcomerCampaignSQLMock(t)
 	mock.ExpectBegin()
+	mock.ExpectExec(`SELECT set_config\('sub2api\.balance_credit_kind', 'campaign_reward', true\)`).
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(`(?s)SELECT status.*FROM payment_orders.*FOR UPDATE`).
 		WithArgs(int64(99), int64(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(OrderStatusRefunded))
@@ -314,28 +408,138 @@ func TestNewcomerCampaignNetPrincipalUsesOriginalPrincipalForPartialRefund(t *te
 }
 
 func TestNewcomerCampaignStatusEnsuresInviteProfileWithoutAffiliateSwitch(t *testing.T) {
-	client, _ := newNewcomerCampaignSQLMock(t)
+	client, mock := newNewcomerCampaignSQLMock(t)
 	ensurer := &newcomerAffiliateEnsurerStub{summary: &AffiliateSummary{UserID: 7, AffCode: "NEWCOMER7"}}
 	svc := NewNewcomerCampaignService(client, ensurer)
+	mock.ExpectQuery(`(?s)SELECT invite_code.*FROM newcomer_campaign_invite_codes.*WHERE campaign_key = \$1 AND inviter_id = \$2`).
+		WithArgs(NewcomerCampaignKey, int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"invite_code"}))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_invite_codes`).
+		WithArgs(NewcomerCampaignKey, "NEWCOMER7", int64(7)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`(?s)SELECT inviter_id.*FROM newcomer_campaign_invite_codes.*WHERE campaign_key = \$1 AND invite_code = \$2`).
+		WithArgs(NewcomerCampaignKey, "NEWCOMER7").
+		WillReturnRows(sqlmock.NewRows([]string{"inviter_id"}).AddRow(int64(7)))
 
 	code, err := svc.ensureCampaignInviteCode(context.Background(), 7)
 	require.NoError(t, err)
 	require.Equal(t, "NEWCOMER7", code)
 	require.Equal(t, int64(7), ensurer.userID)
 	require.Equal(t, 1, ensurer.calls)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewcomerCampaignInviteMappingSurvivesLegacyAffiliateRemoval(t *testing.T) {
+	client, mock := newNewcomerCampaignSQLMock(t)
+	start, end := NewcomerCampaignWindow()
+	ensurer := &newcomerAffiliateEnsurerStub{summary: &AffiliateSummary{UserID: 7, AffCode: "INVITER7"}}
+	svc := NewNewcomerCampaignService(client, ensurer)
+
+	// Bootstrap writes the activity-owned mapping while the ordinary profile
+	// still exists. The subsequent materialization simulates that profile being
+	// removed: the legacy seed query returns no rows, but the durable mapping
+	// still resolves the invite.
+	mock.ExpectQuery(`(?s)SELECT invite_code.*FROM newcomer_campaign_invite_codes.*WHERE campaign_key = \$1 AND inviter_id = \$2`).
+		WithArgs(NewcomerCampaignKey, int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"invite_code"}))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_invite_codes`).
+		WithArgs(NewcomerCampaignKey, "INVITER7", int64(7)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`(?s)SELECT inviter_id.*FROM newcomer_campaign_invite_codes.*WHERE campaign_key = \$1 AND invite_code = \$2`).
+		WithArgs(NewcomerCampaignKey, "INVITER7").
+		WillReturnRows(sqlmock.NewRows([]string{"inviter_id"}).AddRow(int64(7)))
+	require.NoError(t, svc.EnsureCampaignInviteCode(context.Background(), 7))
+
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_referral_intents`).
+		WithArgs(NewcomerCampaignKey, int64(11), "INVITER7", "email").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_invite_codes.*FROM user_affiliates ua`).
+		WithArgs(NewcomerCampaignKey, int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(`(?s)WITH resolved AS.*INSERT INTO newcomer_campaign_invites.*ON CONFLICT \(campaign_key, invitee_id\) DO NOTHING`).
+		WithArgs(NewcomerCampaignKey, int64(11), start, end).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(`(?s)UPDATE newcomer_campaign_referral_intents r.*campaign invite code mapping unavailable`).
+		WithArgs(NewcomerCampaignKey, int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	require.NoError(t, svc.OnUserRegisteredWithSource(context.Background(), 11, "INVITER7", "email"))
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestNewcomerCampaignInviteBindingIgnoresAffiliateSwitch(t *testing.T) {
 	client, mock := newNewcomerCampaignSQLMock(t)
 	start, end := NewcomerCampaignWindow()
-	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_invites.*FROM user_affiliates ua.*WHERE ua\.aff_code = \$3.*u\.created_at >= \$4.*u\.created_at < \$5`).
-		WithArgs(NewcomerCampaignKey, int64(11), "INVITER11", start, end).
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_referral_intents`).
+		WithArgs(NewcomerCampaignKey, int64(11), "INVITER11", "unknown").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_invite_codes.*FROM user_affiliates ua`).
+		WithArgs(NewcomerCampaignKey, int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)WITH resolved AS.*INSERT INTO newcomer_campaign_invites.*ON CONFLICT \(campaign_key, invitee_id\) DO NOTHING`).
+		WithArgs(NewcomerCampaignKey, int64(11), start, end).
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(`(?s)UPDATE newcomer_campaign_referral_intents r.*campaign invite code mapping unavailable`).
+		WithArgs(NewcomerCampaignKey, int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	svc := NewNewcomerCampaignService(client)
 	require.NoError(t, svc.OnUserRegistered(context.Background(), 11, " INVITER11 "))
 	// No affiliate_enabled query or ordinary rebate call is made by this
 	// independent campaign binding path.
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewcomerCampaignReferralIntentRetriesAfterMissingMapping(t *testing.T) {
+	client, mock := newNewcomerCampaignSQLMock(t)
+	start, end := NewcomerCampaignWindow()
+	intent := `(?s)INSERT INTO newcomer_campaign_referral_intents`
+	seed := `(?s)INSERT INTO newcomer_campaign_invite_codes.*FROM user_affiliates ua`
+	materialize := `(?s)WITH resolved AS.*INSERT INTO newcomer_campaign_invites.*ON CONFLICT \(campaign_key, invitee_id\) DO NOTHING`
+	pending := `(?s)UPDATE newcomer_campaign_referral_intents r.*campaign invite code mapping unavailable`
+
+	// The first post-registration hook persists the intent even though the
+	// inviter mapping is not available yet. It remains pending and diagnostic.
+	mock.ExpectExec(intent).
+		WithArgs(NewcomerCampaignKey, int64(11), "LATECODE", "email").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(seed).
+		WithArgs(NewcomerCampaignKey, int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(materialize).
+		WithArgs(NewcomerCampaignKey, int64(11), start, end).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(pending).
+		WithArgs(NewcomerCampaignKey, int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	// A later retry sees the activity-owned mapping and can bind the same
+	// persisted intent without creating a duplicate invitation.
+	mock.ExpectExec(intent).
+		WithArgs(NewcomerCampaignKey, int64(11), "LATECODE", "email").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(seed).
+		WithArgs(NewcomerCampaignKey, int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(materialize).
+		WithArgs(NewcomerCampaignKey, int64(11), start, end).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(pending).
+		WithArgs(NewcomerCampaignKey, int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	svc := NewNewcomerCampaignService(client)
+	require.NoError(t, svc.OnUserRegisteredWithSource(context.Background(), 11, "LATECODE", "email"))
+	require.NoError(t, svc.OnUserRegisteredWithSource(context.Background(), 11, "LATECODE", "email"))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewcomerCampaignReferralIntentKeepsBoundCodeImmutable(t *testing.T) {
+	client, mock := newNewcomerCampaignSQLMock(t)
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_referral_intents.*invite_code = CASE.*status = 'bound'.*THEN newcomer_campaign_referral_intents\.invite_code.*ELSE EXCLUDED\.invite_code`).
+		WithArgs(NewcomerCampaignKey, int64(11), "NEWCODE", "oauth").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	svc := NewNewcomerCampaignService(client)
+	require.NoError(t, svc.PersistReferralIntent(context.Background(), 11, "NEWCODE", "oauth"))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -348,7 +552,7 @@ func TestNewcomerCampaignPaidRedeemRuleExcludesExplicitGifts(t *testing.T) {
 	mock.ExpectQuery(`(?s)SELECT COUNT\(\*\).*LEFT JOIN newcomer_campaign_payment_facts f.*f\.order_id IS NULL`).
 		WithArgs(NewcomerCampaignKey, int64(11)).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
-	mock.ExpectExec(`(?s)WITH consumption AS.*COALESCE\(rc\.affiliate_rebate_status, 'not_applicable'\) <> 'excluded'`).
+	mock.ExpectExec(`(?s)WITH consumption AS.*COALESCE\(rc\.affiliate_rebate_status, 'not_applicable'\) <> 'excluded'.*ordered_consumption AS.*SUM\(c\.amount\) OVER.*MIN\(c\.occurred_at\).*qualified_at = CASE.*totals\.qualified_at`).
 		WithArgs(NewcomerCampaignKey, int64(11), newcomerInviteThreshold, now, newcomerPrincipalCurrency).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -361,11 +565,13 @@ func TestNewcomerCampaignPaidRedeemRuleExcludesExplicitGifts(t *testing.T) {
 
 func TestNewcomerCampaignBackfillUsesOrderCreatedPrincipalAndIsIdempotent(t *testing.T) {
 	client, mock := newNewcomerCampaignSQLMock(t)
-	candidates := `(?s)SELECT DISTINCT ON \(po\.id\).*FROM payment_orders po.*JOIN payment_audit_logs pal.*LEFT JOIN newcomer_campaign_payment_facts f.*AND po\.user_id = \$1`
+	start, end := NewcomerCampaignWindow()
+	captureEnd := end.Add(newcomerCampaignCaptureGrace)
+	candidates := `(?s)SELECT DISTINCT ON \(po\.id\).*FROM payment_orders po.*JOIN users u.*JOIN payment_audit_logs pal.*LEFT JOIN newcomer_campaign_payment_facts f.*AND po\.user_id = \$5.*LIMIT \$6`
 	insert := `(?s)INSERT INTO newcomer_campaign_payment_facts.*ON CONFLICT \(order_id\) DO NOTHING`
 
 	mock.ExpectQuery(candidates).
-		WithArgs(int64(7)).
+		WithArgs(start, end, captureEnd, int64(0), int64(7), newcomerCampaignRepairBatchSize).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "detail"}).
 			AddRow(int64(99), int64(7), `{"paymentAmount":10,"principalCurrency":"HKD"}`))
 	mock.ExpectExec(insert).
@@ -380,7 +586,7 @@ func TestNewcomerCampaignBackfillUsesOrderCreatedPrincipalAndIsIdempotent(t *tes
 	// Re-running the same repair remains safe and does not report a second
 	// inserted fact when the database's unique key rejects it.
 	mock.ExpectQuery(candidates).
-		WithArgs(int64(7)).
+		WithArgs(start, end, captureEnd, int64(0), int64(7), newcomerCampaignRepairBatchSize).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "detail"}).
 			AddRow(int64(99), int64(7), `{"paymentAmount":10,"principalCurrency":"HKD"}`))
 	mock.ExpectExec(insert).
@@ -394,7 +600,10 @@ func TestNewcomerCampaignBackfillUsesOrderCreatedPrincipalAndIsIdempotent(t *tes
 
 func TestNewcomerCampaignBackfillDoesNotGuessMissingPrincipal(t *testing.T) {
 	client, mock := newNewcomerCampaignSQLMock(t)
+	start, end := NewcomerCampaignWindow()
+	captureEnd := end.Add(newcomerCampaignCaptureGrace)
 	mock.ExpectQuery(`(?s)SELECT DISTINCT ON \(po\.id\).*FROM payment_orders po.*JOIN payment_audit_logs pal`).
+		WithArgs(start, end, captureEnd, int64(0), newcomerCampaignRepairBatchSize).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "detail"}).
 			AddRow(int64(99), int64(7), `{"creditedAmount":20,"payAmount":21}`))
 
@@ -423,7 +632,7 @@ func TestNewcomerCampaignApplyMembershipFactorIsFinalLayer(t *testing.T) {
 	now := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
 	mock.ExpectQuery(`(?s)SELECT g.factor.*FROM newcomer_campaign_membership_grants`).
 		WithArgs(NewcomerCampaignKey, int64(3), now, newcomerInviteThreshold).
-		WillReturnRows(sqlmock.NewRows([]string{"factor"}).AddRow(0.96))
+		WillReturnRows(sqlmock.NewRows([]string{"factor", "expires_at"}).AddRow(0.96, now.Add(time.Hour)))
 
 	svc := NewNewcomerCampaignService(client)
 	svc.SetClock(func() time.Time { return now })
@@ -437,7 +646,151 @@ func TestNewcomerCampaignApplyMembershipFactorIsFinalLayer(t *testing.T) {
 	require.Zero(t, withoutCampaign.ApplyMembershipFactor(context.Background(), 3, -1))
 }
 
-func expectNewcomerMembershipReconcile(t *testing.T, mock sqlmock.Sqlmock, now time.Time, validCount int, insertTiers bool) {
+func TestNewcomerCampaignMembershipFactorCacheHonorsGrantExpiry(t *testing.T) {
+	client, mock := newNewcomerCampaignSQLMock(t)
+	now := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
+	current := now
+	mock.ExpectQuery(`(?s)SELECT effective\.factor, effective\.expires_at.*FROM`).
+		WithArgs(NewcomerCampaignKey, int64(3), now, newcomerInviteThreshold).
+		WillReturnRows(sqlmock.NewRows([]string{"factor", "expires_at"}).AddRow(0.96, now.Add(time.Second)))
+	svc := NewNewcomerCampaignService(client)
+	svc.SetClock(func() time.Time { return current })
+	require.InDelta(t, 0.96, svc.MembershipFactor(context.Background(), 3), 1e-9)
+
+	// The grant is still effective immediately before its real expiry, so the
+	// cached entry is usable; at the boundary it must be queried again.
+	current = now.Add(time.Second - time.Nanosecond)
+	require.InDelta(t, 0.96, svc.MembershipFactor(context.Background(), 3), 1e-9)
+	current = now.Add(time.Second)
+	mock.ExpectQuery(`(?s)SELECT effective\.factor, effective\.expires_at.*FROM`).
+		WithArgs(NewcomerCampaignKey, int64(3), current, newcomerInviteThreshold).
+		WillReturnRows(sqlmock.NewRows([]string{"factor", "expires_at"}))
+	require.Equal(t, 1.0, svc.MembershipFactor(context.Background(), 3))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewcomerCampaignMembershipFactorDoesNotCacheQueryErrors(t *testing.T) {
+	client, mock := newNewcomerCampaignSQLMock(t)
+	now := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(`(?s)SELECT effective\.factor, effective\.expires_at.*FROM`).
+		WithArgs(NewcomerCampaignKey, int64(3), now, newcomerInviteThreshold).
+		WillReturnError(fmt.Errorf("temporary database failure"))
+	svc := NewNewcomerCampaignService(client)
+	svc.SetClock(func() time.Time { return now })
+	require.Equal(t, 1.0, svc.MembershipFactor(context.Background(), 3))
+	mock.ExpectQuery(`(?s)SELECT effective\.factor, effective\.expires_at.*FROM`).
+		WithArgs(NewcomerCampaignKey, int64(3), now, newcomerInviteThreshold).
+		WillReturnRows(sqlmock.NewRows([]string{"factor", "expires_at"}).AddRow(0.94, now.Add(time.Hour)))
+	require.InDelta(t, 0.94, svc.MembershipFactor(context.Background(), 3), 1e-9)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewcomerCampaignMembershipFactorSingleflightQueriesOnce(t *testing.T) {
+	client, mock, queryStarted := newSignallingNewcomerCampaignSQLMock(t)
+	now := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(`(?s)SELECT effective\.factor, effective\.expires_at.*FROM`).
+		WithArgs(NewcomerCampaignKey, int64(3), now, newcomerInviteThreshold).
+		WillDelayFor(150 * time.Millisecond).
+		WillReturnRows(sqlmock.NewRows([]string{"factor", "expires_at"}).AddRow(0.94, now.Add(time.Hour)))
+	svc := NewNewcomerCampaignService(client)
+	svc.SetClock(func() time.Time { return now })
+
+	const callers = 16
+	results := make(chan float64, callers)
+	go func() { results <- svc.MembershipFactor(context.Background(), 3) }()
+	select {
+	case <-queryStarted:
+	case <-time.After(time.Second):
+		t.Fatal("membership factor query did not start")
+	}
+	for i := 1; i < callers; i++ {
+		go func() { results <- svc.MembershipFactor(context.Background(), 3) }()
+	}
+	for i := 0; i < callers; i++ {
+		select {
+		case factor := <-results:
+			require.InDelta(t, 0.94, factor, 1e-9)
+		case <-time.After(2 * time.Second):
+			t.Fatal("membership factor caller did not complete")
+		}
+	}
+	require.NoError(t, mock.ExpectationsWereMet(), "concurrent calls must share one database query")
+}
+
+func TestNewcomerCampaignMembershipFactorInvalidationStartsNewFlight(t *testing.T) {
+	client, mock, queryStarted := newSignallingNewcomerCampaignSQLMock(t)
+	// The old request remains in flight while invalidation starts a fresh
+	// generation. Out-of-order matching allows the second request to proceed
+	// while the first driver's artificial delay is still active.
+	mock.MatchExpectationsInOrder(false)
+	now := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(`(?s)SELECT effective\.factor, effective\.expires_at.*FROM`).
+		WithArgs(NewcomerCampaignKey, int64(3), now, newcomerInviteThreshold).
+		WillDelayFor(200 * time.Millisecond).
+		WillReturnRows(sqlmock.NewRows([]string{"factor", "expires_at"}).AddRow(0.98, now.Add(time.Hour)))
+	svc := NewNewcomerCampaignService(client)
+	svc.SetClock(func() time.Time { return now })
+
+	oldResult := make(chan float64, 1)
+	go func() { oldResult <- svc.MembershipFactor(context.Background(), 3) }()
+	select {
+	case <-queryStarted:
+	case <-time.After(time.Second):
+		t.Fatal("old membership factor query did not start")
+	}
+
+	svc.invalidateMembershipFactor(3)
+	mock.ExpectQuery(`(?s)SELECT effective\.factor, effective\.expires_at.*FROM`).
+		WithArgs(NewcomerCampaignKey, int64(3), now, newcomerInviteThreshold).
+		WillReturnRows(sqlmock.NewRows([]string{"factor", "expires_at"}).AddRow(0.94, now.Add(2*time.Hour)))
+	require.InDelta(t, 0.94, svc.MembershipFactor(context.Background(), 3), 1e-9,
+		"a call after invalidation must not join the old flight")
+	require.InDelta(t, 0.98, <-oldResult, 1e-9)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewcomerCampaignEligibilitySnapshotUsesConfiguredWindow(t *testing.T) {
+	client, mock := newNewcomerCampaignSQLMock(t)
+	svc := NewNewcomerCampaignService(client)
+	svc.SetPersistentConfigEnabled(true)
+	start := time.Date(2027, 1, 1, 0, 0, 0, 0, newcomerCampaignLocation).UTC()
+	end := time.Date(2027, 1, 8, 0, 0, 0, 0, newcomerCampaignLocation).UTC()
+	mock.ExpectQuery(`(?s)SELECT starts_at, ends_at.*FROM newcomer_campaign_config`).
+		WithArgs(NewcomerCampaignKey).
+		WillReturnRows(sqlmock.NewRows([]string{"starts_at", "ends_at"}).AddRow(start, end))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_eligible_users.*ON CONFLICT \(campaign_key, user_id\) DO NOTHING`).
+		WithArgs(NewcomerCampaignKey, start, end, int64(7)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	require.NoError(t, svc.ensureCampaignEligibility(context.Background(), 7))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewcomerCampaignRefundUsesEligibilitySnapshotAfterWindowEdit(t *testing.T) {
+	client, mock := newNewcomerCampaignSQLMock(t)
+	svc := NewNewcomerCampaignService(client)
+	svc.SetPersistentConfigEnabled(true)
+	now := time.Date(2027, 2, 1, 0, 0, 0, 0, time.UTC)
+	svc.SetClock(func() time.Time { return now })
+	oldStart := time.Date(2026, 9, 1, 0, 0, 0, 0, newcomerCampaignLocation).UTC()
+	oldEnd := time.Date(2026, 10, 1, 0, 0, 0, 0, newcomerCampaignLocation).UTC()
+	mock.ExpectQuery(`(?s)SELECT registered_at, window_start, window_end, capture_deadline.*FROM newcomer_campaign_eligible_users`).
+		WithArgs(NewcomerCampaignKey, int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"registered_at", "window_start", "window_end", "capture_deadline"}).
+			AddRow(oldStart.Add(24*time.Hour), oldStart, oldEnd, oldEnd.Add(newcomerCampaignCaptureGrace)))
+	mock.ExpectQuery(`(?s)SELECT po\.id, f\.principal_amount, f\.principal_currency.*FROM payment_orders po`).
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "principal_amount", "principal_currency", "completed_at", "refund_amount", "status"}).
+			AddRow(int64(99), nil, nil, oldStart.Add(48*time.Hour), 0.0, OrderStatusRefunded))
+	mock.ExpectBegin()
+	mock.ExpectQuery(`(?s)SELECT COALESCE\(SUM\(amount\), 0\).*FROM newcomer_campaign_reward_ledger`).
+		WithArgs(NewcomerCampaignKey, int64(7), int64(99)).
+		WillReturnRows(sqlmock.NewRows([]string{"sum"}).AddRow(0))
+	mock.ExpectCommit()
+	require.NoError(t, svc.reconcileFirstRecharge(context.Background(), 7))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func expectNewcomerMembershipReconcile(t *testing.T, mock sqlmock.Sqlmock, now time.Time, validCount int, qualifiedAt time.Time, insertTiers bool) {
 	t.Helper()
 	mock.ExpectBegin()
 	mock.ExpectExec(`SELECT pg_advisory_xact_lock\(hashtext\(\$1\)\)`).
@@ -457,9 +810,15 @@ func expectNewcomerMembershipReconcile(t *testing.T, mock sqlmock.Sqlmock, now t
 			if validCount < tier.Threshold {
 				continue
 			}
-			expiresAt := now.Add(time.Duration(tier.DurationDays) * 24 * time.Hour)
+			mock.ExpectQuery(`(?s)SELECT qualified_at.*FROM newcomer_campaign_invites.*ORDER BY qualified_at ASC, id ASC.*OFFSET \$4 LIMIT 1`).
+				WithArgs(NewcomerCampaignKey, int64(3), newcomerInviteThreshold, tier.Threshold-1).
+				WillReturnRows(sqlmock.NewRows([]string{"qualified_at"}).AddRow(qualifiedAt))
+			expiresAt := qualifiedAt.Add(time.Duration(tier.DurationDays) * 24 * time.Hour)
+			if !expiresAt.After(now) {
+				continue
+			}
 			mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_membership_grants.*ON CONFLICT \(campaign_key, user_id, tier_key\) DO NOTHING`).
-				WithArgs(NewcomerCampaignKey, int64(3), tier.Key, tier.Threshold, tier.Factor, tier.DurationDays, now, expiresAt).
+				WithArgs(NewcomerCampaignKey, int64(3), tier.Key, tier.Threshold, tier.Factor, tier.DurationDays, now, qualifiedAt, expiresAt).
 				WillReturnResult(sqlmock.NewResult(0, 1))
 		}
 	}
@@ -473,7 +832,7 @@ func TestNewcomerCampaignMembershipTiersGrantOnceAndReconcileDowngrade(t *testin
 			client, mock := newNewcomerCampaignSQLMock(t)
 			svc := NewNewcomerCampaignService(client)
 			svc.SetClock(func() time.Time { return now })
-			expectNewcomerMembershipReconcile(t, mock, now, validCount, true)
+			expectNewcomerMembershipReconcile(t, mock, now, validCount, now.Add(-time.Hour), true)
 			require.NoError(t, svc.reconcileMembership(context.Background(), 3))
 			require.NoError(t, mock.ExpectationsWereMet())
 		})
@@ -485,8 +844,10 @@ func TestNewcomerCampaignMembershipTiersGrantOnceAndReconcileDowngrade(t *testin
 	// A later count drop revokes only thresholds above the still-valid count;
 	// the unique tier key prevents a previously granted tier from being issued
 	// a second time on a future recovery.
-	expectNewcomerMembershipReconcile(t, mock, now, 10, true)
-	expectNewcomerMembershipReconcile(t, mock, now.Add(31*24*time.Hour), 2, true)
+	expectNewcomerMembershipReconcile(t, mock, now, 10, now.Add(-time.Hour), true)
+	// The original threshold event is now expired. Reconciliation may inspect
+	// it, but must not create a fresh active grant from reconciliation time.
+	expectNewcomerMembershipReconcile(t, mock, now.Add(31*24*time.Hour), 2, now.Add(-time.Hour), true)
 	require.NoError(t, svc.reconcileMembership(context.Background(), 3))
 	svc.SetClock(func() time.Time { return now.Add(31 * 24 * time.Hour) })
 	require.NoError(t, svc.reconcileMembership(context.Background(), 3))
