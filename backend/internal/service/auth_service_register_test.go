@@ -646,9 +646,18 @@ func TestAuthService_Register_CampaignBindingSurvivesDisabledCashRebate(t *testi
 	service.newcomerCampaign = campaign
 
 	start, end := NewcomerCampaignWindow()
-	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_invites.*FROM user_affiliates ua.*WHERE ua\.aff_code = \$3.*u\.created_at >= \$4.*u\.created_at < \$5`).
-		WithArgs(NewcomerCampaignKey, int64(11), "INVITER11", start, end).
-		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_referral_intents`).
+		WithArgs(NewcomerCampaignKey, int64(11), "INVITER11", "email").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)INSERT INTO newcomer_campaign_invite_codes.*FROM user_affiliates ua`).
+		WithArgs(NewcomerCampaignKey, int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(`(?s)WITH resolved AS.*INSERT INTO newcomer_campaign_invites.*ON CONFLICT \(campaign_key, invitee_id\) DO NOTHING`).
+		WithArgs(NewcomerCampaignKey, int64(11), start, end).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(`(?s)UPDATE newcomer_campaign_referral_intents r.*campaign invite code mapping unavailable`).
+		WithArgs(NewcomerCampaignKey, int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
 
 	_, user, err := service.RegisterWithVerification(context.Background(), "newuser@example.com", "password", "", "", "", " inviter11 ")
 	require.NoError(t, err)

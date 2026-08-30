@@ -1477,7 +1477,7 @@ func (s *NewcomerCampaignService) queryOne(ctx context.Context, q campaignQuerye
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	if !rows.Next() {
 		if err := rows.Err(); err != nil {
 			return err
@@ -1630,18 +1630,6 @@ ON CONFLICT (order_id) DO NOTHING`, orderID, auditUserID, *audit.PaymentAmount, 
 		}
 	}
 	return backfilled, nil
-}
-
-func isPaymentPrincipalCurrency(currency string) bool {
-	if len(currency) != 3 {
-		return false
-	}
-	for i := 0; i < len(currency); i++ {
-		if currency[i] < 'A' || currency[i] > 'Z' {
-			return false
-		}
-	}
-	return true
 }
 
 // ReconcileAll is intentionally explicit so operators can run a repeatable

@@ -74,7 +74,7 @@ ORDER BY threshold ASC`, NewcomerCampaignKey)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tiers []NewcomerCampaignTier
 	for rows.Next() {

@@ -155,10 +155,19 @@ func TestCreateOrderInTx_PaymentFactHonorsCampaignWindowAndCaptureCutoff(t *test
 	insideID := create(t, "campaign-fact-inside@example.invalid", start.Add(time.Hour), start.Add(2*time.Hour))
 	afterID := create(t, "campaign-fact-after@example.invalid", start.Add(time.Hour), captureEnd.Add(time.Hour))
 
-	var beforeCount, insideCount, afterCount int
-	require.NoError(t, client.QueryRowContext(ctx, "SELECT COUNT(*) FROM newcomer_campaign_payment_facts WHERE order_id = ?", beforeID).Scan(&beforeCount))
-	require.NoError(t, client.QueryRowContext(ctx, "SELECT COUNT(*) FROM newcomer_campaign_payment_facts WHERE order_id = ?", insideID).Scan(&insideCount))
-	require.NoError(t, client.QueryRowContext(ctx, "SELECT COUNT(*) FROM newcomer_campaign_payment_facts WHERE order_id = ?", afterID).Scan(&afterCount))
+	countFacts := func(orderID int64) int {
+		rows, err := client.QueryContext(ctx, "SELECT COUNT(*) FROM newcomer_campaign_payment_facts WHERE order_id = ?", orderID)
+		require.NoError(t, err)
+		defer func() { _ = rows.Close() }()
+		require.True(t, rows.Next())
+		var count int
+		require.NoError(t, rows.Scan(&count))
+		require.NoError(t, rows.Err())
+		return count
+	}
+	beforeCount := countFacts(beforeID)
+	insideCount := countFacts(insideID)
+	afterCount := countFacts(afterID)
 	require.Equal(t, 0, beforeCount, "orders before campaign start must not create campaign facts")
 	require.Equal(t, 1, insideCount, "orders for campaign users inside the window must create campaign facts")
 	require.Equal(t, 0, afterCount, "orders after campaign capture cutoff must not create campaign facts")
