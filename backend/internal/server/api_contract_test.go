@@ -404,6 +404,19 @@ func TestAPIContracts(t *testing.T) {
 			name: "GET /api/v1/subscriptions",
 			setup: func(t *testing.T, deps *contractDeps) {
 				t.Helper()
+				groupID := int64(10)
+				deps.apiKeyRepo.MustSeed(&service.APIKey{
+					ID:          701,
+					UserID:      1,
+					Key:         "sk-subscription-contract",
+					Name:        "Subscription - Group One",
+					GroupID:     &groupID,
+					Status:      service.StatusAPIKeyActive,
+					IPWhitelist: []string{},
+					IPBlacklist: []string{},
+					CreatedAt:   deps.now,
+					UpdatedAt:   deps.now,
+				})
 				// 普通用户订阅接口不应包含 assigned_* / notes 等管理员字段。
 				deps.userSubRepo.SetByUserID(1, []service.UserSubscription{
 					{
@@ -446,7 +459,34 @@ func TestAPIContracts(t *testing.T) {
 						"monthly_usage_usd": 3.45,
 						"validity_days": 0,
 						"created_at": "2025-01-02T03:04:05Z",
-						"updated_at": "2025-01-02T03:04:05Z"
+						"updated_at": "2025-01-02T03:04:05Z",
+						"api_key": {
+							"id": 701,
+							"user_id": 1,
+							"key": "sk-subscription-contract",
+							"name": "Subscription - Group One",
+							"group_id": 10,
+							"status": "active",
+							"ip_whitelist": [],
+							"ip_blacklist": [],
+							"last_used_at": null,
+							"last_used_ip": null,
+							"quota": 0,
+							"quota_used": 0,
+							"expires_at": null,
+							"created_at": "2025-01-02T03:04:05Z",
+							"updated_at": "2025-01-02T03:04:05Z",
+							"current_concurrency": 0,
+							"rate_limit_5h": 0,
+							"rate_limit_1d": 0,
+							"rate_limit_7d": 0,
+							"usage_5h": 0,
+							"usage_1d": 0,
+							"usage_7d": 0,
+							"window_5h_start": null,
+							"window_1d_start": null,
+							"window_7d_start": null
+						}
 					}
 				]
 			}`,
@@ -1499,7 +1539,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	usageService := service.NewUsageService(usageRepo, userRepo, nil, nil)
 
 	subscriptionService := service.NewSubscriptionService(groupRepo, userSubRepo, nil, nil, cfg)
-	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService)
+	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService, apiKeyService)
 
 	redeemService := service.NewRedeemService(redeemRepo, userRepo, subscriptionService, nil, nil, nil, nil, nil)
 	redeemHandler := handler.NewRedeemHandler(redeemService)

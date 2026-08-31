@@ -459,6 +459,23 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * Apply a known balance delta immediately, then let callers reconcile with
+   * refreshUser in the background. This keeps header balance feedback in sync
+   * with successful balance-changing actions without waiting for a page reload.
+   */
+  function adjustBalance(delta: number): void {
+    if (!user.value || !Number.isFinite(delta)) return
+
+    const currentBalance = Number(user.value.balance || 0)
+    const nextBalance = Math.max(0, Number((currentBalance + delta).toFixed(10)))
+    user.value = {
+      ...user.value,
+      balance: nextBalance,
+    }
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user.value))
+  }
+
+  /**
    * Clear all authentication state
    * Internal helper function
    */
@@ -510,6 +527,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     checkAuth,
     refreshUser,
+    adjustBalance,
     setPendingAuthSession,
     clearPendingAuthSession
   }

@@ -296,6 +296,7 @@ type APIKeyService struct {
 	authNegativeCacheL1       *ristretto.Cache
 	authCfg                   apiKeyAuthCacheConfig
 	authGroup                 singleflight.Group
+	subscriptionKeyGroup      singleflight.Group
 	authLookupSlots           chan struct{}
 	authLookupTotal           atomic.Uint64
 	authLookupRejected        atomic.Uint64
@@ -560,6 +561,59 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 	s.compileAPIKeyIPRules(apiKey)
 
 	return apiKey, nil
+}
+
+// GetSubscriptionAPIKey returns a usable active key owned by the user and
+// bound to the subscription group. A nil key is not an error.
+func (s *APIKeyService) GetSubscriptionAPIKey(ctx context.Context, userID, groupID int64) (*APIKey, error) {
+	keys, _, err := s.apiKeyRepo.ListByUserID(ctx, userID, pagination.PaginationParams{
+		Page:      1,
+		PageSize:  1000,
+		SortBy:    "id",
+		SortOrder: pagination.SortOrderAsc,
+	}, APIKeyListFilters{Status: StatusAPIKeyActive, GroupID: &groupID})
+	if err != nil {
+		return nil, fmt.Errorf("list subscription api keys: %w", err)
+	}
+	for i := range keys {
+		if !keys[i].IsExpired() && !keys[i].IsQuotaExhausted() {
+			return &keys[i], nil
+		}
+	}
+	return nil, nil
+}
+
+// EnsureSubscriptionAPIKey reuses an existing usable group key, or creates
+// one through the same validation and persistence path as the API Keys page.
+// Singleflight keeps simultaneous activation/list requests from creating
+// duplicate keys in one server process.
+func (s *APIKeyService) EnsureSubscriptionAPIKey(ctx context.Context, userID, groupID int64, groupName string) (*APIKey, error) {
+	result, err, _ := s.subscriptionKeyGroup.Do(fmt.Sprintf("%d:%d", userID, groupID), func() (any, error) {
+		key, err := s.GetSubscriptionAPIKey(ctx, userID, groupID)
+		if err != nil || key != nil {
+			return key, err
+		}
+
+		name := "Subscription API Key"
+		if trimmedName := strings.TrimSpace(groupName); trimmedName != "" {
+			name = "Subscription - " + trimmedName
+		}
+		nameRunes := []rune(name)
+		if len(nameRunes) > 100 {
+			name = string(nameRunes[:100])
+		}
+
+		boundGroupID := groupID
+		return s.Create(ctx, userID, CreateAPIKeyRequest{
+			Name:    name,
+			GroupID: &boundGroupID,
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	key, _ := result.(*APIKey)
+	return key, nil
 }
 
 // List 获取用户的API Key列表

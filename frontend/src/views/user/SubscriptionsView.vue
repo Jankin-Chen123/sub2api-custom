@@ -164,6 +164,16 @@
                   · {{ subscriptionPeakRateLabel(activeSubscription) }}
                 </span>
               </p>
+              <button
+                v-if="activeSubscription.api_key?.key"
+                type="button"
+                data-test="copy-subscription-key"
+                class="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-500 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:ring-offset-2 dark:focus:ring-offset-dark-900"
+                @click="copySubscriptionKey(activeSubscription.api_key.key, activeSubscription.api_key.id)"
+              >
+                <Icon :name="copiedSubscriptionKeyId === activeSubscription.api_key.id ? 'checkCircle' : 'clipboard'" size="sm" />
+                {{ copiedSubscriptionKeyId === activeSubscription.api_key.id ? t('userSubscriptions.keyCopied') : t('userSubscriptions.copyKey') }}
+              </button>
             </div>
 
             <div class="grid gap-3 sm:grid-cols-3">
@@ -209,15 +219,6 @@
                 {{ plans.length ? t('userSubscriptions.noPurchasedSubscriptionsDesc') : t('userSubscriptions.noActiveSubscriptionsDesc') }}
               </p>
             </div>
-            <button
-              v-if="visibleSubscriptions.length"
-              type="button"
-              data-test="open-manage-subscriptions"
-              class="shrink-0 rounded-lg border border-primary-500/30 bg-primary-500/10 px-3 py-2 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-500/20 dark:text-primary-300"
-              @click="managementOpen = true"
-            >
-              {{ t('userSubscriptions.openManager') }}
-            </button>
           </div>
         </section>
 
@@ -399,6 +400,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
+import { useSubscriptionStore } from '@/stores/subscriptions'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
 import type { SubscriptionPlan } from '@/types/payment'
@@ -407,17 +410,22 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import { useClipboard } from '@/composables/useClipboard'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import { currencySymbol } from '@/components/payment/currency'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const authStore = useAuthStore()
+const subscriptionStore = useSubscriptionStore()
+const { copyToClipboard } = useClipboard()
 
 const subscriptions = ref<UserSubscription[]>([])
 const plans = ref<SubscriptionPlan[]>([])
 const loading = ref(true)
 const purchasingPlanId = ref<number | null>(null)
 const activatingSubscriptionId = ref<number | null>(null)
+const copiedSubscriptionKeyId = ref<number | null>(null)
 const purchaseConfirmOpen = ref(false)
 const pendingPurchasePlan = ref<SubscriptionPlan | null>(null)
 const managementOpen = ref(false)
@@ -470,6 +478,27 @@ function normalizeFeatures(features: unknown): string[] {
   return []
 }
 
+function applySubscriptionUpdate(updated: UserSubscription) {
+  if (!updated?.id) return
+
+  const existing = subscriptions.value.find((subscription) => subscription.id === updated.id)
+  const merged: UserSubscription = {
+    ...existing,
+    ...updated,
+    group: updated.group ?? existing?.group,
+  }
+  const existingIndex = subscriptions.value.findIndex((subscription) => subscription.id === updated.id)
+
+  if (existingIndex === -1) {
+    subscriptions.value = [merged, ...subscriptions.value]
+    return
+  }
+
+  subscriptions.value = subscriptions.value.map((subscription, index) =>
+    index === existingIndex ? merged : subscription,
+  )
+}
+
 async function loadSubscriptions() {
   try {
     loading.value = true
@@ -511,9 +540,17 @@ async function confirmPurchasePlan() {
   closePurchaseConfirm()
   purchasingPlanId.value = plan.id
   try {
-    await subscriptionsAPI.purchasePlan(plan.id)
+    const purchasedSubscription = await subscriptionsAPI.purchasePlan(plan.id)
+    applySubscriptionUpdate(purchasedSubscription)
+    authStore.adjustBalance(-plan.price)
     appStore.showSuccess(t('userSubscriptions.purchaseSuccess'))
-    await loadSubscriptions()
+
+    // Reconcile the optimistic balance with the authoritative user profile.
+    // Purchase success must not be reported as a failure if this follow-up
+    // request is temporarily unavailable.
+    void authStore.refreshUser().catch((error) => {
+      console.error('Failed to refresh balance after subscription purchase:', error)
+    })
   } catch (error) {
     console.error('Failed to purchase subscription:', error)
     appStore.showError(extractApiErrorMessage(error, t('userSubscriptions.purchaseFailed')))
@@ -532,14 +569,25 @@ async function activateSubscription(subscription: UserSubscription) {
   managementOpen.value = false
   activatingSubscriptionId.value = subscription.id
   try {
-    await subscriptionsAPI.activateSubscription(subscription.id)
+    const activatedSubscription = await subscriptionsAPI.activateSubscription(subscription.id)
+    currentTime.value = Date.now()
+    applySubscriptionUpdate(activatedSubscription)
+    subscriptionStore.applyActivatedSubscription(activatedSubscription)
     appStore.showSuccess(t('userSubscriptions.activateSuccess'))
-    await loadSubscriptions()
   } catch (error) {
     console.error('Failed to activate subscription:', error)
     appStore.showError(extractApiErrorMessage(error, t('userSubscriptions.activateFailed')))
   } finally {
     activatingSubscriptionId.value = null
+  }
+}
+
+async function copySubscriptionKey(key: string, keyId: number) {
+  if (await copyToClipboard(key, t('userSubscriptions.keyCopied'))) {
+    copiedSubscriptionKeyId.value = keyId
+    window.setTimeout(() => {
+      if (copiedSubscriptionKeyId.value === keyId) copiedSubscriptionKeyId.value = null
+    }, 1200)
   }
 }
 

@@ -667,6 +667,8 @@ type UserSubscription struct {
 
 	User  *User  `json:"user,omitempty"`
 	Group *Group `json:"group,omitempty"`
+	// APIKey is the ready-to-use key bound to the active subscription group.
+	APIKey *APIKey `json:"api_key,omitempty"`
 }
 
 // AdminUserSubscription 是管理员接口使用的订阅 DTO（包含分配信息/备注等字段）。

@@ -2037,6 +2037,7 @@ export interface UserSubscription {
   expires_at: string | null
   user?: User
   group?: Group
+  api_key?: ApiKey | null
 }
 
 export interface SubscriptionProgress {

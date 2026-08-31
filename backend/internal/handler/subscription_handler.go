@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
@@ -39,13 +40,41 @@ type purchaseSubscriptionRequest struct {
 // SubscriptionHandler handles user subscription operations
 type SubscriptionHandler struct {
 	subscriptionService *service.SubscriptionService
+	apiKeyService       *service.APIKeyService
 }
 
 // NewSubscriptionHandler creates a new user subscription handler
-func NewSubscriptionHandler(subscriptionService *service.SubscriptionService) *SubscriptionHandler {
+func NewSubscriptionHandler(subscriptionService *service.SubscriptionService, apiKeyService *service.APIKeyService) *SubscriptionHandler {
 	return &SubscriptionHandler{
 		subscriptionService: subscriptionService,
+		apiKeyService:       apiKeyService,
 	}
+}
+
+func (h *SubscriptionHandler) userSubscriptionDTO(ctx context.Context, sub *service.UserSubscription, ensureKey bool) (*dto.UserSubscription, error) {
+	out := dto.UserSubscriptionFromService(sub)
+	if out == nil || sub.Status != service.SubscriptionStatusActive || h.apiKeyService == nil {
+		return out, nil
+	}
+
+	groupName := ""
+	if sub.Group != nil {
+		groupName = sub.Group.Name
+	}
+	var (
+		apiKey *service.APIKey
+		err    error
+	)
+	if ensureKey {
+		apiKey, err = h.apiKeyService.EnsureSubscriptionAPIKey(ctx, sub.UserID, sub.GroupID, groupName)
+	} else {
+		apiKey, err = h.apiKeyService.GetSubscriptionAPIKey(ctx, sub.UserID, sub.GroupID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	out.APIKey = dto.APIKeyFromService(apiKey)
+	return out, nil
 }
 
 // List handles listing current user's subscriptions
@@ -65,7 +94,12 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 
 	out := make([]dto.UserSubscription, 0, len(subscriptions))
 	for i := range subscriptions {
-		out = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]))
+		mapped, mapErr := h.userSubscriptionDTO(c.Request.Context(), &subscriptions[i], true)
+		if mapErr != nil {
+			response.ErrorFrom(c, mapErr)
+			return
+		}
+		out = append(out, *mapped)
 	}
 	response.Success(c, out)
 }
@@ -124,7 +158,12 @@ func (h *SubscriptionHandler) Activate(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, dto.UserSubscriptionFromService(sub))
+	out, err := h.userSubscriptionDTO(c.Request.Context(), sub, true)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, out)
 }
 
 // GetActive handles getting current user's active subscriptions
@@ -144,7 +183,12 @@ func (h *SubscriptionHandler) GetActive(c *gin.Context) {
 
 	out := make([]dto.UserSubscription, 0, len(subscriptions))
 	for i := range subscriptions {
-		out = append(out, *dto.UserSubscriptionFromService(&subscriptions[i]))
+		mapped, mapErr := h.userSubscriptionDTO(c.Request.Context(), &subscriptions[i], true)
+		if mapErr != nil {
+			response.ErrorFrom(c, mapErr)
+			return
+		}
+		out = append(out, *mapped)
 	}
 	response.Success(c, out)
 }
@@ -173,8 +217,13 @@ func (h *SubscriptionHandler) GetProgress(c *gin.Context) {
 			// Skip subscriptions with errors
 			continue
 		}
+		mapped, mapErr := h.userSubscriptionDTO(c.Request.Context(), sub, true)
+		if mapErr != nil {
+			response.ErrorFrom(c, mapErr)
+			return
+		}
 		result = append(result, SubscriptionProgressInfo{
-			Subscription: dto.UserSubscriptionFromService(sub),
+			Subscription: mapped,
 			Progress:     progress,
 		})
 	}

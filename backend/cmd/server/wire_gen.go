@@ -172,7 +172,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	checkinRepository := repository.NewCheckinRepository(client)
 	checkinService := service.NewCheckinService(checkinRepository, billingCacheService, settingRepository)
 	checkinHandler := handler.NewCheckinHandler(checkinService)
-	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService)
+	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService, apiKeyService)
 	announcementRepository := repository.NewAnnouncementRepository(client)
 	announcementReadRepository := repository.NewAnnouncementReadRepository(client)
 	announcementService := service.NewAnnouncementService(announcementRepository, announcementReadRepository, userRepository, userSubscriptionRepository)

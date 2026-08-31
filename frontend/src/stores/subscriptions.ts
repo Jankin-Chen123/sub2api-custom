@@ -124,6 +124,25 @@ export const useSubscriptionStore = defineStore('subscriptions', () => {
     lastFetchedAt.value = null
   }
 
+  /**
+   * Apply the authoritative activation response immediately so header badges
+   * and subscription summaries react without waiting for the polling cache.
+   */
+  function applyActivatedSubscription(subscription: UserSubscription) {
+    const expiresAt = subscription.expires_at
+      ? new Date(subscription.expires_at).getTime()
+      : null
+    const isCurrentlyActive = subscription.status === 'active'
+      && (expiresAt === null || expiresAt > Date.now())
+    const remaining = activeSubscriptions.value.filter((item) => item.id !== subscription.id)
+
+    activeSubscriptions.value = isCurrentlyActive
+      ? [subscription, ...remaining]
+      : remaining
+    loaded.value = true
+    lastFetchedAt.value = Date.now()
+  }
+
   return {
     // State
     activeSubscriptions,
@@ -135,6 +154,7 @@ export const useSubscriptionStore = defineStore('subscriptions', () => {
     startPolling,
     stopPolling,
     clear,
-    invalidateCache
+    invalidateCache,
+    applyActivatedSubscription
   }
 })

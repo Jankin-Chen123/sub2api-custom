@@ -8,6 +8,10 @@ const purchasePlan = vi.hoisted(() => vi.fn())
 const activateSubscription = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
 const showSuccess = vi.hoisted(() => vi.fn())
+const refreshUser = vi.hoisted(() => vi.fn())
+const adjustBalance = vi.hoisted(() => vi.fn())
+const applyActivatedSubscription = vi.hoisted(() => vi.fn())
+const copyToClipboard = vi.hoisted(() => vi.fn())
 
 vi.mock('@/api/subscriptions', () => ({
   default: {
@@ -24,6 +28,23 @@ vi.mock('@/stores/app', () => ({
     showSuccess,
     cachedPublicSettings: null,
   }),
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({
+    refreshUser,
+    adjustBalance,
+  }),
+}))
+
+vi.mock('@/stores/subscriptions', () => ({
+  useSubscriptionStore: () => ({
+    applyActivatedSubscription,
+  }),
+}))
+
+vi.mock('@/composables/useClipboard', () => ({
+  useClipboard: () => ({ copyToClipboard }),
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -45,12 +66,13 @@ vi.mock('vue-i18n', async () => {
           'userSubscriptions.activate': 'Activate Now',
           'userSubscriptions.activateAfterExpiry': 'Wait for expiry',
           'userSubscriptions.activateBlocked': 'Another subscription is active. Wait for it to expire before activating this card.',
+          'userSubscriptions.copyKey': 'Copy API key',
+          'userSubscriptions.keyCopied': 'API key copied',
           'userSubscriptions.current': 'Currently active',
           'userSubscriptions.manage': 'Manage subscriptions',
           'userSubscriptions.manageTitle': 'Purchased subscriptions',
           'userSubscriptions.manageHint': 'Only one subscription card can be active at a time.',
           'userSubscriptions.manageEmpty': 'No subscriptions to manage.',
-          'userSubscriptions.openManager': 'View purchased subscriptions',
           'userSubscriptions.purchaseSuccess': 'Subscription purchased.',
           'userSubscriptions.purchaseFailed': 'Purchase failed.',
           'userSubscriptions.planValidity': '{days} days',
@@ -91,9 +113,27 @@ describe('SubscriptionsView purchase confirmation', () => {
   beforeEach(() => {
     getMySubscriptions.mockResolvedValue([])
     getAvailablePlans.mockResolvedValue([plan])
-    purchasePlan.mockResolvedValue({})
+    purchasePlan.mockResolvedValue({
+      id: 81,
+      user_id: 1,
+      group_id: 3,
+      status: 'pending',
+      starts_at: '2099-01-01T00:00:00Z',
+      expires_at: null,
+      validity_days: 30,
+      daily_usage_usd: 0,
+      weekly_usage_usd: 0,
+      monthly_usage_usd: 0,
+      group: { name: 'Starter', platform: 'openai', rate_multiplier: 1 },
+    })
     activateSubscription.mockReset()
     activateSubscription.mockResolvedValue({})
+    refreshUser.mockReset()
+    refreshUser.mockResolvedValue({ balance: 95 })
+    adjustBalance.mockReset()
+    applyActivatedSubscription.mockReset()
+    copyToClipboard.mockReset()
+    copyToClipboard.mockResolvedValue(true)
     showError.mockReset()
     showSuccess.mockReset()
   })
@@ -133,6 +173,8 @@ describe('SubscriptionsView purchase confirmation', () => {
     await flushPromises()
 
     expect(purchasePlan).toHaveBeenCalledWith(7)
+    expect(adjustBalance).toHaveBeenCalledWith(-5)
+    expect(refreshUser).toHaveBeenCalled()
     expect(showSuccess).toHaveBeenCalled()
     wrapper.unmount()
   })
@@ -183,10 +225,13 @@ describe('SubscriptionsView purchase confirmation', () => {
       ...pendingSubscription,
       status: 'active',
       expires_at: '2099-01-01T00:00:00Z',
+      api_key: {
+        id: 91,
+        key: 'sk-subscription-ready',
+      },
     }
-    getMySubscriptions
-      .mockResolvedValueOnce([pendingSubscription])
-      .mockResolvedValueOnce([activeSubscription])
+    getMySubscriptions.mockResolvedValue([pendingSubscription])
+    activateSubscription.mockResolvedValue(activeSubscription)
 
     const wrapper = mount(SubscriptionsView, {
       global: {
@@ -205,8 +250,13 @@ describe('SubscriptionsView purchase confirmation', () => {
     await flushPromises()
 
     expect(activateSubscription).toHaveBeenCalledWith(21)
+    expect(applyActivatedSubscription).toHaveBeenCalledWith(activeSubscription)
     expect(wrapper.text()).toContain('Active')
-    expect(wrapper.find('[data-test="activate-subscription-21"]').exists()).toBe(false)
+    const copyButton = wrapper.get('[data-test="copy-subscription-key"]')
+    expect(copyButton.text()).toContain('Copy API key')
+    await copyButton.trigger('click')
+    await flushPromises()
+    expect(copyToClipboard).toHaveBeenCalledWith('sk-subscription-ready', 'API key copied')
     wrapper.unmount()
   })
 

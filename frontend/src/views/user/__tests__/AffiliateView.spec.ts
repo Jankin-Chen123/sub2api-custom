@@ -15,6 +15,7 @@ const campaignStoreState = vi.hoisted(() => ({ status: null as NewcomerCampaignS
 const fetchCampaignStatus = vi.hoisted(() => vi.fn())
 const translate = vi.hoisted(() => vi.fn((key: string, params?: Record<string, unknown>) => {
   if (key === 'campaign.tierRequirement') return `${params?.factor ?? ''}`
+  if (key === 'campaign.membershipExclusiveRate') return `享受原倍率 ${params?.percent ?? ''}% 的专属倍率`
   return key
 }))
 
@@ -168,6 +169,7 @@ describe('AffiliateView newcomer campaign progress', () => {
     expect(campaign.text()).toContain('3')
     expect(campaign.text()).toContain('campaign.tierProgress')
     expect(campaign.text()).toContain('96%')
+    expect(campaign.text()).toContain('享受原倍率 96% 的专属倍率')
     expect(campaign.find('.bg-primary-500').attributes('style')).toContain('width: 60%')
     expect(wrapper.text()).toContain('http://localhost/register?aff=campaign')
     expect(fetchCampaignStatus).toHaveBeenCalledWith(true)

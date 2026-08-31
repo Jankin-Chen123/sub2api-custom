@@ -366,6 +366,19 @@ describe('useAuthStore', () => {
     })
   })
 
+  describe('adjustBalance', () => {
+    it('立即更新余额并同步到 localStorage', async () => {
+      mockLogin.mockResolvedValue(fakeAuthResponse)
+      const store = useAuthStore()
+      await store.login({ email: 'test@example.com', password: '123456' })
+
+      store.adjustBalance(-5)
+
+      expect(store.user?.balance).toBe(95)
+      expect(JSON.parse(localStorage.getItem('auth_user')!).balance).toBe(95)
+    })
+  })
+
   // --- isSimpleMode ---
 
   describe('isSimpleMode', () => {

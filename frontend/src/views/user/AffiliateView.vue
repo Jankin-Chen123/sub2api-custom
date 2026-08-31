@@ -97,7 +97,12 @@
                   </span>
                   <span class="min-w-0">
                     <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ campaignTierLabel(tier.key, tier.name) }}{{ t('campaign.membershipUserSuffix') }}</span>
-                    <span class="mt-0.5 block text-xl font-semibold" :class="campaignTierTheme(tier.key).text">{{ membershipPercent(tier.factor) }}%</span>
+                    <span class="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                      <span class="text-xl font-semibold" :class="campaignTierTheme(tier.key).text">{{ membershipPercent(tier.factor) }}%</span>
+                      <span class="text-[11px] font-normal text-gray-500 dark:text-slate-400">
+                        {{ t('campaign.membershipExclusiveRate', { percent: membershipPercent(tier.factor) }) }}
+                      </span>
+                    </span>
                   </span>
                 </div>
                 <div class="relative mt-4 flex items-center justify-between gap-2 border-t border-gray-200 pt-3 text-xs text-gray-500 dark:border-white/10 dark:text-slate-300">

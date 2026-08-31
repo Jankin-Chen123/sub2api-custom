@@ -191,6 +191,24 @@ describe('useSubscriptionStore', () => {
     })
   })
 
+  describe('applyActivatedSubscription', () => {
+    it('立即写入刚启用的订阅供页面顶部标识使用', () => {
+      const store = useSubscriptionStore()
+      const activated = {
+        ...fakeSubscriptions[0],
+        id: 88,
+        starts_at: '2099-01-01T00:00:00Z',
+        validity_days: 30,
+        expires_at: '2099-02-01T00:00:00Z',
+      }
+
+      store.applyActivatedSubscription(activated)
+
+      expect(store.activeSubscriptions).toEqual([activated])
+      expect(store.hasActiveSubscriptions).toBe(true)
+    })
+  })
+
   // --- clear ---
 
   describe('clear', () => {
