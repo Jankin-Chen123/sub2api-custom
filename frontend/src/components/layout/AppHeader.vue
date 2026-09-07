@@ -93,6 +93,7 @@
           <span
             v-if="frozenBalance > 0"
             class="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
+            data-test="header-frozen-balance"
           >
             {{ balanceFrozenLabel }}
           </span>
@@ -105,7 +106,7 @@
             </div>
             <div class="mt-2 flex items-center justify-between">
               <span class="text-gray-500 dark:text-dark-400">{{ balanceFrozenText }}</span>
-              <span class="font-medium text-amber-700 dark:text-amber-200">{{ formatHeaderMoney(frozenBalance) }}</span>
+              <span class="font-medium text-amber-700 dark:text-amber-200">{{ formatHeaderFrozenMoney(frozenBalance) }}</span>
             </div>
             <div class="mt-2 border-t border-gray-100 pt-2 dark:border-dark-700">
               <div class="flex items-center justify-between">
@@ -364,7 +365,7 @@ const totalBalance = computed(() => availableBalance.value + frozenBalance.value
 const balanceAvailableText = computed(() => t('common.availableBalance') === 'common.availableBalance' ? '可用余额' : t('common.availableBalance'))
 const balanceFrozenText = computed(() => t('common.frozenBalance') === 'common.frozenBalance' ? '冻结金额' : t('common.frozenBalance'))
 const balanceTotalText = computed(() => t('common.totalBalance') === 'common.totalBalance' ? '总余额' : t('common.totalBalance'))
-const balanceFrozenLabel = computed(() => `${balanceFrozenText.value} ${formatHeaderMoney(frozenBalance.value)}`)
+const balanceFrozenLabel = computed(() => `${balanceFrozenText.value} ${formatHeaderFrozenMoney(frozenBalance.value)}`)
 const currentCampaignMembership = computed(() => campaignStore.status?.current_membership ?? null)
 const membershipProgressTarget = computed(() => {
   const status = campaignStore.status
@@ -512,9 +513,26 @@ function handleReplayGuide() {
   onboardingStore.replay()
 }
 
+const headerMoneyFormatter = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  useGrouping: false,
+})
+
+const headerFrozenMoneyFormatter = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 8,
+  useGrouping: false,
+})
+
 function formatHeaderMoney(value: number) {
   if (!Number.isFinite(value)) return '$0.00'
-  return `$${value.toFixed(2)}`
+  return `$${headerMoneyFormatter.format(value)}`
+}
+
+function formatHeaderFrozenMoney(value: number) {
+  if (!Number.isFinite(value)) return '$0.00'
+  return `$${headerFrozenMoneyFormatter.format(value)}`
 }
 
 function handleClickOutside(event: MouseEvent) {

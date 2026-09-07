@@ -7,6 +7,12 @@ const campaignStoreState = vi.hoisted(() => ({ status: null as NewcomerCampaignS
 const fetchCampaignStatus = vi.hoisted(() => vi.fn())
 const translate = vi.hoisted(() => vi.fn((key: string) => key === 'campaign.membershipUserSuffix' ? '用户' : key))
 const routerPush = vi.hoisted(() => vi.fn())
+const authStoreState = vi.hoisted(() => ({
+  user: { username: 'demo', email: 'demo@example.com', role: 'user', balance: 0, frozen_balance: 0 },
+  isAdmin: false,
+  isSimpleMode: false,
+  logout: vi.fn().mockResolvedValue(undefined),
+}))
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
@@ -25,12 +31,7 @@ vi.mock('@/stores', () => ({
     cachedPublicSettings: null,
     toggleMobileSidebar: vi.fn(),
   }),
-  useAuthStore: () => ({
-    user: { username: 'demo', email: 'demo@example.com', role: 'user', balance: 0, frozen_balance: 0 },
-    isAdmin: false,
-    isSimpleMode: false,
-    logout: vi.fn().mockResolvedValue(undefined),
-  }),
+  useAuthStore: () => authStoreState,
   useOnboardingStore: () => ({ replay: vi.fn() }),
 }))
 
@@ -77,6 +78,8 @@ describe('AppHeader newcomer campaign controls', () => {
     fetchCampaignStatus.mockReset().mockResolvedValue(campaignStoreState.status)
     routerPush.mockReset()
     translate.mockClear()
+    authStoreState.user.balance = 0
+    authStoreState.user.frozen_balance = 0
   })
 
   it('shows the authorized direct recharge link and membership details without concurrency', async () => {
@@ -126,6 +129,28 @@ describe('AppHeader newcomer campaign controls', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="first-recharge-shortcut"]').exists()).toBe(false)
+  })
+
+  it('shows sub-cent frozen balances without losing configured price precision', () => {
+    authStoreState.user.balance = 999945.72030049
+    authStoreState.user.frozen_balance = 0.045
+
+    const wrapper = shallowMount(AppHeader, {
+      global: {
+        stubs: {
+          'router-link': { template: '<a :to="to"><slot /></a>', props: ['to'] },
+          Icon: true,
+          LocaleSwitcher: true,
+          SubscriptionProgressMini: true,
+          AnnouncementBell: true,
+          Transition: false,
+        },
+      },
+    })
+
+    expect(wrapper.get('[data-test="header-frozen-balance"]').text()).toContain('$0.045')
+    expect(wrapper.text()).toContain('$999945.72')
+    expect(wrapper.text()).toContain('$999945.77')
   })
 
   it('renders the next tier and remaining count supplied from dynamic server configuration', async () => {
