@@ -197,6 +197,7 @@ export default {
         creditsExhausted: 'Credits Exhausted',
         creditsExhaustedUntil: 'AI Credits exhausted, expected recovery at {time}',
         overloadedUntil: 'Overloaded until {time}',
+        tempUnschedulableUntil: 'Temporarily removed from scheduling until {time}',
         viewTempUnschedDetails: 'View temp unschedulable details'
       },
       columns: {
@@ -388,6 +389,10 @@ export default {
         remainingMinutes: 'About {minutes} minutes',
         remainingHours: 'About {hours} hours',
         remainingHoursMinutes: 'About {hours} hours {minutes} minutes',
+        multipleErrorCount: '{count} matching errors recorded',
+        multipleErrorCountInWindow: '{count} matching errors recorded in {minutes} minutes',
+        multipleErrorTrigger: '{count} of {threshold} matching errors recorded in {minutes} minutes',
+        multipleErrorTriggerNoWindow: '{count} of {threshold} matching errors recorded',
         presets: {
           overloadLabel: '529 Overloaded',
           overloadDesc: 'Overloaded - pause 60 minutes',
@@ -696,6 +701,8 @@ export default {
       modelRestriction: 'Model Restriction (Optional)',
       modelWhitelist: 'Model Whitelist',
       modelMapping: 'Model Mapping',
+      fromModel: 'Request model',
+      toModel: 'Target model',
       selectAllowedModels: 'Select allowed models. Leave empty to support all models.',
       mapRequestModels:
         'Map request models to actual models. Left is the requested model, right is the actual model sent to API.',
@@ -1102,6 +1109,10 @@ export default {
           ssoCookieHint: 'One SSO key per line. Multiple keys are imported with 3-way concurrency; expect about 90 seconds per batch. Use a matching-region proxy if needed.',
           convertingSSO: 'Converting...',
           convertSSOAndCreate: 'Convert & Create Account',
+          pleaseEnterSSOToken: 'Please enter an SSO token',
+          pleaseEnterPassword: 'Please enter email----password',
+          failedToValidateSSO: 'Failed to validate Grok SSO',
+          failedToAuthorizePassword: 'Password authorization failed',
           validating: 'Validating...',
           validateAndCreate: 'Validate & Create Account',
           pleaseEnterRefreshToken: 'Please enter Refresh Token',
@@ -1439,6 +1450,9 @@ export default {
         claude: 'Claude',
         grokRequests: 'Req',
         grokTokens: 'Tok',
+        grokPrepaid: 'Prepaid',
+        grokUsed: 'Used',
+        grokMonthlyLimit: 'Monthly limit',
         grokFreeQuota24hHint: 'Estimated from local token usage over the rolling 24-hour window ({limit} limit)',
         grokWeeklyUsage: 'Weekly {percent}%',
         grokUnknown: 'Grok quota is unknown until the first upstream response includes xAI rate-limit headers.',

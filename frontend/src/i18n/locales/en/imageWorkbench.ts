@@ -1,7 +1,7 @@
 export default {
   imageWorkbench: {
     title: 'Image Workbench',
-    description: '',
+    description: 'Create and manage image generation tasks in one place.',
     header: {
       brandAlt: 'Sub2API brand icon',
       subtitle: 'Image Studio',

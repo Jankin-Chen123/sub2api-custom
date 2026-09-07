@@ -1,7 +1,7 @@
 export default {
   imageWorkbench: {
     title: '生图工作台',
-    description: '',
+    description: '集中创建和管理图片生成任务。',
     header: {
       brandAlt: 'Sub2API 品牌图标',
       subtitle: 'Image Studio',
