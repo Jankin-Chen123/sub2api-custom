@@ -22,9 +22,15 @@ import (
 )
 
 const (
-	CangyuanImageModel1K = "gpt-image-2-1k"
-	CangyuanImageModel2K = "gpt-image-2-2k"
-	CangyuanImageModel4K = "gpt-image-2-4k"
+	CangyuanImageModel1K           = "gpt-image-2-1k"
+	CangyuanImageModel2K           = "gpt-image-2-2k"
+	CangyuanImageModel4K           = "gpt-image-2-4k"
+	CangyuanImage25FlareModel1K    = "gpt-image-2.5-flare-1k"
+	CangyuanImage25FlareModel2K    = "gpt-image-2.5-flare-2k"
+	CangyuanImage25FlareModel4K    = "gpt-image-2.5-flare-4k"
+	CangyuanImage25SunburstModel1K = "gpt-image-2.5-sunburst-1k"
+	CangyuanImage25SunburstModel2K = "gpt-image-2.5-sunburst-2k"
+	CangyuanImage25SunburstModel4K = "gpt-image-2.5-sunburst-4k"
 
 	cangyuanMinPixels              int64 = 655360
 	cangyuanMaxEdge                      = 3840
@@ -37,15 +43,42 @@ const (
 
 type CangyuanImageOperation string
 
+type cangyuanImageModelCapabilities struct {
+	Tier         string
+	MaxPixels    int64
+	Qualities    map[string]struct{}
+	AspectRatios map[string]struct{}
+}
+
+var (
+	cangyuanFixedImageQualities = stringSet("low", "medium", "high", "xhigh", "max")
+	cangyuanFixedImageRatios    = stringSet("1:1", "16:9", "9:16", "3:2", "2:3", "4:3", "3:4", "21:9")
+	cangyuanImageModels         = map[string]cangyuanImageModelCapabilities{
+		CangyuanImageModel1K:           fixedCangyuanImageCapabilities("1K", 1048576),
+		CangyuanImageModel2K:           fixedCangyuanImageCapabilities("2K", 4194304),
+		CangyuanImageModel4K:           fixedCangyuanImageCapabilities("4K", 8294400),
+		CangyuanImage25FlareModel1K:    fixedCangyuanImageCapabilities("1K", 1048576),
+		CangyuanImage25FlareModel2K:    fixedCangyuanImageCapabilities("2K", 4194304),
+		CangyuanImage25FlareModel4K:    fixedCangyuanImageCapabilities("4K", 8294400),
+		CangyuanImage25SunburstModel1K: fixedCangyuanImageCapabilities("1K", 1048576),
+		CangyuanImage25SunburstModel2K: fixedCangyuanImageCapabilities("2K", 4194304),
+		CangyuanImage25SunburstModel4K: fixedCangyuanImageCapabilities("4K", 8294400),
+	}
+)
+
 const (
 	CangyuanImageOperationGeneration CangyuanImageOperation = "generation"
 	CangyuanImageOperationEdit       CangyuanImageOperation = "edit"
 )
 
 type CangyuanImageRequest struct {
-	Model            string   `json:"model"`
-	Prompt           string   `json:"prompt"`
-	Size             string   `json:"size,omitempty"`
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+	Size   string `json:"size,omitempty"`
+	// AspectRatio, ImageSize, and OutputResolution are compatibility-only
+	// inputs accepted from older Sub2API callers. Cangyuan's documented Images
+	// API exposes geometry through size; canonicalization folds the ratio into
+	// Size and strips all three legacy fields before persistence or transport.
 	AspectRatio      string   `json:"aspect_ratio,omitempty"`
 	N                int      `json:"n,omitempty"`
 	Quality          string   `json:"quality,omitempty"`
@@ -153,6 +186,11 @@ func (a *CangyuanImageAdapter) PollEdit(ctx context.Context, upstreamTaskID stri
 
 func (a *CangyuanImageAdapter) submit(ctx context.Context, operation CangyuanImageOperation, request CangyuanImageRequest) (*CangyuanImageResult, error) {
 	request.Images = uniqueCangyuanImageReferences(request.Images)
+	var err error
+	request, err = NormalizeCangyuanImageRequest(request)
+	if err != nil {
+		return nil, err
+	}
 	if err := ValidateCangyuanImageRequest(operation, request); err != nil {
 		return nil, err
 	}
@@ -278,14 +316,11 @@ func encodeCangyuanMultipartRequest(request CangyuanImageRequest) (io.Reader, st
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	fields := map[string]string{
-		"model":             request.Model,
-		"prompt":            request.Prompt,
-		"size":              request.Size,
-		"aspect_ratio":      request.AspectRatio,
-		"quality":           request.Quality,
-		"response_format":   request.ResponseFormat,
-		"image_size":        request.ImageSize,
-		"output_resolution": request.OutputResolution,
+		"model":           request.Model,
+		"prompt":          request.Prompt,
+		"size":            request.Size,
+		"quality":         request.Quality,
+		"response_format": request.ResponseFormat,
 	}
 	if request.N > 0 {
 		fields["n"] = strconv.Itoa(request.N)
@@ -377,7 +412,12 @@ func buildCangyuanImageEndpoint(baseURL, endpoint string) (string, error) {
 }
 
 func ValidateCangyuanImageRequest(operation CangyuanImageOperation, request CangyuanImageRequest) error {
-	tier, maxPixels, ok := cangyuanImageTier(request.Model)
+	var err error
+	request, err = NormalizeCangyuanImageRequest(request)
+	if err != nil {
+		return err
+	}
+	capabilities, ok := cangyuanImageCapabilities(request.Model)
 	if !ok {
 		return &CangyuanAdapterError{Code: "image_model_not_allowed", HTTPStatus: http.StatusBadRequest, Err: errors.New("unsupported Cangyuan image model")}
 	}
@@ -393,25 +433,15 @@ func ValidateCangyuanImageRequest(operation CangyuanImageOperation, request Cang
 	if request.ResponseFormat != "" && request.ResponseFormat != "url" && request.ResponseFormat != "b64_json" {
 		return &CangyuanAdapterError{Code: "image_invalid_response_format", HTTPStatus: http.StatusBadRequest, Err: errors.New("response_format must be url or b64_json")}
 	}
-	switch strings.ToLower(strings.TrimSpace(request.Quality)) {
-	case "", "auto", "low", "medium", "high":
-	default:
-		return &CangyuanAdapterError{Code: "image_invalid_quality", HTTPStatus: http.StatusBadRequest, Err: errors.New("quality must be low, medium, high, or auto")}
-	}
-	if strings.TrimSpace(request.Size) != "" && strings.TrimSpace(request.AspectRatio) != "" {
-		return &CangyuanAdapterError{Code: "image_invalid_size", HTTPStatus: http.StatusBadRequest, Err: errors.New("size and aspect_ratio cannot both be set")}
-	}
-	for field, value := range map[string]string{
-		"image_size":        request.ImageSize,
-		"output_resolution": request.OutputResolution,
-	} {
-		if value != "" && !strings.EqualFold(strings.TrimSpace(value), tier) {
-			return &CangyuanAdapterError{Code: "image_invalid_size", HTTPStatus: http.StatusBadRequest, Err: fmt.Errorf("%s conflicts with the selected model tier", field)}
+	quality := strings.ToLower(strings.TrimSpace(request.Quality))
+	if quality != "" {
+		if _, allowed := capabilities.Qualities[quality]; !allowed {
+			return &CangyuanAdapterError{Code: "image_invalid_quality", HTTPStatus: http.StatusBadRequest, Err: errors.New("quality must be low, medium, high, xhigh, or max")}
 		}
 	}
 	if request.Size != "" {
 		if strings.Contains(request.Size, ":") {
-			if err := validateCangyuanAspectRatio(request.Size); err != nil {
+			if err := validateCangyuanAspectRatio(request.Size, capabilities); err != nil {
 				return err
 			}
 		} else {
@@ -420,14 +450,9 @@ func ValidateCangyuanImageRequest(operation CangyuanImageOperation, request Cang
 				return err
 			}
 			pixels := int64(width) * int64(height)
-			if width%16 != 0 || height%16 != 0 || width > cangyuanMaxEdge || height > cangyuanMaxEdge || max(width, height) > 3*min(width, height) || pixels < cangyuanMinPixels || pixels > maxPixels {
+			if width%16 != 0 || height%16 != 0 || width > cangyuanMaxEdge || height > cangyuanMaxEdge || max(width, height) > 3*min(width, height) || pixels < cangyuanMinPixels || pixels > capabilities.MaxPixels {
 				return &CangyuanAdapterError{Code: "image_invalid_size", HTTPStatus: http.StatusBadRequest, Err: errors.New("size violates the selected Cangyuan model limits")}
 			}
-		}
-	}
-	if strings.TrimSpace(request.AspectRatio) != "" {
-		if err := validateCangyuanAspectRatio(request.AspectRatio); err != nil {
-			return err
 		}
 	}
 	if len(request.Images) > 0 {
@@ -456,30 +481,89 @@ func ValidateCangyuanImageRequest(operation CangyuanImageOperation, request Cang
 	return nil
 }
 
-func validateCangyuanAspectRatio(value string) error {
-	parts := strings.Split(strings.TrimSpace(value), ":")
-	if len(parts) != 2 {
-		return &CangyuanAdapterError{Code: "image_invalid_size", HTTPStatus: http.StatusBadRequest, Err: errors.New("aspect_ratio must use WIDTH:HEIGHT")}
+// NormalizeCangyuanImageRequest produces the only representation that may be
+// persisted or sent upstream. It keeps old clients working while preventing
+// undocumented aspect_ratio/image_size/output_resolution fields from leaking
+// into Cangyuan requests. Dedicated jobs always use the provider's async task
+// contract; synchronous public responses are implemented by waiting locally.
+func NormalizeCangyuanImageRequest(request CangyuanImageRequest) (CangyuanImageRequest, error) {
+	tier, _, ok := cangyuanImageTier(request.Model)
+	if !ok {
+		return request, &CangyuanAdapterError{Code: "image_model_not_allowed", HTTPStatus: http.StatusBadRequest, Err: errors.New("unsupported Cangyuan image model")}
 	}
-	width, widthErr := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
-	height, heightErr := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
-	if widthErr != nil || heightErr != nil || width <= 0 || height <= 0 || width > 3*height || height > 3*width {
-		return &CangyuanAdapterError{Code: "image_invalid_size", HTTPStatus: http.StatusBadRequest, Err: errors.New("aspect_ratio must be positive and no wider than 3:1")}
+	request.Model = strings.TrimSpace(request.Model)
+	request.Size = strings.TrimSpace(request.Size)
+	request.AspectRatio = strings.TrimSpace(request.AspectRatio)
+	if request.Size != "" && request.AspectRatio != "" {
+		return request, &CangyuanAdapterError{Code: "image_invalid_size", HTTPStatus: http.StatusBadRequest, Err: errors.New("size and aspect_ratio cannot both be set")}
 	}
-	return nil
+	for field, value := range map[string]string{
+		"image_size":        request.ImageSize,
+		"output_resolution": request.OutputResolution,
+	} {
+		if value != "" && !strings.EqualFold(strings.TrimSpace(value), tier) {
+			return request, &CangyuanAdapterError{Code: "image_invalid_size", HTTPStatus: http.StatusBadRequest, Err: fmt.Errorf("%s conflicts with the selected model tier", field)}
+		}
+	}
+	if request.Size == "" {
+		request.Size = request.AspectRatio
+	}
+	request.AspectRatio = ""
+	request.ImageSize = ""
+	request.OutputResolution = ""
+	request.Quality = strings.ToLower(strings.TrimSpace(request.Quality))
+	if request.Quality == "auto" {
+		request.Quality = ""
+	}
+	request.Async = true
+	return request, nil
+}
+
+func validateCangyuanAspectRatio(value string, capabilities cangyuanImageModelCapabilities) error {
+	if _, ok := capabilities.AspectRatios[strings.TrimSpace(value)]; ok {
+		return nil
+	}
+	return &CangyuanAdapterError{Code: "image_invalid_size", HTTPStatus: http.StatusBadRequest, Err: errors.New("size ratio is not supported by the selected Cangyuan model")}
 }
 
 func cangyuanImageTier(model string) (string, int64, bool) {
-	switch strings.TrimSpace(model) {
-	case CangyuanImageModel1K:
-		return "1K", 1048576, true
-	case CangyuanImageModel2K:
-		return "2K", 4194304, true
-	case CangyuanImageModel4K:
-		return "4K", 8294400, true
-	default:
+	capabilities, ok := cangyuanImageCapabilities(model)
+	if !ok {
 		return "", 0, false
 	}
+	return capabilities.Tier, capabilities.MaxPixels, true
+}
+
+func cangyuanImageCapabilities(model string) (cangyuanImageModelCapabilities, bool) {
+	capabilities, ok := cangyuanImageModels[strings.TrimSpace(model)]
+	return capabilities, ok
+}
+
+func fixedCangyuanImageCapabilities(tier string, maxPixels int64) cangyuanImageModelCapabilities {
+	return cangyuanImageModelCapabilities{
+		Tier:         tier,
+		MaxPixels:    maxPixels,
+		Qualities:    cangyuanFixedImageQualities,
+		AspectRatios: cangyuanFixedImageRatios,
+	}
+}
+
+func stringSet(values ...string) map[string]struct{} {
+	result := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		result[value] = struct{}{}
+	}
+	return result
+}
+
+func IsCangyuanImageModel(model string) bool {
+	_, _, ok := cangyuanImageTier(model)
+	return ok
+}
+
+func CangyuanImageModelTier(model string) (string, bool) {
+	tier, _, ok := cangyuanImageTier(model)
+	return tier, ok
 }
 
 func parseCangyuanImageSize(value string) (int, int, error) {

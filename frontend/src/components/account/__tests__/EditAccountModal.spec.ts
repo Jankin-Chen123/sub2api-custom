@@ -465,7 +465,13 @@ describe('EditAccountModal', () => {
 		expect(credentials?.model_mapping).toEqual({
 			'gpt-image-2-1k': 'gpt-image-2-1k',
 			'gpt-image-2-2k': 'gpt-image-2-2k',
-			'gpt-image-2-4k': 'gpt-image-2-4k'
+			'gpt-image-2-4k': 'gpt-image-2-4k',
+			'gpt-image-2.5-flare-1k': 'gpt-image-2.5-flare-1k',
+			'gpt-image-2.5-flare-2k': 'gpt-image-2.5-flare-2k',
+			'gpt-image-2.5-flare-4k': 'gpt-image-2.5-flare-4k',
+			'gpt-image-2.5-sunburst-1k': 'gpt-image-2.5-sunburst-1k',
+			'gpt-image-2.5-sunburst-2k': 'gpt-image-2.5-sunburst-2k',
+			'gpt-image-2.5-sunburst-4k': 'gpt-image-2.5-sunburst-4k'
 		})
 	})
 

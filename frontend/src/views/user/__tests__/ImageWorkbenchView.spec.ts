@@ -193,6 +193,23 @@ describe('ImageWorkbenchView', () => {
     wrapper.unmount()
   })
 
+  it('matches quality, ratio, and pixel controls to the selected model profile', async () => {
+    const wrapper = await mountWorkbench()
+    const quality = wrapper.find('[data-testid="image-quality-select"]')
+
+    expect(quality.findAll('option').map(option => option.attributes('value'))).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
+    expect(wrapper.find('[data-testid="image-ratio-unspecified"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="image-ratio-21-9"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="image-ratio-5-4"]').exists()).toBe(false)
+    expect(wrapper.find('input[type="range"]').attributes('max')).toBe('1760')
+
+    await wrapper.find('[data-testid="image-model-select"]').setValue('gpt-image-2.5-sunburst-4k')
+    expect((wrapper.vm as any).selectedModelMaxPixels).toBe(8_294_400)
+    expect(wrapper.find('input[type="range"]').attributes('max')).toBe('3840')
+    expect((wrapper.vm as any).form.size).toBe('3840x2160')
+    wrapper.unmount()
+  })
+
   it('debounces draft persistence while the user edits form fields and references', async () => {
     vi.useFakeTimers()
     const wrapper = await mountWorkbench()

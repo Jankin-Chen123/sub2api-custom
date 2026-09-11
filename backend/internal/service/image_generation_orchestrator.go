@@ -82,6 +82,11 @@ func (s *ImageGenerationOrchestrator) Create(ctx context.Context, params CreateD
 	params.Operation = string(operation)
 	params.PublicModel = strings.TrimSpace(params.PublicModel)
 	params.Request.Model = params.PublicModel
+	var err error
+	params.Request, err = NormalizeCangyuanImageRequest(params.Request)
+	if err != nil {
+		return nil, false, err
+	}
 	if err := ValidateCangyuanImageRequest(operation, params.Request); err != nil {
 		return nil, false, err
 	}

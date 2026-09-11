@@ -52,7 +52,7 @@ func testCangyuanImageAccountWithClient(
 	if mapped := strings.TrimSpace(account.GetMappedModel(model)); mapped != "" {
 		model = mapped
 	}
-	tier, _, ok := cangyuanImageTier(model)
+	_, _, ok := cangyuanImageTier(model)
 	if !ok {
 		return nil, errors.New("unsupported Cangyuan image test model")
 	}
@@ -76,13 +76,11 @@ func testCangyuanImageAccountWithClient(
 	operationCtx, cancel := context.WithTimeout(ctx, cangyuanImageTestTimeout)
 	defer cancel()
 	request := CangyuanImageRequest{
-		Model:            model,
-		Prompt:           prompt,
-		N:                1,
-		ResponseFormat:   "url",
-		Async:            false,
-		ImageSize:        tier,
-		OutputResolution: tier,
+		Model:          model,
+		Prompt:         prompt,
+		N:              1,
+		ResponseFormat: "url",
+		Async:          true,
 	}
 	result, err := client.SubmitGeneration(operationCtx, request)
 	if err != nil {

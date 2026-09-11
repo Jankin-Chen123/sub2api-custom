@@ -2591,7 +2591,7 @@ func accountSupportsOpenAIRequest(account *Account, requestedModel string, requi
 		if !matched {
 			return false
 		}
-		if _, supported := cangyuanImageModels[strings.TrimSpace(mappedModel)]; !supported {
+		if !IsCangyuanImageModel(mappedModel) {
 			return false
 		}
 	}

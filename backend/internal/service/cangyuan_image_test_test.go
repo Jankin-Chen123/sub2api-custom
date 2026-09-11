@@ -56,11 +56,11 @@ func TestTestCangyuanImageAccountUsesExplicitOneKDefaults(t *testing.T) {
 	require.Equal(t, "completed", result.Status)
 	require.True(t, result.Completed)
 	require.Equal(t, CangyuanImageModel1K, client.submitRequest.Model)
-	require.Equal(t, "1K", client.submitRequest.ImageSize)
-	require.Equal(t, "1K", client.submitRequest.OutputResolution)
+	require.Empty(t, client.submitRequest.ImageSize)
+	require.Empty(t, client.submitRequest.OutputResolution)
 	require.Equal(t, 1, client.submitRequest.N)
 	require.Equal(t, "url", client.submitRequest.ResponseFormat)
-	require.False(t, client.submitRequest.Async)
+	require.True(t, client.submitRequest.Async)
 }
 
 func TestTestCangyuanImageAccountPollsWithoutExposingProviderBinding(t *testing.T) {

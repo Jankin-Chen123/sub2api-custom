@@ -85,7 +85,8 @@ func TestCodexDedicatedImagePlannerToolUsesCompatibleNonStrictSchema(t *testing.
 	require.False(t, gjson.GetBytes(raw, "strict").Bool())
 	require.Equal(t, int64(1), gjson.GetBytes(raw, "parameters.required.#").Int())
 	require.Equal(t, "prompt", gjson.GetBytes(raw, "parameters.required.0").String())
-	require.Equal(t, int64(4), gjson.GetBytes(raw, "parameters.properties.quality.enum.#").Int())
+	require.Equal(t, int64(6), gjson.GetBytes(raw, "parameters.properties.quality.enum.#").Int())
+	require.Equal(t, int64(9), gjson.GetBytes(raw, "parameters.properties.model.enum.#").Int())
 }
 
 func TestNormalizeCodexDedicatedImagePlanAcceptsOpenAIQualityAliases(t *testing.T) {
@@ -524,7 +525,7 @@ func TestCodexDedicatedImageJobRequestsProviderBase64(t *testing.T) {
 	require.NotNil(t, job.PayloadObjectRef)
 	request := payloads.saved[*job.PayloadObjectRef].Request
 	require.Equal(t, "b64_json", request.ResponseFormat)
-	require.False(t, request.Async, "Codex must use Cangyuan's synchronous endpoint contract to receive base64")
+	require.True(t, request.Async, "the durable worker must use Cangyuan's async task contract")
 }
 
 func TestCodexDedicatedImageBridgeForward_ReplayFailureDoesNotWriteResponse(t *testing.T) {

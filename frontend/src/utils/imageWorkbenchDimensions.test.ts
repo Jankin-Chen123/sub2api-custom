@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   IMAGE_DIMENSION_MAX_PIXELS,
   isExperimentalImageDimensions,
+  maxImageDimensionForPixelBudget,
   validateImageDimensions
 } from './imageWorkbenchDimensions'
 
@@ -36,5 +37,11 @@ describe('image workbench dimensions', () => {
   it('marks output above 2560x1440 as experimental', () => {
     expect(isExperimentalImageDimensions(2560, 1440)).toBe(false)
     expect(isExperimentalImageDimensions(2560, 1456)).toBe(true)
+  })
+
+  it('derives the largest selectable edge from the model pixel budget', () => {
+    expect(maxImageDimensionForPixelBudget(1_048_576)).toBe(1760)
+    expect(maxImageDimensionForPixelBudget(4_194_304)).toBe(3536)
+    expect(maxImageDimensionForPixelBudget(IMAGE_DIMENSION_MAX_PIXELS)).toBe(3840)
   })
 })

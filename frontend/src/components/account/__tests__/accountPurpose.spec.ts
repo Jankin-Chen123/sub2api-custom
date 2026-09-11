@@ -27,12 +27,18 @@ describe('accountPurpose', () => {
     expect(applyAccountPurpose({ account_purpose: 'image_only' }, 'general')).toBeUndefined()
   })
 
-  it('exposes only the three Cangyuan image tiers', () => {
+  it('exposes the GPT Image 2 and 2.5 fixed Cangyuan tiers', () => {
     expect(CANGYUAN_BASE_URL).toBe('https://ai.cangyuansuanli.cn/v1')
     expect(CANGYUAN_IMAGE_MODEL_MAPPINGS.map(({ to }) => to)).toEqual([
       'gpt-image-2-1k',
       'gpt-image-2-2k',
-      'gpt-image-2-4k'
+      'gpt-image-2-4k',
+      'gpt-image-2.5-flare-1k',
+      'gpt-image-2.5-flare-2k',
+      'gpt-image-2.5-flare-4k',
+      'gpt-image-2.5-sunburst-1k',
+      'gpt-image-2.5-sunburst-2k',
+      'gpt-image-2.5-sunburst-4k'
     ])
   })
 

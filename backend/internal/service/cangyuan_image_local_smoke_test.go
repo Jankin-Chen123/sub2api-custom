@@ -84,8 +84,12 @@ func TestLocalCangyuanGenerationAndWorkerSmoke(t *testing.T) {
 			OutputResolution: test.tier,
 		})
 		require.NoError(t, submitErr)
-		require.True(t, result.Completed)
-		require.Len(t, result.Data, 1)
+		require.False(t, result.Completed)
+		require.Equal(t, "local-smoke-generation-task", result.UpstreamTaskID)
+		polled, pollErr := adapter.PollGeneration(context.Background(), result.UpstreamTaskID)
+		require.NoError(t, pollErr)
+		require.True(t, polled.Completed)
+		require.Len(t, polled.Data, 1)
 	}
 
 	asyncResult, err := adapter.SubmitGeneration(context.Background(), CangyuanImageRequest{

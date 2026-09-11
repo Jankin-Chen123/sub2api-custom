@@ -80,14 +80,14 @@
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="input-label">{{ t('imageWorkbench.form.model') }}</label>
-              <select v-model="form.model" class="input">
+              <select v-model="form.model" class="input" data-testid="image-model-select">
                 <option v-for="model in models" :key="model.value" :value="model.value">{{ model.label }}</option>
               </select>
             </div>
             <div>
               <label class="input-label">{{ t('imageWorkbench.form.quality') }}</label>
-              <select v-model="form.quality" class="input">
-                <option v-for="quality in qualities" :key="quality" :value="quality">{{ t('imageWorkbench.form.qualityOptions.' + quality) }}</option>
+              <select v-model="form.quality" class="input" data-testid="image-quality-select">
+                <option v-for="quality in availableQualities" :key="quality" :value="quality">{{ t('imageWorkbench.form.qualityOptions.' + quality) }}</option>
               </select>
             </div>
           </div>
@@ -96,8 +96,9 @@
             <label class="input-label">{{ t('imageWorkbench.form.dimensions') }}</label>
             <div class="grid grid-cols-4 gap-1.5">
               <button
-                v-for="ratio in aspectRatios"
+                v-for="ratio in availableAspectRatios"
                 :key="ratio || 'auto'"
+                :data-testid="ratio ? `image-ratio-${ratio.replace(':', '-')}` : 'image-ratio-unspecified'"
                 class="rounded-md border px-2 py-1.5 text-xs font-semibold transition"
                 :class="form.aspectRatio === ratio ? 'border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-300' : 'border-gray-200 bg-white text-gray-500 hover:border-blue-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300'"
                 type="button"
@@ -113,21 +114,21 @@
                   <label>{{ t('imageWorkbench.form.width') }}</label>
                   <span class="text-blue-600 dark:text-blue-400">{{ form.width }}px</span>
                 </div>
-                <input v-model.number="form.width" class="mt-1.5 w-full accent-blue-500" type="range" min="16" max="3840" step="16" @change="normalizeDimensions" />
-                <input v-model.number="form.width" class="input mt-1.5" type="number" min="16" max="3840" step="16" @change="normalizeDimensions" />
+                <input v-model.number="form.width" class="mt-1.5 w-full accent-blue-500" type="range" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
+                <input v-model.number="form.width" class="input mt-1.5" type="number" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
               </div>
               <div>
                 <div class="flex items-center justify-between text-xs font-semibold text-gray-700 dark:text-gray-300">
                   <label>{{ t('imageWorkbench.form.height') }}</label>
                   <span class="text-blue-600 dark:text-blue-400">{{ form.height }}px</span>
                 </div>
-                <input v-model.number="form.height" class="mt-1.5 w-full accent-blue-500" type="range" min="16" max="3840" step="16" @change="normalizeDimensions" />
-                <input v-model.number="form.height" class="input mt-1.5" type="number" min="16" max="3840" step="16" @change="normalizeDimensions" />
+                <input v-model.number="form.height" class="mt-1.5 w-full accent-blue-500" type="range" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
+                <input v-model.number="form.height" class="input mt-1.5" type="number" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
               </div>
             </div>
 
             <p v-if="dimensionErrorMessage" class="mt-2 text-xs leading-5 text-red-600 dark:text-red-400">{{ dimensionErrorMessage }}</p>
-            <p v-else class="input-hint">{{ t('imageWorkbench.form.dimensionLimitsHint', { maxPixels: formatInteger(selectedModelMaxPixels) }) }}</p>
+            <p v-else class="input-hint">{{ t('imageWorkbench.form.dimensionLimitsHint', { tier: selectedModel.tier, maxEdge: selectedModelMaxEdge, maxPixels: formatInteger(selectedModelMaxPixels) }) }}</p>
             <p v-if="experimentalDimensions" class="mt-1 text-xs leading-5 text-amber-600 dark:text-amber-400">{{ t('imageWorkbench.form.experimentalHint') }}</p>
           </div>
 
@@ -423,13 +424,19 @@ import { useAuthStore } from '@/stores/auth'
 import { validateReferenceFiles } from './imageWorkbenchValidation'
 import {
   IMAGE_DIMENSION_MAX_EDGE,
-  IMAGE_DIMENSION_MAX_PIXELS,
   IMAGE_DIMENSION_MIN_EDGE,
   IMAGE_DIMENSION_MIN_PIXELS,
   IMAGE_DIMENSION_STEP,
   isExperimentalImageDimensions,
+  maxImageDimensionForPixelBudget,
   validateImageDimensions
 } from '@/utils/imageWorkbenchDimensions'
+import {
+  IMAGE_WORKBENCH_MODELS,
+  imageWorkbenchModelCapabilities,
+  isImageWorkbenchAspectRatioAllowed,
+  isImageWorkbenchQualityAllowed
+} from '@/utils/imageWorkbenchModelCapabilities'
 import {
   deleteCachedImageWorkbenchEntry,
   getCachedImageWorkbenchBlob,
@@ -456,24 +463,13 @@ const announcementTrackStyle = computed(() => ({
   transform: `translateY(-${announcementIndex.value * 1.25}rem)`
 }))
 
-const models: Array<{ value: ImageWorkbenchModel; label: string; defaultSize: string }> = [
-  { value: 'gpt-image-2-1k', label: '1K · gpt-image-2-1k', defaultSize: '1024x1024' },
-  { value: 'gpt-image-2-2k', label: '2K · gpt-image-2-2k', defaultSize: '2048x2048' },
-  { value: 'gpt-image-2-4k', label: '4K · gpt-image-2-4k', defaultSize: '3840x2160' }
-]
-const qualities: ImageWorkbenchQuality[] = ['auto', 'low', 'medium', 'high']
-const aspectRatios = ['', '1:1', '3:4', '4:3', '3:2', '2:3', '9:16', '16:9', '4:7']
-const modelMaxPixels: Record<ImageWorkbenchModel, number> = {
-  'gpt-image-2-1k': 1_048_576,
-  'gpt-image-2-2k': 4_194_304,
-  'gpt-image-2-4k': IMAGE_DIMENSION_MAX_PIXELS
-}
+const models = IMAGE_WORKBENCH_MODELS
 const EDITOR_REFERENCE_MAX_BYTES = 10 * 1024 * 1024
 
 const form = reactive({
   apiKeyId: 0,
   model: 'gpt-image-2-1k' as ImageWorkbenchModel,
-  quality: 'auto' as ImageWorkbenchQuality,
+  quality: 'medium' as ImageWorkbenchQuality,
   size: '1024x1024',
   aspectRatio: '',
   width: 1024,
@@ -533,7 +529,9 @@ type BrushPoint = { x: number; y: number }
 type BrushStroke = { points: BrushPoint[]; size: number }
 const brushStrokes: BrushStroke[] = []
 
-const selectedModel = computed(() => models.find(item => item.value === form.model) || models[0]!)
+const selectedModel = computed(() => imageWorkbenchModelCapabilities(form.model))
+const availableQualities = computed(() => selectedModel.value.qualities)
+const availableAspectRatios = computed(() => ['', ...selectedModel.value.aspectRatios])
 const imageCacheUserId = computed(() => Number(authStore.user?.id || 0))
 const eligibleKeys = computed(() => apiKeys.value.filter(key => key.status === 'active' && key.group?.platform === 'openai' && key.group.allow_image_generation))
 const currentJob = computed(() => jobs.value.find(job => job.id === selectedJobId.value) || null)
@@ -563,7 +561,8 @@ const activeCanvasStatus = computed(() => !blankCanvasOpen.value && currentJob.v
 const completedJobs = computed(() => jobs.value.filter(job => job.status === 'completed'))
 const referenceUrlList = computed(() => form.referenceUrls.split(/\r?\n/).map(value => value.trim()).filter(Boolean))
 const referenceCount = computed(() => referenceUrlList.value.length + referenceFiles.value.length + referenceDataURLs.value.length)
-const selectedModelMaxPixels = computed(() => modelMaxPixels[form.model])
+const selectedModelMaxPixels = computed(() => selectedModel.value.maxPixels)
+const selectedModelMaxEdge = computed(() => maxImageDimensionForPixelBudget(selectedModelMaxPixels.value))
 const dimensionValidation = computed(() => validateImageDimensions(Number(form.width), Number(form.height), selectedModelMaxPixels.value))
 const dimensionErrorMessage = computed(() => {
   const code = dimensionValidation.value.code
@@ -645,11 +644,17 @@ async function restoreDraft() {
       const savedForm = draft.form || {} as ImageWorkbenchDraft['form']
       form.apiKeyId = Number(savedForm.apiKeyId) || 0
       form.model = models.some(model => model.value === savedForm.model) ? savedForm.model as ImageWorkbenchModel : 'gpt-image-2-1k'
-      form.quality = qualities.includes(savedForm.quality as ImageWorkbenchQuality) ? savedForm.quality as ImageWorkbenchQuality : 'auto'
-      form.aspectRatio = aspectRatios.includes(savedForm.aspectRatio) ? savedForm.aspectRatio : ''
+      form.quality = isImageWorkbenchQualityAllowed(form.model, savedForm.quality) ? savedForm.quality : selectedModel.value.defaultQuality
+      form.aspectRatio = isImageWorkbenchAspectRatioAllowed(form.model, savedForm.aspectRatio) ? savedForm.aspectRatio : ''
       await nextTick()
       form.width = clampDimension(Number(savedForm.width) || 1024)
       form.height = clampDimension(Number(savedForm.height) || 1024)
+      if (validateImageDimensions(form.width, form.height, selectedModelMaxPixels.value).code) {
+        const [defaultWidth, defaultHeight] = parseSize(selectedModel.value.defaultSize)
+        form.width = defaultWidth
+        form.height = defaultHeight
+        form.aspectRatio = ''
+      }
       form.size = `${form.width}x${form.height}`
       form.prompt = String(savedForm.prompt || '').slice(0, 12000)
       form.referenceUrls = String(savedForm.referenceUrls || '')
@@ -685,6 +690,7 @@ function scheduleDraftSave() {
 
 watch(() => form.model, () => {
   const [width, height] = parseSize(selectedModel.value.defaultSize)
+  if (!isImageWorkbenchQualityAllowed(form.model, form.quality)) form.quality = selectedModel.value.defaultQuality
   form.width = width
   form.height = height
   form.size = selectedModel.value.defaultSize
@@ -905,7 +911,7 @@ function parseSize(value: string): [number, number] {
 
 function clampDimension(value: number) {
   const numeric = Number.isFinite(value) ? Math.round(value / IMAGE_DIMENSION_STEP) * IMAGE_DIMENSION_STEP : 1024
-  return Math.min(IMAGE_DIMENSION_MAX_EDGE, Math.max(IMAGE_DIMENSION_MIN_EDGE, numeric))
+  return Math.min(selectedModelMaxEdge.value, Math.max(IMAGE_DIMENSION_MIN_EDGE, numeric))
 }
 
 function snapDimension(value: number, direction: 'up' | 'down' | 'nearest' = 'nearest') {
@@ -932,11 +938,13 @@ function normalizeDimensions() {
 function resetForm() {
   form.apiKeyId = eligibleKeys.value[0]?.id || 0
   form.model = 'gpt-image-2-1k'
-  form.quality = 'auto'
-  form.size = '1024x1024'
+  const defaultModel = imageWorkbenchModelCapabilities(form.model)
+  form.quality = defaultModel.defaultQuality
+  form.size = defaultModel.defaultSize
   form.aspectRatio = ''
-  form.width = 1024
-  form.height = 1024
+  const [defaultWidth, defaultHeight] = parseSize(defaultModel.defaultSize)
+  form.width = defaultWidth
+  form.height = defaultHeight
   form.prompt = ''
   clearReferences()
   blankCanvasOpen.value = false
@@ -951,8 +959,8 @@ function selectAspectRatio(value: string) {
   if (!widthRatio || !heightRatio) return
   let width = clampDimension(Number(form.width))
   let height = snapDimension(width * heightRatio / widthRatio)
-  if (height > IMAGE_DIMENSION_MAX_EDGE) {
-    width = clampDimension(snapDimension(width * IMAGE_DIMENSION_MAX_EDGE / height, 'down'))
+  if (height > selectedModelMaxEdge.value) {
+    width = clampDimension(snapDimension(width * selectedModelMaxEdge.value / height, 'down'))
     height = snapDimension(width * heightRatio / widthRatio)
   }
   if (height < IMAGE_DIMENSION_MIN_EDGE) {
@@ -1432,7 +1440,7 @@ function statusClass(status: ImageWorkbenchStatus) {
 function jobDisplayName(job: ImageWorkbenchJob) { return job.name?.trim() || t('imageWorkbench.library.untitled') }
 function jobResolution(job: ImageWorkbenchJob) { return job.model.match(/-(\d+k)$/i)?.[1]?.toUpperCase() || '—' }
 function jobQuality(job: ImageWorkbenchJob) {
-  const quality = qualities.includes(job.quality as ImageWorkbenchQuality) ? job.quality as ImageWorkbenchQuality : 'auto'
+  const quality = job.quality && isImageWorkbenchQualityAllowed(job.model, job.quality) ? job.quality : 'auto'
   return t('imageWorkbench.form.qualityOptions.' + quality)
 }
 function downloadFileName(job: ImageWorkbenchJob) {

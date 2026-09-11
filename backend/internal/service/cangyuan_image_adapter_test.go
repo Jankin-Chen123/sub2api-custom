@@ -31,13 +31,35 @@ func TestBuildCangyuanImageEndpointAvoidsDuplicateV1(t *testing.T) {
 	}
 }
 
+func TestCangyuanImageModelTiersIncludeGPTImage25Families(t *testing.T) {
+	tests := map[string]string{
+		CangyuanImageModel1K:           "1K",
+		CangyuanImageModel2K:           "2K",
+		CangyuanImageModel4K:           "4K",
+		CangyuanImage25FlareModel1K:    "1K",
+		CangyuanImage25FlareModel2K:    "2K",
+		CangyuanImage25FlareModel4K:    "4K",
+		CangyuanImage25SunburstModel1K: "1K",
+		CangyuanImage25SunburstModel2K: "2K",
+		CangyuanImage25SunburstModel4K: "4K",
+	}
+	for model, expectedTier := range tests {
+		tier, ok := CangyuanImageModelTier(model)
+		require.True(t, ok, model)
+		require.Equal(t, expectedTier, tier, model)
+	}
+	require.False(t, IsCangyuanImageModel("gpt-image-2.5"), "the generic virtual model must not be rewritten to a fixed tier")
+}
+
 func TestValidateCangyuanImageRequestSizes(t *testing.T) {
 	valid := []CangyuanImageRequest{
 		{Model: CangyuanImageModel1K, Prompt: "test", Size: "1024x1024", N: 1, OutputResolution: "1K"},
 		{Model: CangyuanImageModel2K, Prompt: "test", Size: "2048x2048", N: 1, ImageSize: "2k"},
 		{Model: CangyuanImageModel4K, Prompt: "test", Size: "3840x2160", N: 1, OutputResolution: "4K"},
 		{Model: CangyuanImageModel4K, Prompt: "test", Size: "16:9", N: 1},
-		{Model: CangyuanImageModel2K, Prompt: "test", AspectRatio: "7:6", N: 1},
+		{Model: CangyuanImageModel2K, Prompt: "test", AspectRatio: "3:4", N: 1},
+		{Model: CangyuanImage25FlareModel1K, Prompt: "test", Size: "1:1", Quality: "xhigh", N: 1},
+		{Model: CangyuanImage25SunburstModel4K, Prompt: "test", Size: "3840x2160", Quality: "max", N: 1},
 	}
 	for _, request := range valid {
 		require.NoError(t, ValidateCangyuanImageRequest(CangyuanImageOperationGeneration, request))
@@ -54,6 +76,10 @@ func TestValidateCangyuanImageRequestSizes(t *testing.T) {
 		{Model: CangyuanImageModel2K, Prompt: "test", Size: "2048x2048", N: 2},
 		{Model: CangyuanImageModel2K, Prompt: "test", Size: "2048x2048", N: 1, OutputResolution: "4K"},
 		{Model: CangyuanImageModel4K, Prompt: "test", AspectRatio: "4:1", N: 1},
+		{Model: CangyuanImage25FlareModel2K, Prompt: "test", Size: "4:7", N: 1},
+		{Model: CangyuanImage25FlareModel2K, Prompt: "test", Size: "5:4", N: 1},
+		{Model: CangyuanImage25SunburstModel2K, Prompt: "test", Size: "4:5", N: 1},
+		{Model: CangyuanImageModel2K, Prompt: "test", Size: "7:6", N: 1},
 		{Model: CangyuanImageModel4K, Prompt: "test", Size: "16:9", AspectRatio: "16:9", N: 1},
 		{Model: CangyuanImageModel2K, Prompt: "test", Size: "2048x2048", Quality: "ultra", N: 1},
 	}
@@ -86,10 +112,14 @@ func TestValidateCangyuanDecodedImageDimensionsBoundsDecodeBombs(t *testing.T) {
 
 func TestCangyuanImageAdapterDeduplicatesReferenceAliasesBeforeSubmit(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var request CangyuanImageRequest
+		var request map[string]any
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
-		require.Equal(t, []string{"https://example.com/a.png", "https://example.com/b.png"}, request.Images)
-		require.Equal(t, "16:9", request.AspectRatio)
+		require.Equal(t, []any{"https://example.com/a.png", "https://example.com/b.png"}, request["images"])
+		require.Equal(t, "16:9", request["size"])
+		require.Equal(t, true, request["async"])
+		require.NotContains(t, request, "aspect_ratio")
+		require.NotContains(t, request, "image_size")
+		require.NotContains(t, request, "output_resolution")
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data":[{"url":"https://images.example/result.png"}]}`))
 	}))
@@ -102,6 +132,20 @@ func TestCangyuanImageAdapterDeduplicatesReferenceAliasesBeforeSubmit(t *testing
 		Images: []string{"https://example.com/a.png", "https://example.com/a.png", "https://example.com/b.png"},
 	})
 	require.NoError(t, err)
+}
+
+func TestNormalizeCangyuanImageRequestCanonicalizesLegacyFields(t *testing.T) {
+	request, err := NormalizeCangyuanImageRequest(CangyuanImageRequest{
+		Model: CangyuanImage25SunburstModel2K, Prompt: "poster", AspectRatio: "21:9",
+		ImageSize: "2K", OutputResolution: "2k", Quality: "auto",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "21:9", request.Size)
+	require.Empty(t, request.AspectRatio)
+	require.Empty(t, request.ImageSize)
+	require.Empty(t, request.OutputResolution)
+	require.Empty(t, request.Quality)
+	require.True(t, request.Async)
 }
 
 func TestCangyuanImageAdapterSubmitGenerationSync(t *testing.T) {
@@ -134,6 +178,10 @@ func TestCangyuanImageAdapterEditMultipartUsesRepeatedImageFiles(t *testing.T) {
 		require.Contains(t, r.Header.Get("Content-Type"), "multipart/form-data")
 		require.NoError(t, r.ParseMultipartForm(2<<20))
 		require.Equal(t, []string{"gpt-image-2-2k"}, r.MultipartForm.Value["model"])
+		require.Equal(t, []string{"true"}, r.MultipartForm.Value["async"])
+		require.Empty(t, r.MultipartForm.Value["aspect_ratio"])
+		require.Empty(t, r.MultipartForm.Value["image_size"])
+		require.Empty(t, r.MultipartForm.Value["output_resolution"])
 		require.Len(t, r.MultipartForm.File["image"], 2)
 		require.Equal(t, "image-1.png", r.MultipartForm.File["image"][0].Filename)
 		require.Equal(t, "image-2.png", r.MultipartForm.File["image"][1].Filename)
@@ -152,7 +200,7 @@ func TestCangyuanImageAdapterEditMultipartUsesRepeatedImageFiles(t *testing.T) {
 	mask := encodePNG(t, image.NewNRGBA(image.Rect(0, 0, 32, 32)))
 	result, err := adapter.SubmitEdit(context.Background(), CangyuanImageRequest{
 		Model: CangyuanImageModel2K, Prompt: "edit", Size: "2048x2048", N: 1,
-		ResponseFormat: "b64_json", Multipart: true,
+		ResponseFormat: "b64_json", ImageSize: "2K", OutputResolution: "2k", Multipart: true,
 		Images: []string{imageAssetDataURL("image/png", input), imageAssetDataURL("image/png", secondInput)},
 		Mask:   imageAssetDataURL("image/png", mask),
 	})

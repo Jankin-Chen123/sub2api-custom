@@ -17,9 +17,9 @@ export default {
     form: {
       apiKey: 'Image generation key',
       noApiKey: 'No image generation keys available',
-      model: 'Resolution tier',
+      model: 'Model & resolution tier',
       quality: 'Quality',
-      qualityOptions: { auto: 'Auto', low: 'Low', medium: 'Medium', high: 'High' },
+      qualityOptions: { auto: 'Auto (legacy)', low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra high', max: 'Maximum' },
       dimensionMode: 'Dimension mode',
       dimensionModes: { size: 'Exact size', aspectRatio: 'Aspect ratio' },
       size: 'Output size',
@@ -30,7 +30,7 @@ export default {
       unspecified: 'Any',
       width: 'Width',
       height: 'Height',
-      dimensionLimitsHint: 'Each edge must be a multiple of 16, no more than 3840px, and within the 3:1 ratio. Current model cap: {maxPixels} pixels.',
+      dimensionLimitsHint: 'Each edge must be a multiple of 16 and within the 3:1 ratio. The {tier} tier allows up to {maxEdge}px on one edge and {maxPixels} pixels in total.',
       experimentalHint: 'Above 2560×1440 is experimental and may be less stable.',
       dimensionErrors: {
         invalid: 'Enter a valid image size.',

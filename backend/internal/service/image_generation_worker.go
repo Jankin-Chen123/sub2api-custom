@@ -446,7 +446,7 @@ func resolveCangyuanImageModel(account *Account, requestedModel string, imageOnl
 	if !imageOnly && !account.SupportsCangyuanImageFallback() {
 		return "", errors.New("general fallback account is not Cangyuan-compatible")
 	}
-	if _, supported := cangyuanImageModels[strings.TrimSpace(upstreamModel)]; !supported {
+	if !IsCangyuanImageModel(upstreamModel) {
 		return "", errors.New("mapped model is not a supported Cangyuan image tier")
 	}
 	return strings.TrimSpace(upstreamModel), nil

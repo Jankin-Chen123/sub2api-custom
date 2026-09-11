@@ -5,7 +5,13 @@ export const CANGYUAN_BASE_URL = 'https://ai.cangyuansuanli.cn/v1'
 export const CANGYUAN_IMAGE_MODEL_MAPPINGS = [
   { from: 'gpt-image-2-1k', to: 'gpt-image-2-1k' },
   { from: 'gpt-image-2-2k', to: 'gpt-image-2-2k' },
-  { from: 'gpt-image-2-4k', to: 'gpt-image-2-4k' }
+  { from: 'gpt-image-2-4k', to: 'gpt-image-2-4k' },
+  { from: 'gpt-image-2.5-flare-1k', to: 'gpt-image-2.5-flare-1k' },
+  { from: 'gpt-image-2.5-flare-2k', to: 'gpt-image-2.5-flare-2k' },
+  { from: 'gpt-image-2.5-flare-4k', to: 'gpt-image-2.5-flare-4k' },
+  { from: 'gpt-image-2.5-sunburst-1k', to: 'gpt-image-2.5-sunburst-1k' },
+  { from: 'gpt-image-2.5-sunburst-2k', to: 'gpt-image-2.5-sunburst-2k' },
+  { from: 'gpt-image-2.5-sunburst-4k', to: 'gpt-image-2.5-sunburst-4k' }
 ] as const
 
 export function resolveAccountPurpose(extra?: Record<string, unknown> | null): AccountPurpose {

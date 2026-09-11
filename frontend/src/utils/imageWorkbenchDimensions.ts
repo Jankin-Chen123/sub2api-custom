@@ -43,3 +43,12 @@ export function validateImageDimensions(width: number, height: number, maxPixels
 export function isExperimentalImageDimensions(width: number, height: number) {
   return width * height > IMAGE_DIMENSION_EXPERIMENTAL_PIXELS
 }
+
+// With the workbench's 3:1 ratio limit, no valid image can have an edge longer
+// than sqrt(3 * pixel budget). Expose that bound to sliders so lower-resolution
+// model tiers do not invite values that can never pass validation.
+export function maxImageDimensionForPixelBudget(maxPixels: number) {
+  const budget = Math.min(maxPixels, IMAGE_DIMENSION_MAX_PIXELS)
+  const ratioBound = Math.floor(Math.sqrt(3 * budget) / IMAGE_DIMENSION_STEP) * IMAGE_DIMENSION_STEP
+  return Math.min(IMAGE_DIMENSION_MAX_EDGE, Math.max(IMAGE_DIMENSION_MIN_EDGE, ratioBound))
+}

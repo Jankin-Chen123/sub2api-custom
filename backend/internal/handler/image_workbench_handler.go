@@ -56,7 +56,7 @@ func (h *DedicatedImageHandler) EstimateWorkbenchCost(c *gin.Context) {
 		return
 	}
 	if !isDedicatedCangyuanModel(input.Model) {
-		h.writeError(c, http.StatusBadRequest, "image_model_not_allowed", "workbench model must be a dedicated 1K, 2K, or 4K Cangyuan model")
+		h.writeError(c, http.StatusBadRequest, "image_model_not_allowed", "workbench model must be a supported fixed-resolution Cangyuan model")
 		return
 	}
 	apiKey, err := h.openAI.apiKeyService.GetByID(c.Request.Context(), input.APIKeyID)
@@ -126,7 +126,7 @@ func (h *DedicatedImageHandler) CreateWorkbenchJob(c *gin.Context) {
 		return
 	}
 	if !isDedicatedCangyuanModel(input.Model) {
-		h.writeError(c, http.StatusBadRequest, "image_model_not_allowed", "workbench model must be a dedicated 1K, 2K, or 4K Cangyuan model")
+		h.writeError(c, http.StatusBadRequest, "image_model_not_allowed", "workbench model must be a supported fixed-resolution Cangyuan model")
 		return
 	}
 	operation := strings.TrimSpace(input.Operation)
@@ -141,10 +141,18 @@ func (h *DedicatedImageHandler) CreateWorkbenchJob(c *gin.Context) {
 		return
 	}
 	tier := dedicatedImageModelTier(input.Model)
+	size := strings.TrimSpace(input.Size)
+	aspectRatio := strings.TrimSpace(input.AspectRatio)
+	if size != "" && aspectRatio != "" {
+		h.writeError(c, http.StatusBadRequest, "image_invalid_size", "size and aspect_ratio cannot both be set")
+		return
+	}
+	if size == "" {
+		size = aspectRatio
+	}
 	request := service.CangyuanImageRequest{
-		Model: input.Model, Prompt: input.Prompt, Size: input.Size, AspectRatio: input.AspectRatio, N: 1,
+		Model: input.Model, Prompt: input.Prompt, Size: size, N: 1,
 		Quality: input.Quality, ResponseFormat: input.ResponseFormat, Async: true,
-		ImageSize: tier, OutputResolution: tier,
 		Images: append([]string(nil), input.Images...), Mask: input.Mask,
 	}
 	if strings.TrimSpace(request.ResponseFormat) == "" {

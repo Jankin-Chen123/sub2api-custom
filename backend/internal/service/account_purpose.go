@@ -15,12 +15,6 @@ const (
 	AccountPurposeImageOnly = "image_only"
 )
 
-var cangyuanImageModels = map[string]struct{}{
-	"gpt-image-2-1k": {},
-	"gpt-image-2-2k": {},
-	"gpt-image-2-4k": {},
-}
-
 // AccountPurpose returns the persisted account purpose. Missing, null, empty,
 // and legacy values are treated as general so pre-feature accounts keep their
 // existing behavior. Writes are validated separately and reject unknown values.
@@ -56,7 +50,7 @@ func (a *Account) SupportsCangyuanImageFallback() bool {
 		return false
 	}
 	for _, upstreamModel := range a.GetModelMapping() {
-		if _, supported := cangyuanImageModels[strings.TrimSpace(upstreamModel)]; supported {
+		if IsCangyuanImageModel(upstreamModel) {
 			return true
 		}
 	}
@@ -66,7 +60,7 @@ func (a *Account) SupportsCangyuanImageFallback() bool {
 // NormalizeAccountPurposeExtra validates the administrator-controlled account
 // purpose and returns a cloned map. image_only is intentionally narrow in the
 // first release: it is an OpenAI API-key account configured for Cangyuan's
-// dedicated GPT Image 2 tiers.
+// dedicated fixed-resolution GPT Image tiers.
 func NormalizeAccountPurposeExtra(platform, accountType string, credentials, extra map[string]any) (map[string]any, error) {
 	normalized := maps.Clone(extra)
 	if normalized == nil {
@@ -140,10 +134,10 @@ func validateCangyuanImageOnlyCredentials(credentials map[string]any) error {
 	}
 	for _, upstreamModel := range mapping {
 		upstreamModel = strings.TrimSpace(upstreamModel)
-		if _, supported := cangyuanImageModels[upstreamModel]; !supported {
+		if !IsCangyuanImageModel(upstreamModel) {
 			return infraerrors.BadRequest(
 				"IMAGE_ONLY_MODEL_MAPPING_INVALID",
-				"image_only model_mapping targets must be gpt-image-2-1k, gpt-image-2-2k, or gpt-image-2-4k",
+				"image_only model_mapping targets must be gpt-image-2-1k/2k/4k, gpt-image-2.5-flare-1k/2k/4k, or gpt-image-2.5-sunburst-1k/2k/4k",
 			)
 		}
 	}

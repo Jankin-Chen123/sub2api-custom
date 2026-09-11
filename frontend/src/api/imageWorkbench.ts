@@ -1,7 +1,18 @@
 import { apiClient } from './client'
 
-export type ImageWorkbenchModel = 'gpt-image-2-1k' | 'gpt-image-2-2k' | 'gpt-image-2-4k'
-export type ImageWorkbenchQuality = 'auto' | 'low' | 'medium' | 'high'
+export type ImageWorkbenchModel =
+  | 'gpt-image-2-1k'
+  | 'gpt-image-2-2k'
+  | 'gpt-image-2-4k'
+  | 'gpt-image-2.5-flare-1k'
+  | 'gpt-image-2.5-flare-2k'
+  | 'gpt-image-2.5-flare-4k'
+  | 'gpt-image-2.5-sunburst-1k'
+  | 'gpt-image-2.5-sunburst-2k'
+  | 'gpt-image-2.5-sunburst-4k'
+// auto is retained for historical jobs/drafts; new workbench submissions only
+// expose the quality values documented for Cangyuan's fixed-resolution models.
+export type ImageWorkbenchQuality = 'auto' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 export type ImageWorkbenchStatus = 'queued' | 'in_progress' | 'completed' | 'failed' | 'submission_unknown'
 
 export interface ImageWorkbenchJob {

@@ -260,10 +260,11 @@ func configureCodexNativeImageDelivery(request *service.CangyuanImageRequest) {
 	if request == nil {
 		return
 	}
-	// Codex renders the image from the synchronous base64 response. This path
-	// is independent from the workbench/API object-storage response policy.
+	// Codex receives a synchronous base64 response from Sub2API, while the
+	// provider request remains an async task that the durable worker polls.
+	// This path is independent from the workbench/API object-storage policy.
 	request.ResponseFormat = "b64_json"
-	request.Async = false
+	request.Async = true
 }
 
 // normalizeCodexNativeImageRequest recognizes requests emitted by Codex's
@@ -283,10 +284,11 @@ func (h *DedicatedImageHandler) normalizeCodexNativeImageRequest(c *gin.Context,
 	switch strings.TrimSpace(parsed.Model) {
 	case "gpt-image-2":
 		parsed.Model = service.CangyuanImageModel1K
-	case service.CangyuanImageModel1K, service.CangyuanImageModel2K, service.CangyuanImageModel4K:
-		// Keep the tier explicitly selected by Codex.
 	default:
-		return false
+		if !service.IsCangyuanImageModel(parsed.Model) {
+			return false
+		}
+		// Keep the fixed tier explicitly selected by Codex.
 	}
 	if strings.EqualFold(strings.TrimSpace(parsed.Size), "auto") {
 		parsed.Size = ""
@@ -342,8 +344,6 @@ func normalizeDedicatedImageAliasRequest(parsed *service.OpenAIImagesRequest) (b
 	for _, model := range models {
 		candidate.Model = model
 		tier := dedicatedImageModelTier(model)
-		candidate.ImageSize = tier
-		candidate.OutputResolution = tier
 		candidate.SizeTier = tier
 		request, requestErr := dedicatedCangyuanRequest(&candidate)
 		if requestErr != nil {
@@ -375,8 +375,6 @@ func normalizeExplicitDedicatedImageRequest(parsed *service.OpenAIImagesRequest)
 	if hintedTier != "" && !strings.EqualFold(hintedTier, modelTier) {
 		return dedicatedImageRequestError("image_invalid_size", "the requested image tier conflicts with the selected model")
 	}
-	candidate.ImageSize = modelTier
-	candidate.OutputResolution = modelTier
 	candidate.SizeTier = modelTier
 	*parsed = candidate
 	return nil
@@ -451,15 +449,14 @@ func normalizeDedicatedImageTierHints(parsed *service.OpenAIImagesRequest) (stri
 
 func dedicatedImageTierValue(value string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "1k", service.CangyuanImageModel1K:
+	case "1k":
 		return "1K", true
-	case "2k", service.CangyuanImageModel2K:
+	case "2k":
 		return "2K", true
-	case "4k", service.CangyuanImageModel4K:
+	case "4k":
 		return "4K", true
-	default:
-		return "", false
 	}
+	return service.CangyuanImageModelTier(value)
 }
 
 func isDedicatedImageTierValue(value string) bool {
@@ -712,21 +709,19 @@ func dedicatedCangyuanRequest(parsed *service.OpenAIImagesRequest) (service.Cang
 	if parsed == nil {
 		return service.CangyuanImageRequest{}, fmt.Errorf("image request is missing")
 	}
-	tier := dedicatedImageModelTier(parsed.Model)
-	imageSize := strings.TrimSpace(parsed.ImageSize)
-	if imageSize == "" {
-		imageSize = tier
+	size := strings.TrimSpace(parsed.Size)
+	aspectRatio := strings.TrimSpace(parsed.AspectRatio)
+	if size != "" && aspectRatio != "" {
+		return service.CangyuanImageRequest{}, dedicatedImageRequestError("image_invalid_size", "size and aspect_ratio cannot both be set")
 	}
-	outputResolution := strings.TrimSpace(parsed.OutputResolution)
-	if outputResolution == "" {
-		outputResolution = tier
+	if size == "" {
+		size = aspectRatio
 	}
 	request := service.CangyuanImageRequest{
-		Model: parsed.Model, Prompt: parsed.Prompt, Size: parsed.Size, N: parsed.N,
-		AspectRatio: parsed.AspectRatio,
-		Quality:     parsed.Quality, ResponseFormat: parsed.ResponseFormat, Async: true,
-		ImageSize: imageSize, OutputResolution: outputResolution, Multipart: parsed.Multipart,
-		Images: append([]string(nil), parsed.InputImageURLs...), Mask: parsed.MaskImageURL,
+		Model: parsed.Model, Prompt: parsed.Prompt, Size: size, N: parsed.N,
+		Quality: parsed.Quality, ResponseFormat: parsed.ResponseFormat, Async: true,
+		Multipart: parsed.Multipart,
+		Images:    append([]string(nil), parsed.InputImageURLs...), Mask: parsed.MaskImageURL,
 	}
 	for _, upload := range parsed.Uploads {
 		if len(upload.Data) == 0 {
@@ -802,25 +797,12 @@ func isTerminalDedicatedImageStatus(status string) bool {
 }
 
 func isDedicatedCangyuanModel(model string) bool {
-	switch strings.TrimSpace(model) {
-	case service.CangyuanImageModel1K, service.CangyuanImageModel2K, service.CangyuanImageModel4K:
-		return true
-	default:
-		return false
-	}
+	return service.IsCangyuanImageModel(model)
 }
 
 func dedicatedImageModelTier(model string) string {
-	switch strings.TrimSpace(model) {
-	case service.CangyuanImageModel1K:
-		return "1K"
-	case service.CangyuanImageModel2K:
-		return "2K"
-	case service.CangyuanImageModel4K:
-		return "4K"
-	default:
-		return ""
-	}
+	tier, _ := service.CangyuanImageModelTier(model)
+	return tier
 }
 
 func dedicatedImageTaskPath(c *gin.Context, jobID string) string {

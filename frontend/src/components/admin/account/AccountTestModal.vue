@@ -331,7 +331,13 @@ const supportsImageTest = computed(() => isDedicatedImageAccount.value || suppor
 const dedicatedImageModels: ClaudeModel[] = [
   { id: 'gpt-image-2-1k', type: 'model', display_name: 'Cangyuan GPT Image 2 · 1K', created_at: '' },
   { id: 'gpt-image-2-2k', type: 'model', display_name: 'Cangyuan GPT Image 2 · 2K', created_at: '' },
-  { id: 'gpt-image-2-4k', type: 'model', display_name: 'Cangyuan GPT Image 2 · 4K', created_at: '' }
+  { id: 'gpt-image-2-4k', type: 'model', display_name: 'Cangyuan GPT Image 2 · 4K', created_at: '' },
+  { id: 'gpt-image-2.5-flare-1k', type: 'model', display_name: 'Cangyuan GPT Image 2.5 Flare · 1K', created_at: '' },
+  { id: 'gpt-image-2.5-flare-2k', type: 'model', display_name: 'Cangyuan GPT Image 2.5 Flare · 2K', created_at: '' },
+  { id: 'gpt-image-2.5-flare-4k', type: 'model', display_name: 'Cangyuan GPT Image 2.5 Flare · 4K', created_at: '' },
+  { id: 'gpt-image-2.5-sunburst-1k', type: 'model', display_name: 'Cangyuan GPT Image 2.5 Sunburst · 1K', created_at: '' },
+  { id: 'gpt-image-2.5-sunburst-2k', type: 'model', display_name: 'Cangyuan GPT Image 2.5 Sunburst · 2K', created_at: '' },
+  { id: 'gpt-image-2.5-sunburst-4k', type: 'model', display_name: 'Cangyuan GPT Image 2.5 Sunburst · 4K', created_at: '' }
 ]
 
 const sortTestModels = (models: ClaudeModel[]) => {

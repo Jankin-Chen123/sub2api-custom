@@ -163,8 +163,9 @@ func TestNormalizeDedicatedImageAliasRequestSelectsSmallestCompatibleTier(t *tes
 			require.Equal(t, tt.wantModel, parsed.Model)
 			require.Equal(t, tt.wantSize, parsed.Size)
 			require.Equal(t, tt.wantSize != "", parsed.ExplicitSize)
-			require.Equal(t, dedicatedImageModelTier(tt.wantModel), parsed.ImageSize)
-			require.Equal(t, dedicatedImageModelTier(tt.wantModel), parsed.OutputResolution)
+			require.Empty(t, parsed.ImageSize)
+			require.Empty(t, parsed.OutputResolution)
+			require.Equal(t, dedicatedImageModelTier(tt.wantModel), parsed.SizeTier)
 		})
 	}
 }
@@ -201,8 +202,9 @@ func TestNormalizeExplicitDedicatedImageRequestAcceptsTierAliasesAndRejectsConfl
 	require.NoError(t, normalizeExplicitDedicatedImageRequest(parsed))
 	require.Empty(t, parsed.Size)
 	require.False(t, parsed.ExplicitSize)
-	require.Equal(t, "2K", parsed.ImageSize)
-	require.Equal(t, "2K", parsed.OutputResolution)
+	require.Empty(t, parsed.ImageSize)
+	require.Empty(t, parsed.OutputResolution)
+	require.Equal(t, "2K", parsed.SizeTier)
 
 	conflicting := &service.OpenAIImagesRequest{Model: service.CangyuanImageModel1K, Prompt: "draw", ImageSize: "2K", N: 1}
 	require.Error(t, normalizeExplicitDedicatedImageRequest(conflicting))
@@ -315,15 +317,15 @@ func TestDedicatedCangyuanRequestConvertsUploadsWithoutChangingTier(t *testing.T
 		MaskUpload: &service.OpenAIImagesUpload{ContentType: "image/png", Data: []byte("mask-bytes")},
 	})
 	require.NoError(t, err)
-	require.Equal(t, "4K", request.ImageSize)
-	require.Equal(t, "4K", request.OutputResolution)
+	require.Empty(t, request.ImageSize)
+	require.Empty(t, request.OutputResolution)
 	require.True(t, request.Async)
 	require.Len(t, request.Images, 2)
 	require.Contains(t, request.Images[1], "data:image/png;base64,")
 	require.Contains(t, request.Mask, "data:image/png;base64,")
 }
 
-func TestDedicatedCodexRequestForcesSynchronousProviderBase64WhenGlobalBase64IsDisabled(t *testing.T) {
+func TestDedicatedCodexRequestUsesAsyncProviderTaskAndReturnsBase64(t *testing.T) {
 	parsed := &service.OpenAIImagesRequest{
 		Model: service.CangyuanImageModel1K, Prompt: "TCP map", N: 1, ResponseFormat: "b64_json",
 	}
@@ -333,7 +335,7 @@ func TestDedicatedCodexRequestForcesSynchronousProviderBase64WhenGlobalBase64IsD
 	configureCodexNativeImageDelivery(&request)
 
 	require.Equal(t, "b64_json", request.ResponseFormat)
-	require.False(t, request.Async)
+	require.True(t, request.Async)
 }
 
 func TestDedicatedImageContentUsesOwnerScopeAndPrivateCacheHeaders(t *testing.T) {
