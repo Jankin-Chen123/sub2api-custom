@@ -645,10 +645,10 @@ type PublicSettingsInjectionPayload struct {
 	ChannelMonitorHideThroughput bool `json:"channel_monitor_hide_throughput"`
 	// ChannelMonitorShowQuota gates the user-facing quota/balance display on
 	// monitors; fail-closed (absent/false = hidden). Admin UI always shows it.
-	ChannelMonitorShowQuota        bool   `json:"channel_monitor_show_quota"`
+	ChannelMonitorShowQuota bool `json:"channel_monitor_show_quota"`
 	// ChannelMonitorHideUserRanking hides the user ranking tab and /users payload
 	// from non-admin channel-monitor v2 viewers; default false (visible).
-	ChannelMonitorHideUserRanking bool   `json:"channel_monitor_hide_user_ranking"`
+	ChannelMonitorHideUserRanking  bool   `json:"channel_monitor_hide_user_ranking"`
 	AvailableChannelsEnabled       bool   `json:"available_channels_enabled"`
 	ModelPlazaEnabled              bool   `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth          bool   `json:"model_plaza_require_auth"`
