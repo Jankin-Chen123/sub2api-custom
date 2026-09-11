@@ -1,7 +1,7 @@
 <template>
   <AuthLayout>
     <div class="auth-form-stack auth-login-stack">
-      <div v-if="!backendModeEnabled">
+      <div v-if="!backendModeEnabled && publicSettingsLoaded && registrationEnabled">
         <AuthModeTabs active="login" />
       </div>
 
@@ -201,7 +201,7 @@
     </div>
 
     <!-- Footer -->
-    <template v-if="!backendModeEnabled" #footer>
+    <template v-if="!backendModeEnabled && publicSettingsLoaded && registrationEnabled" #footer>
       <p class="auth-footer-copy">
         {{ t('auth.firstTimeHere') }}
         <router-link to="/register">
@@ -272,6 +272,7 @@ const showPassword = ref<boolean>(false)
 const publicSettingsLoaded = ref<boolean>(false)
 
 // Public settings
+const registrationEnabled = ref<boolean>(false)
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
 const tencentCaptchaEnabled = ref<boolean>(false)
@@ -383,6 +384,7 @@ onMounted(async () => {
 
   try {
     const settings = await getPublicSettings()
+    registrationEnabled.value = settings.registration_enabled === true
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
     tencentCaptchaEnabled.value = settings.tencent_captcha_enabled === true

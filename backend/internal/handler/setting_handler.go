@@ -113,6 +113,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		GrokDefaultTextModel:                 settings.GrokDefaultTextModel,
 		GrokCrossClientModelMapEnabled:       settings.GrokCrossClientModelMapEnabled,
 		GrokDefaultBaseURLMode:               settings.GrokDefaultBaseURLMode,
+		ChannelMonitorHideUserRanking:        settings.ChannelMonitorHideUserRanking,
 
 		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
 
