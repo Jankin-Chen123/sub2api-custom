@@ -81,6 +81,22 @@ describe('renderDocumentationHTML', () => {
     expect(html).not.toContain('<script')
   })
 
+  it('keeps same-document anchors emitted for Notion block links', () => {
+    const html = renderDocumentationHTML(
+      `<section class="notion-document">
+        <details id="代理节点" data-docs-section><summary>代理节点</summary><p>节点配置</p></details>
+        <p>需要干净节点的可以看👉 <a href="#代理节点">代理节点</a></p>
+      </section>`,
+      [{ level: 2, title: '代理节点', id: '代理节点' }],
+      '/assets',
+    )
+    const document = new DOMParser().parseFromString(html, 'text/html')
+    const link = document.querySelector<HTMLAnchorElement>('a[href="#代理节点"]')
+
+    expect(link?.textContent).toBe('代理节点')
+    expect(link?.classList.contains('docs-anchor-link')).toBe(true)
+  })
+
   it('dispatches HTML content without parsing it as Markdown', () => {
     const html = renderDocumentationContent(
       '<details id="chapter" data-docs-section><summary>Chapter</summary><p>Body</p></details>',

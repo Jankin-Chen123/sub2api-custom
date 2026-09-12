@@ -197,6 +197,24 @@ func TestImportNotionArchiveRewritesRootRelativeInternalLinks(t *testing.T) {
 	}
 }
 
+func TestImportNotionArchiveRewritesNotionBlockLinks(t *testing.T) {
+	htmlDocument := `<!doctype html><html><body><article>
+<h1 class="page-title">使用教程</h1>
+<details id="proxy-toggle"><summary>代理节点</summary><p id="proxy-config-block">节点配置说明</p></details>
+<p><a href="#proxy-config-block">跳转到代理节点</a></p>
+<p><a href="/proxy-config-block">另一种区块链接</a></p>
+</article></body></html>`
+	result, err := importNotionArchive(makeDocumentationZip(t, map[string][]byte{
+		"guide.html": []byte(htmlDocument),
+	}))
+	if err != nil {
+		t.Fatalf("import HTML archive: %v", err)
+	}
+	if count := strings.Count(string(result.Content), `href="#代理节点"`); count != 2 {
+		t.Fatalf("Notion block links were not rewritten to the containing section (count = %d):\n%s", count, result.Content)
+	}
+}
+
 func TestImportNotionArchiveRejectsNestedZip(t *testing.T) {
 	inner := makeDocumentationZip(t, map[string][]byte{"guide.md": []byte("# Guide\n")})
 	outer := makeDocumentationZip(t, map[string][]byte{"Export-Part-1.zip": inner})

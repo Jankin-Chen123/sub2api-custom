@@ -97,7 +97,7 @@ func importNotionHTMLDocuments(files map[string]documentationArchiveFile, htmlPa
 			fragmentIDs[document.path+"#"+oldID] = document.rootID
 		}
 		outline = append(outline, DocumentationHeading{Level: pageLevel, Title: document.title, ID: document.rootID})
-		assignNotionHTMLSections(document.article, document, pageLevel, 0, idCounts, fragmentIDs, &outline)
+		assignNotionHTMLSections(document.article, document, pageLevel, 0, document.rootID, idCounts, fragmentIDs, &outline)
 	}
 
 	for _, document := range documents {
@@ -243,13 +243,18 @@ func registerNotionHTMLImage(source string, files map[string]documentationArchiv
 	return assetPath, nil
 }
 
-func assignNotionHTMLSections(root *html.Node, document *notionHTMLDocument, pageLevel, detailsDepth int, idCounts map[string]int, fragmentIDs map[string]string, outline *[]DocumentationHeading) {
+// assignNotionHTMLSections also preserves Notion block-reference targets. A
+// Notion "link to block" can target any child block inside a toggle instead of
+// the toggle element itself, so every original block ID is mapped to its nearest
+// published section.
+func assignNotionHTMLSections(root *html.Node, document *notionHTMLDocument, pageLevel, detailsDepth int, sectionID string, idCounts map[string]int, fragmentIDs map[string]string, outline *[]DocumentationHeading) {
 	for child := root.FirstChild; child != nil; child = child.NextSibling {
 		if child.Type != html.ElementNode {
-			assignNotionHTMLSections(child, document, pageLevel, detailsDepth, idCounts, fragmentIDs, outline)
+			assignNotionHTMLSections(child, document, pageLevel, detailsDepth, sectionID, idCounts, fragmentIDs, outline)
 			continue
 		}
 		if child.Data == "details" {
+			childSectionID := sectionID
 			summary := directNotionHTMLChild(child, "summary")
 			title := cleanDocumentationHeadingText(notionHTMLNodeText(summary))
 			if title != "" {
@@ -271,11 +276,14 @@ func assignNotionHTMLSections(root *html.Node, document *notionHTMLDocument, pag
 					fragmentIDs[document.path+"#"+oldID] = id
 				}
 				fragmentIDs[document.path+"#"+title] = id
+				childSectionID = id
 				*outline = append(*outline, DocumentationHeading{Level: level, Title: title, ID: id})
 			}
-			assignNotionHTMLSections(child, document, pageLevel, detailsDepth+1, idCounts, fragmentIDs, outline)
+			assignNotionHTMLSections(child, document, pageLevel, detailsDepth+1, childSectionID, idCounts, fragmentIDs, outline)
 			continue
 		}
+
+		childSectionID := sectionID
 		if isNotionHTMLHeading(child.Data) && child != document.pageTitle && !hasNotionHTMLAncestor(child, "summary") {
 			title := cleanDocumentationHeadingText(notionHTMLNodeText(child))
 			if title != "" {
@@ -290,10 +298,13 @@ func assignNotionHTMLSections(root *html.Node, document *notionHTMLDocument, pag
 					fragmentIDs[document.path+"#"+oldID] = id
 				}
 				fragmentIDs[document.path+"#"+title] = id
+				childSectionID = id
 				*outline = append(*outline, DocumentationHeading{Level: level, Title: title, ID: id})
 			}
+		} else if oldID := notionHTMLAttribute(child, "id"); oldID != "" && sectionID != "" {
+			fragmentIDs[document.path+"#"+oldID] = sectionID
 		}
-		assignNotionHTMLSections(child, document, pageLevel, detailsDepth, idCounts, fragmentIDs, outline)
+		assignNotionHTMLSections(child, document, pageLevel, detailsDepth, childSectionID, idCounts, fragmentIDs, outline)
 	}
 }
 
