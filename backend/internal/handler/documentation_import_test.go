@@ -175,6 +175,28 @@ func TestImportNotionArchiveRewritesSameDocumentTitleAlias(t *testing.T) {
 	}
 }
 
+func TestImportNotionArchiveRewritesRootRelativeInternalLinks(t *testing.T) {
+	htmlDocument := `<!doctype html><html><body><article>
+<h1 class="page-title">使用教程</h1>
+<details id="proxy-block"><summary>代理节点</summary><p>章节内容</p></details>
+<p><a href="/代理节点">按标题跳转</a></p>
+<p><a href="/guide.html#proxy-block">按区块跳转</a></p>
+<p><a href="/../outside.html">无效站内路径</a></p>
+</article></body></html>`
+	result, err := importNotionArchive(makeDocumentationZip(t, map[string][]byte{
+		"guide.html": []byte(htmlDocument),
+	}))
+	if err != nil {
+		t.Fatalf("import HTML archive: %v", err)
+	}
+	if count := strings.Count(string(result.Content), `href="#代理节点"`); count != 2 {
+		t.Fatalf("root-relative internal links were not rewritten (count = %d):\n%s", count, result.Content)
+	}
+	if strings.Contains(string(result.Content), `href="/../outside.html"`) {
+		t.Fatalf("root-relative traversal was not removed:\n%s", result.Content)
+	}
+}
+
 func TestImportNotionArchiveRejectsNestedZip(t *testing.T) {
 	inner := makeDocumentationZip(t, map[string][]byte{"guide.md": []byte("# Guide\n")})
 	outer := makeDocumentationZip(t, map[string][]byte{"Export-Part-1.zip": inner})

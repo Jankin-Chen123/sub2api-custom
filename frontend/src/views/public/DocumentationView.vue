@@ -375,6 +375,7 @@ async function handleContentClick(event: MouseEvent) {
   const target = event.target as HTMLElement
   const image = target.closest<HTMLImageElement>('img.docs-zoomable-image')
   if (image) {
+    event.preventDefault()
     lightboxSource.value = image.currentSrc || image.src
     return
   }

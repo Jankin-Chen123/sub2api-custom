@@ -485,10 +485,24 @@ func notionHTMLFragmentHref(targetPath, rawFragment string, fragmentIDs map[stri
 
 func resolveNotionHTMLArchiveTarget(documentPath, rawTarget string) (string, bool) {
 	decoded, err := url.PathUnescape(strings.TrimSpace(rawTarget))
-	if err != nil || decoded == "" || strings.Contains(decoded, "\\") || strings.HasPrefix(decoded, "/") {
+	if err != nil || decoded == "" || strings.Contains(decoded, "\\") {
 		return "", false
 	}
-	resolved := canonicalDocumentationPath(path.Join(path.Dir(documentPath), decoded))
+
+	// Notion exports links to pages and blocks either relative to the current
+	// HTML file or from the root of the export. The latter starts with "/" and
+	// still refers to an archive member, not an absolute filesystem path.
+	rootRelative := strings.HasPrefix(decoded, "/")
+	decoded = strings.TrimLeft(decoded, "/")
+	if decoded == "" {
+		return "", false
+	}
+
+	resolved := decoded
+	if !rootRelative {
+		resolved = path.Join(path.Dir(documentPath), decoded)
+	}
+	resolved = canonicalDocumentationPath(resolved)
 	if resolved == "." || resolved == ".." || strings.HasPrefix(resolved, "../") {
 		return "", false
 	}
