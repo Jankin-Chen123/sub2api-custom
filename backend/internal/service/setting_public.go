@@ -737,7 +737,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		AccountQuotaNotifyEnabled:                 settings.AccountQuotaNotifyEnabled,
 		BalanceLowNotifyThreshold:                 settings.BalanceLowNotifyThreshold,
 		BalanceLowNotifyRechargeURL:               settings.BalanceLowNotifyRechargeURL,
-		PaymentBalanceDisabled:                   settings.PaymentBalanceDisabled,
+		PaymentBalanceDisabled:                    settings.PaymentBalanceDisabled,
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorMode:                   settings.ChannelMonitorMode,
