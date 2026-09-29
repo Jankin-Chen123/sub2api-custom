@@ -14,6 +14,8 @@ const { redeem, getHistory, refreshUser, fetchActiveSubscriptions, showError, sh
 
 vi.mock('@/api', () => ({
   redeemAPI: { redeem, getHistory },
+  paymentAPI: { getMyOrders: vi.fn().mockResolvedValue({ data: { items: [] } }) },
+  checkinAPI: { getHistory: vi.fn().mockResolvedValue([]) },
   authAPI: { getPublicSettings: vi.fn().mockResolvedValue({}) },
 }))
 vi.mock('@/stores/auth', () => ({
@@ -32,7 +34,7 @@ vi.mock('vue-i18n', async () => {
 
 async function submitCode() {
   const wrapper = mount(RedeemView, {
-    global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Icon: true } },
+    global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Icon: true, DailyCheckinWheel: true } },
   })
   await flushPromises()
   await wrapper.get('input#code').setValue(' REDEEM-CODE ')
@@ -45,7 +47,7 @@ describe('RedeemView refresh after redemption', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     redeem.mockResolvedValue({ type: 'balance', value: 20, message: 'Code applied' })
-    getHistory.mockResolvedValue([])
+    getHistory.mockResolvedValue({ items: [], total: 0 })
     refreshUser.mockResolvedValue({ balance: 30, concurrency: 2 })
     fetchActiveSubscriptions.mockResolvedValue([])
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -59,9 +61,9 @@ describe('RedeemView refresh after redemption', () => {
     'keeps a successful %s redemption when profile refresh fails', async (type) => {
       redeem.mockResolvedValue({ type, value: 20, message: 'Code applied' })
       refreshUser.mockRejectedValue({ status: 503, message: 'Service unavailable' })
-      getHistory.mockResolvedValueOnce([]).mockResolvedValueOnce([{
+      getHistory.mockResolvedValueOnce({ items: [], total: 0 }).mockResolvedValueOnce({ items: [{
         id: 1, code: 'REDEEM-CODE', type, value: 20, used_at: '2026-03-08T00:00:00Z',
-      }])
+      }], total: 1 })
 
       const wrapper = await submitCode()
 
@@ -74,7 +76,8 @@ describe('RedeemView refresh after redemption', () => {
       expect((wrapper.get('input#code').element as HTMLInputElement).value).toBe('')
       expect((wrapper.get('input#code').element as HTMLInputElement).disabled).toBe(false)
       expect(getHistory).toHaveBeenCalledTimes(2)
-      expect(wrapper.text()).toContain('REDEEM-C...')
+      expect(getHistory).toHaveBeenLastCalledWith(1, 25)
+      if (type === 'balance') expect(wrapper.text()).toContain('+$20.00')
       if (type === 'subscription') {
         expect(fetchActiveSubscriptions).toHaveBeenCalledWith(true)
       } else {

@@ -385,13 +385,13 @@ const fetchActivity = async () => {
   loadingActivity.value = true
   try {
     const [redeemResult, rechargeResult, checkinResult] = await Promise.allSettled([
-      redeemAPI.getHistory(),
+      redeemAPI.getHistory(1, 25),
       paymentAPI.getMyOrders({ page: 1, page_size: 25, status: 'COMPLETED', order_type: 'balance' }),
       checkinAPI.getHistory()
     ])
 
     const next: BalanceActivity[] = []
-    if (redeemResult.status === 'fulfilled') next.push(...redeemActivities(redeemResult.value))
+    if (redeemResult.status === 'fulfilled') next.push(...redeemActivities(redeemResult.value.items))
     if (rechargeResult.status === 'fulfilled') next.push(...rechargeActivities(rechargeResult.value.data.items))
     if (checkinResult.status === 'fulfilled') next.push(...checkinActivities(checkinResult.value))
 
