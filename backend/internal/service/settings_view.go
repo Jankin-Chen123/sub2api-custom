@@ -183,6 +183,7 @@ type SystemSettings struct {
 	ImageWorkbenchAnnouncementIntervalSeconds int
 	RiskControlEnabled                        bool
 	CyberSessionBlockEnabled                  bool
+	CyberPolicyUserAllowlist                  string
 	CyberSessionBlockTTLSeconds               int
 	AffiliateEnabled                          bool
 	AffiliateRebateRate                       float64

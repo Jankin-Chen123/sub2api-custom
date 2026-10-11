@@ -92,6 +92,7 @@ func TestCreateOrderInTx_WritesProviderSnapshot(t *testing.T) {
 		88,
 		0,
 		90.2,
+		0,
 		"CNY",
 		&payment.InstanceSelection{
 			InstanceID:     strconv.FormatInt(instance.ID, 10),
@@ -146,7 +147,7 @@ func TestCreateOrderInTx_PaymentFactHonorsCampaignWindowAndCaptureCutoff(t *test
 			OrderType: payment.OrderTypeBalance, ClientIP: "127.0.0.1", SrcHost: "test",
 		}, &User{ID: user.ID, Email: email, Username: email}, nil,
 			&PaymentConfig{MaxPendingOrders: 3, OrderTimeoutMin: 30},
-			10, 10, 0, 10, "CNY", nil)
+			10, 10, 0, 10, 0, "CNY", nil)
 		require.NoError(t, err)
 		return order.ID
 	}
