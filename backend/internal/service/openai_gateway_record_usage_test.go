@@ -568,12 +568,12 @@ func TestOpenAIGatewayServiceRecordUsage_TextTokenKeepsCampaignFactor(t *testing
 
 	withMediaArgument, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(), result, apiKey, []string{"gpt-5.1"},
-		0.94, 1, 1, 0.94, tokens, "", nil, time.Time{}, 1,
+		0.94, 1, 1, 0.94, tokens, "", nil, false, time.Time{}, 1,
 	)
 	require.NoError(t, err)
 	withoutMediaArgument, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(), result, apiKey, []string{"gpt-5.1"},
-		0.94, 1, 1, 0.94, tokens, "", nil, time.Time{},
+		0.94, 1, 1, 0.94, tokens, "", nil, false, time.Time{},
 	)
 	require.NoError(t, err)
 	// The optional media multiplier is passed by the shared caller for all

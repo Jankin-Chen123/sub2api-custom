@@ -99,7 +99,7 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 			response.ErrorFrom(c, mapErr)
 			return
 		}
-		out = append(out, *mapped)
+		out = append(out, *mapped.Localized(c.GetHeader("Accept-Language")))
 	}
 	response.Success(c, out)
 }
@@ -188,7 +188,7 @@ func (h *SubscriptionHandler) GetActive(c *gin.Context) {
 			response.ErrorFrom(c, mapErr)
 			return
 		}
-		out = append(out, *mapped)
+		out = append(out, *mapped.Localized(c.GetHeader("Accept-Language")))
 	}
 	response.Success(c, out)
 }
@@ -222,8 +222,11 @@ func (h *SubscriptionHandler) GetProgress(c *gin.Context) {
 			response.ErrorFrom(c, mapErr)
 			return
 		}
+		if sub.Group != nil {
+			progress.GroupName = sub.Group.I18n.LocalizeName(c.GetHeader("Accept-Language"), progress.GroupName)
+		}
 		result = append(result, SubscriptionProgressInfo{
-			Subscription: mapped,
+			Subscription: mapped.Localized(c.GetHeader("Accept-Language")),
 			Progress:     progress,
 		})
 	}
@@ -262,7 +265,7 @@ func (h *SubscriptionHandler) GetSummary(c *gin.Context) {
 
 		// Add group info if preloaded
 		if sub.Group != nil {
-			item.GroupName = sub.Group.Name
+			item.GroupName = sub.Group.I18n.LocalizeName(c.GetHeader("Accept-Language"), sub.Group.Name)
 			if limit := sub.EffectiveDailyLimit(sub.Group); limit != nil {
 				item.DailyLimitUSD = *limit
 			}
