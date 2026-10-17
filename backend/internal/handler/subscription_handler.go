@@ -51,8 +51,8 @@ func NewSubscriptionHandler(subscriptionService *service.SubscriptionService, ap
 	}
 }
 
-func (h *SubscriptionHandler) userSubscriptionDTO(ctx context.Context, sub *service.UserSubscription, ensureKey bool) (*dto.UserSubscription, error) {
-	out := dto.UserSubscriptionFromService(sub)
+func (h *SubscriptionHandler) userSubscriptionDTO(ctx context.Context, sub *service.UserSubscription, ensureKey bool, acceptLanguage string) (*dto.UserSubscription, error) {
+	out := dto.UserSubscriptionFromService(sub).Localized(acceptLanguage)
 	if out == nil || sub.Status != service.SubscriptionStatusActive || h.apiKeyService == nil {
 		return out, nil
 	}
@@ -73,7 +73,7 @@ func (h *SubscriptionHandler) userSubscriptionDTO(ctx context.Context, sub *serv
 	if err != nil {
 		return nil, err
 	}
-	out.APIKey = dto.APIKeyFromService(apiKey)
+	out.APIKey = dto.APIKeyFromService(apiKey).Localized(acceptLanguage)
 	return out, nil
 }
 
@@ -94,12 +94,12 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 
 	out := make([]dto.UserSubscription, 0, len(subscriptions))
 	for i := range subscriptions {
-		mapped, mapErr := h.userSubscriptionDTO(c.Request.Context(), &subscriptions[i], true)
+		mapped, mapErr := h.userSubscriptionDTO(c.Request.Context(), &subscriptions[i], true, c.GetHeader("Accept-Language"))
 		if mapErr != nil {
 			response.ErrorFrom(c, mapErr)
 			return
 		}
-		out = append(out, *mapped.Localized(c.GetHeader("Accept-Language")))
+		out = append(out, *mapped)
 	}
 	response.Success(c, out)
 }
@@ -158,12 +158,12 @@ func (h *SubscriptionHandler) Activate(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	out, err := h.userSubscriptionDTO(c.Request.Context(), sub, true)
+	out, err := h.userSubscriptionDTO(c.Request.Context(), sub, true, c.GetHeader("Accept-Language"))
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, out.Localized(c.GetHeader("Accept-Language")))
+	response.Success(c, out)
 }
 
 // GetActive handles getting current user's active subscriptions
@@ -183,12 +183,12 @@ func (h *SubscriptionHandler) GetActive(c *gin.Context) {
 
 	out := make([]dto.UserSubscription, 0, len(subscriptions))
 	for i := range subscriptions {
-		mapped, mapErr := h.userSubscriptionDTO(c.Request.Context(), &subscriptions[i], true)
+		mapped, mapErr := h.userSubscriptionDTO(c.Request.Context(), &subscriptions[i], true, c.GetHeader("Accept-Language"))
 		if mapErr != nil {
 			response.ErrorFrom(c, mapErr)
 			return
 		}
-		out = append(out, *mapped.Localized(c.GetHeader("Accept-Language")))
+		out = append(out, *mapped)
 	}
 	response.Success(c, out)
 }
@@ -217,7 +217,7 @@ func (h *SubscriptionHandler) GetProgress(c *gin.Context) {
 			// Skip subscriptions with errors
 			continue
 		}
-		mapped, mapErr := h.userSubscriptionDTO(c.Request.Context(), sub, true)
+		mapped, mapErr := h.userSubscriptionDTO(c.Request.Context(), sub, true, c.GetHeader("Accept-Language"))
 		if mapErr != nil {
 			response.ErrorFrom(c, mapErr)
 			return
@@ -226,7 +226,7 @@ func (h *SubscriptionHandler) GetProgress(c *gin.Context) {
 			progress.GroupName = sub.Group.I18n.LocalizeName(c.GetHeader("Accept-Language"), progress.GroupName)
 		}
 		result = append(result, SubscriptionProgressInfo{
-			Subscription: mapped.Localized(c.GetHeader("Accept-Language")),
+			Subscription: mapped,
 			Progress:     progress,
 		})
 	}
