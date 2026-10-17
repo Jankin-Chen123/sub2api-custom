@@ -137,7 +137,7 @@ func (h *SubscriptionHandler) Purchase(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Created(c, dto.UserSubscriptionFromService(sub))
+	response.Created(c, dto.UserSubscriptionFromService(sub).Localized(c.GetHeader("Accept-Language")))
 }
 
 // Activate starts the validity period of a purchased subscription card.
@@ -163,7 +163,7 @@ func (h *SubscriptionHandler) Activate(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, out)
+	response.Success(c, out.Localized(c.GetHeader("Accept-Language")))
 }
 
 // GetActive handles getting current user's active subscriptions
