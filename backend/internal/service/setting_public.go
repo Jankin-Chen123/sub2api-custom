@@ -369,6 +369,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		BalanceLowNotifyThreshold:                 balanceLowNotifyThreshold,
 		BalanceLowNotifyRechargeURL:               settings[SettingKeyBalanceLowNotifyRechargeURL],
 		PaymentBalanceDisabled:                    settings[SettingBalancePayDisabled] == "true",
+		MCPEnabled:                                s.cfg != nil && s.cfg.MCP.Enabled(),
 
 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
 		ChannelMonitorMode:                   normalizeChannelMonitorMode(settings[SettingKeyChannelMonitorMode]),
@@ -632,6 +633,7 @@ type PublicSettingsInjectionPayload struct {
 	PaymentEnabled                            bool                         `json:"payment_enabled"`
 	Version                                   string                       `json:"version"`
 	PaymentBalanceDisabled                    bool                         `json:"payment_balance_disabled"`
+	MCPEnabled                                bool                         `json:"mcp_enabled"`
 	// 服务器全局时区（IANA 名称与当前 UTC 偏移），高峰时段等服务端本地时间窗口的展示标注用
 	ServerTimezone              string  `json:"server_timezone"`
 	ServerUTCOffset             string  `json:"server_utc_offset"`
@@ -738,6 +740,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		BalanceLowNotifyThreshold:                 settings.BalanceLowNotifyThreshold,
 		BalanceLowNotifyRechargeURL:               settings.BalanceLowNotifyRechargeURL,
 		PaymentBalanceDisabled:                    settings.PaymentBalanceDisabled,
+		MCPEnabled:                                settings.MCPEnabled,
 
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorMode:                   settings.ChannelMonitorMode,
