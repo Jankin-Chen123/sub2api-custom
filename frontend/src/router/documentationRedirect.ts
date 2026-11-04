@@ -1,11 +1,8 @@
 import type { RouteLocationNormalized } from 'vue-router'
 
-// Documentation has its own deployment and authentication. A full navigation
-// lets the edge proxy serve it instead of rendering a page in the main SPA.
+// Public documentation has its own deployment. A full navigation lets the
+// edge proxy serve it. Admin documentation uses an authenticated embed route.
 export function redirectToDocumentation(to: Pick<RouteLocationNormalized, 'name' | 'path' | 'fullPath'>): false {
-  const path = to.name === 'AdminDocumentation'
-    ? `/docs/admin${to.fullPath.slice(to.path.length)}`
-    : to.fullPath
-  window.location.replace(`https://aibaipiao.top${path}`)
+  window.location.replace(`https://aibaipiao.top${to.fullPath}`)
   return false
 }

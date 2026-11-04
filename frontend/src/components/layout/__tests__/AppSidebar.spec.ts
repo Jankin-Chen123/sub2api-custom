@@ -30,8 +30,8 @@ describe('AppSidebar custom SVG styles', () => {
     expect(componentSource).toContain('const backendModeNavItems = computed')
   })
 
-  it('opens documentation management in the independent application', () => {
-    expect(componentSource).toMatch(/path: '\/admin\/documentation'[^\n]*externalUrl: 'https:\/\/aibaipiao\.top\/docs\/admin'/)
+  it('opens documentation management inside the admin layout', () => {
+    expect(componentSource).toMatch(/path: '\/admin\/documentation', label: t\('nav.documentation'\), icon: BookIcon \}/)
   })
 })
 

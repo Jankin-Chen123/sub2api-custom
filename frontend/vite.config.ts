@@ -154,6 +154,13 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: devPort,
       proxy: {
+        // Optional local independent docs deployment, before the main API proxy.
+        ...(env.VITE_DEV_DOCS_TARGET ? {
+          '/docs': { target: env.VITE_DEV_DOCS_TARGET, changeOrigin: true },
+          '/api/v1/docs-admin': { target: env.VITE_DEV_DOCS_TARGET, changeOrigin: true },
+          '/api/v1/admin/docs': { target: env.VITE_DEV_DOCS_TARGET, changeOrigin: true },
+          '/api/v1/docs': { target: env.VITE_DEV_DOCS_TARGET, changeOrigin: true }
+        } : {}),
         '/api': {
           target: backendUrl,
           changeOrigin: true

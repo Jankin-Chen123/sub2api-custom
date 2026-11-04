@@ -72,12 +72,16 @@ describe('contact page route', () => {
     expect(route?.meta.requiresAuth).toBe(false)
     expect(isBackendModePublicRouteAllowed('/docs', false)).toBe(true)
     expect(isBackendModePublicRouteAllowed('/docs/代理节点', false)).toBe(true)
-    expect(isBackendModePublicRouteAllowed('/admin/documentation', false)).toBe(true)
-    for (const record of [route, sectionRoute, adminRoute]) {
+    expect(isBackendModePublicRouteAllowed('/admin/documentation', false)).toBe(false)
+    for (const record of [route, sectionRoute]) {
       expect(record?.beforeEnter).toBe(redirectToDocumentation)
       expect(record?.components).toBeFalsy()
       expect(record?.meta.requiresAuth).toBe(false)
     }
+    expect(adminRoute?.beforeEnter).toBeUndefined()
+    expect(adminRoute?.components?.default).toBeTypeOf('function')
+    expect(adminRoute?.meta.requiresAuth).toBe(true)
+    expect(adminRoute?.meta.requiresAdmin).toBe(true)
     // Keep this unrelated, more specific legacy alias in the main application.
     expect(router.resolve('/docs/batch-image').name).toBe('BatchImageGuide')
   })
