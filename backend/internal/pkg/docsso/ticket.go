@@ -16,7 +16,7 @@ const Lifetime = time.Minute
 // Key is a domain-separated key; it cannot be used to sign Sub2API JWTs.
 func Key(jwtSecret string) []byte {
 	mac := hmac.New(sha256.New, []byte(jwtSecret))
-	mac.Write([]byte(Audience))
+	_, _ = mac.Write([]byte(Audience)) // hash.Hash.Write never returns an error.
 	return mac.Sum(nil)
 }
 
@@ -35,6 +35,6 @@ func Issue(jwtSecret string, userID int64, now time.Time) (string, error) {
 	}
 	encoded := base64.RawURLEncoding.EncodeToString(payload)
 	mac := hmac.New(sha256.New, Key(jwtSecret))
-	mac.Write([]byte(encoded))
+	_, _ = mac.Write([]byte(encoded)) // hash.Hash.Write never returns an error.
 	return encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
 }
