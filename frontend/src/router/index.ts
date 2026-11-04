@@ -12,6 +12,7 @@ import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
+import { redirectToDocumentation } from './documentationRedirect'
 import { resolveRouteDocumentTitle } from './title'
 import { resolveAuthRouteMotion, setAuthRouteMotion } from '@/utils/authRouteMotion'
 
@@ -199,7 +200,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/docs',
     name: 'Documentation',
-    component: () => import('@/views/public/DocumentationView.vue'),
+    children: [],
+    beforeEnter: redirectToDocumentation,
     meta: {
       requiresAuth: false,
       title: 'Documentation',
@@ -209,7 +211,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/docs/:section',
     name: 'DocumentationSection',
-    component: () => import('@/views/public/DocumentationView.vue'),
+    children: [],
+    beforeEnter: redirectToDocumentation,
     meta: {
       requiresAuth: false,
       title: 'Documentation',
@@ -483,13 +486,12 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/admin/documentation',
     name: 'AdminDocumentation',
-    component: () => import('@/views/admin/DocumentationView.vue'),
+    children: [],
+    beforeEnter: redirectToDocumentation,
     meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
+      requiresAuth: false,
       title: 'Documentation',
-      titleKey: 'documentation.admin.title',
-      descriptionKey: 'documentation.admin.description'
+      titleKey: 'nav.documentation'
     }
   },
   {
@@ -841,7 +843,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/contact', '/docs']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/contact', '/docs', '/admin/documentation']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',

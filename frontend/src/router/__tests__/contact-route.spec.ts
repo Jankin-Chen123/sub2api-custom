@@ -60,15 +60,25 @@ describe('contact page route', () => {
     expect(isBackendModePublicRouteAllowed('/contact/', false)).toBe(true)
   })
 
-  it('registers documentation as a standalone public route', async () => {
+  it('hands documentation routes to the independent service without loading old pages', async () => {
     const { default: router, isBackendModePublicRouteAllowed } = await import('@/router')
+    const { redirectToDocumentation } = await import('../documentationRedirect')
     const route = router.getRoutes().find((record) => record.name === 'Documentation')
     const sectionRoute = router.getRoutes().find((record) => record.name === 'DocumentationSection')
+    const adminRoute = router.getRoutes().find((record) => record.name === 'AdminDocumentation')
 
     expect(route?.path).toBe('/docs')
     expect(sectionRoute?.path).toBe('/docs/:section')
     expect(route?.meta.requiresAuth).toBe(false)
     expect(isBackendModePublicRouteAllowed('/docs', false)).toBe(true)
     expect(isBackendModePublicRouteAllowed('/docs/代理节点', false)).toBe(true)
+    expect(isBackendModePublicRouteAllowed('/admin/documentation', false)).toBe(true)
+    for (const record of [route, sectionRoute, adminRoute]) {
+      expect(record?.beforeEnter).toBe(redirectToDocumentation)
+      expect(record?.components).toBeFalsy()
+      expect(record?.meta.requiresAuth).toBe(false)
+    }
+    // Keep this unrelated, more specific legacy alias in the main application.
+    expect(router.resolve('/docs/batch-image').name).toBe('BatchImageGuide')
   })
 })

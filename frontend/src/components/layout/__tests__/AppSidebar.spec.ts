@@ -29,6 +29,10 @@ describe('AppSidebar custom SVG styles', () => {
     expect(componentSource).toContain('appStore.backendModeEnabled ? backendModeNavItems : userNavItems')
     expect(componentSource).toContain('const backendModeNavItems = computed')
   })
+
+  it('opens documentation management in the independent application', () => {
+    expect(componentSource).toMatch(/path: '\/admin\/documentation'[^\n]*externalUrl: 'https:\/\/aibaipiao\.top\/docs\/admin'/)
+  })
 })
 
 describe('AppSidebar scroll position persistence', () => {

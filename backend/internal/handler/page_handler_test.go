@@ -1,10 +1,47 @@
 package handler
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
+
+func TestPageRoutesDoNotOwnIndependentDocumentation(t *testing.T) {
+	dataDir := t.TempDir()
+	router := gin.New()
+	auth := func(c *gin.Context) { c.AbortWithStatus(http.StatusUnauthorized) }
+	RegisterPageRoutes(router.Group("/api/v1"), dataDir, auth, auth, nil)
+
+	for _, request := range []struct{ method, path string }{
+		{http.MethodGet, "/api/v1/docs"},
+		{http.MethodGet, "/api/v1/docs/versions/old/content"},
+		{http.MethodGet, "/api/v1/docs/versions/old/assets/image.png"},
+		{http.MethodGet, "/api/v1/docs/previews/old/assets/image.png"},
+		{http.MethodGet, "/api/v1/admin/docs"},
+		{http.MethodPost, "/api/v1/admin/docs/import"},
+		{http.MethodPost, "/api/v1/admin/docs/drafts/old/publish"},
+		{http.MethodPost, "/api/v1/admin/docs/versions/old/activate"},
+	} {
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(request.method, request.path, nil))
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("%s %s: status = %d, want 404", request.method, request.path, response.Code)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "documentation")); !os.IsNotExist(err) {
+		t.Fatalf("legacy documentation storage must not be initialized: %v", err)
+	}
+	// Custom pages retain their authentication and route ownership.
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/pages/guide", nil))
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("custom page auth: status = %d, want 401", response.Code)
+	}
+}
 
 func TestCleanPageImageRelativePath(t *testing.T) {
 	tests := []struct {

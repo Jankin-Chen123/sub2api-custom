@@ -46,6 +46,9 @@ jobs:
           src/components/auth/__tests__/AuthModeTabs.spec.ts
           src/views/auth/__tests__/authPagePresentation.spec.ts
           src/router/__tests__/guards.spec.ts
+          src/router/__tests__/contact-route.spec.ts
+          src/router/__tests__/documentationRedirect.spec.ts
+          src/components/layout/__tests__/AppSidebar.spec.ts
           src/components/common/__tests__/AnnouncementPopup.spec.ts
           src/views/user/__tests__/AffiliateView.spec.ts
 

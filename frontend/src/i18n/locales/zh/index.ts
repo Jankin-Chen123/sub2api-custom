@@ -9,7 +9,6 @@ import imageWorkbench from './imageWorkbench'
 import admin from './admin'
 import misc from './misc'
 import contactPage from './contactPage'
-import documentation from './documentation'
 
 export default {
   adminAccessKeys,
@@ -22,6 +21,5 @@ export default {
   ...imageWorkbench,
   admin,
   ...contactPage,
-  ...documentation,
   ...misc,
 }
