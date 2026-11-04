@@ -6,7 +6,7 @@ vi.mock('@/i18n', () => {
   const messages: Record<string, string> = {
     'nav.recharge': '充值',
     'nav.subscribe': '订阅',
-    'nav.buySubscription': '充值/订阅',
+    'nav.buySubscription': '在线充值',
   }
   return { i18n: { global: { t: (key: string) => messages[key] ?? key } } }
 })
@@ -115,8 +115,8 @@ describe('resolveRouteDocumentTitle 站点类型', () => {
     expect(title).toBe('订阅 - EzouAPI')
   })
 
-  it('充值 & 订阅时保留原标题', () => {
+  it('充值 & 订阅时使用在线充值标题', () => {
     const title = resolveRouteDocumentTitle(purchaseRoute, 'EzouAPI', [], { billingMode: 'recharge_and_subscription' })
-    expect(title).toBe('充值/订阅 - EzouAPI')
+    expect(title).toBe('在线充值 - EzouAPI')
   })
 })

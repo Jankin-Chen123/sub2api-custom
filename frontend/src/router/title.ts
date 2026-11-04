@@ -27,7 +27,7 @@ export function resolveDocumentTitle(routeTitle: unknown, siteName?: string, tit
 export interface RouteTitleOptions {
   /**
    * 站点计费模式（见 utils/billingMode.ts）。/purchase 的标题与描述随之切换：
-   * 仅充值 → 「充值」，仅订阅 → 「订阅」，缺省/两者都有 → 「充值/订阅」。
+   * 仅充值 → 「充值」，仅订阅 → 「订阅」，缺省/两者都有 → 「在线充值」。
    */
   billingMode?: SiteBillingMode
 }

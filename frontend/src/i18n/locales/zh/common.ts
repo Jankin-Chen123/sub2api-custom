@@ -199,7 +199,7 @@ export default {
     github: 'GitHub',
     mySubscriptions: '我的订阅',
     onlineRecharge: '在线充值',
-    buySubscription: '充值/订阅',
+    buySubscription: '在线充值',
     recharge: '充值',
     subscribe: '订阅',
     docs: '文档',
