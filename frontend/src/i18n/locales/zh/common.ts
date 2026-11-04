@@ -154,7 +154,7 @@ export default {
       relatedDocuments: '相关文档',
       reject: '拒绝',
       accept: '同意并继续',
-      loginRejectedWarning: '未同意最新条款前，无法输入账号密码或使用快捷登录。',
+      loginRejectedWarning: '未同意最新条款前，无法登录或使用快捷登录。',
       loginRequiredWarning: '请先阅读并同意最新条款后再登录。',
       registerRejectedWarning: '未同意最新条款前，无法注册或使用快捷登录。',
       registerRequiredWarning: '请先阅读并同意最新条款后再注册。'

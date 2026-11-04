@@ -154,7 +154,7 @@ export default {
       relatedDocuments: 'Related documents',
       reject: 'Reject',
       accept: 'Accept and continue',
-      loginRejectedWarning: 'Account/password login and quick sign-in are disabled until you accept the latest terms.',
+      loginRejectedWarning: 'Login and quick sign-in are disabled until you accept the latest terms.',
       loginRequiredWarning: 'Please read and accept the latest terms before logging in.',
       registerRejectedWarning: 'Registration and quick sign-in are disabled until you accept the latest terms.',
       registerRequiredWarning: 'Please read and accept the latest terms before registering.'

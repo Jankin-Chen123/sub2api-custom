@@ -104,6 +104,7 @@ describe('RegisterView', () => {
     verifyActionMock.mockReset()
     appStoreMock.cachedPublicSettings = null
     sessionStorage.removeItem('register_data')
+    localStorage.removeItem('sub2api_login_agreement_consent')
     verifyActionMock.mockResolvedValue({ token: 'ticket', randstr: 'randstr' })
     getPublicSettingsMock.mockResolvedValue(publicSettings)
     registerMock.mockResolvedValue({})
@@ -125,6 +126,68 @@ describe('RegisterView', () => {
     await flushPromises()
 
     expect(wrapper.find('#promo_code').exists()).toBe(false)
+  })
+
+  it.each([false, true])('allows editing before policy consent but gates registration (email verification: %s)', async (emailVerify) => {
+    getPublicSettingsMock.mockResolvedValueOnce({
+      ...publicSettings,
+      turnstile_enabled: false,
+      promo_code_enabled: true,
+      email_verify_enabled: emailVerify,
+      login_agreement_enabled: true,
+      login_agreement_mode: 'checkbox',
+      login_agreement_revision: 'test-register-policy',
+      login_agreement_documents: [{ id: 'terms', title: 'Terms' }]
+    })
+    const wrapper = mountRegister()
+    await flushPromises()
+
+    for (const field of ['email', 'password', 'confirmPassword', 'affiliate_code', 'promo_code']) {
+      expect((wrapper.get(`#${field}`).element as HTMLInputElement).disabled).toBe(false)
+    }
+    await wrapper.get('#email').setValue('user@example.com')
+    await wrapper.get('#password').setValue('secret-123')
+    await wrapper.get('#confirmPassword').setValue('secret-123')
+    await wrapper.get('#password').element.parentElement!.querySelector('button')!.click()
+    await wrapper.get('#confirmPassword').element.parentElement!.querySelector('button')!.click()
+    await flushPromises()
+    expect(wrapper.get('#password').attributes('type')).toBe('text')
+    expect(wrapper.get('#confirmPassword').attributes('type')).toBe('text')
+    expect((wrapper.get('button[type="submit"]').element as HTMLButtonElement).disabled).toBe(true)
+
+    await wrapper.get('form').trigger('submit.prevent')
+    await flushPromises()
+    expect(registerMock).not.toHaveBeenCalled()
+    expect(verifyActionMock).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('register_data')).toBeNull()
+    expect(pushMock).not.toHaveBeenCalled()
+
+    const agreement = wrapper.findComponent({ name: 'LoginAgreementPrompt' })
+    agreement.vm.$emit('accept')
+    await flushPromises()
+    expect((wrapper.get('button[type="submit"]').element as HTMLButtonElement).disabled).toBe(false)
+    agreement.vm.$emit('reject')
+    await flushPromises()
+    expect((wrapper.get('button[type="submit"]').element as HTMLButtonElement).disabled).toBe(true)
+    expect((wrapper.get('#email').element as HTMLInputElement).value).toBe('user@example.com')
+    expect((wrapper.get('#password').element as HTMLInputElement).disabled).toBe(false)
+
+    agreement.vm.$emit('accept')
+    await flushPromises()
+    await wrapper.get('form').trigger('submit.prevent')
+    await flushPromises()
+    if (emailVerify) {
+      expect(JSON.parse(sessionStorage.getItem('register_data')!)).toEqual({
+        email: 'user@example.com', password: 'secret-123'
+      })
+      expect(pushMock).toHaveBeenCalledWith('/email-verify')
+    } else {
+      expect(registerMock).toHaveBeenCalledWith(expect.objectContaining({
+        email: 'user@example.com', password: 'secret-123'
+      }))
+      expect(pushMock).toHaveBeenCalledWith('/dashboard')
+    }
+    wrapper.unmount()
   })
 
   it('uses injected public settings to show an enabled promo-code field on first render', () => {

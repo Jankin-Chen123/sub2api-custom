@@ -2,9 +2,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import LoginView from '@/views/auth/LoginView.vue'
 
-const { getPublicSettingsMock, pushMock } = vi.hoisted(() => ({
+const { getPublicSettingsMock, pushMock, loginMock } = vi.hoisted(() => ({
   getPublicSettingsMock: vi.fn(),
-  pushMock: vi.fn()
+  pushMock: vi.fn(),
+  loginMock: vi.fn()
 }))
 
 const publicSettings = {
@@ -50,7 +51,7 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('@/stores', () => ({
   useAuthStore: () => ({
-    login: vi.fn(),
+    login: (...args: unknown[]) => loginMock(...args),
     loginWithPasskey: vi.fn(),
     login2FA: vi.fn()
   }),
@@ -94,6 +95,9 @@ describe('LoginView registration entry', () => {
   beforeEach(() => {
     getPublicSettingsMock.mockReset()
     pushMock.mockReset()
+    loginMock.mockReset()
+    loginMock.mockResolvedValue({})
+    localStorage.removeItem('sub2api_login_agreement_consent')
     getPublicSettingsMock.mockResolvedValue(publicSettings)
   })
 
@@ -114,5 +118,53 @@ describe('LoginView registration entry', () => {
     await flushPromises()
 
     expect(wrapper.text()).not.toContain('auth.signUp')
+  })
+
+  it('allows editing before policy consent but gates submission until accepted', async () => {
+    getPublicSettingsMock.mockResolvedValueOnce({
+      ...publicSettings,
+      login_agreement_enabled: true,
+      login_agreement_mode: 'checkbox',
+      login_agreement_revision: 'test-login-policy',
+      login_agreement_documents: [{ id: 'terms', title: 'Terms' }]
+    })
+    const wrapper = mountLogin()
+    await flushPromises()
+
+    expect((wrapper.get('#email').element as HTMLInputElement).disabled).toBe(false)
+    expect((wrapper.get('#password').element as HTMLInputElement).disabled).toBe(false)
+    await wrapper.get('#email').setValue('user@example.com')
+    await wrapper.get('#password').setValue('secret-123')
+    await wrapper.get('#password').element.parentElement!.querySelector('button')!.click()
+    await flushPromises()
+    expect(wrapper.get('#password').attributes('type')).toBe('text')
+    expect((wrapper.get('button[type="submit"]').element as HTMLButtonElement).disabled).toBe(true)
+
+    // A form submit (including Enter) must not bypass the disabled button.
+    await wrapper.get('form').trigger('submit.prevent')
+    await flushPromises()
+    expect(loginMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+
+    const agreement = wrapper.findComponent({ name: 'LoginAgreementPrompt' })
+    agreement.vm.$emit('accept')
+    await flushPromises()
+    expect((wrapper.get('button[type="submit"]').element as HTMLButtonElement).disabled).toBe(false)
+
+    agreement.vm.$emit('reject')
+    await flushPromises()
+    expect((wrapper.get('button[type="submit"]').element as HTMLButtonElement).disabled).toBe(true)
+    expect((wrapper.get('#email').element as HTMLInputElement).value).toBe('user@example.com')
+    expect((wrapper.get('#password').element as HTMLInputElement).disabled).toBe(false)
+
+    agreement.vm.$emit('accept')
+    await flushPromises()
+    await wrapper.get('form').trigger('submit.prevent')
+    await flushPromises()
+    expect(loginMock).toHaveBeenCalledWith(expect.objectContaining({
+      email: 'user@example.com', password: 'secret-123'
+    }))
+    expect(pushMock).toHaveBeenCalledWith('/dashboard')
+    wrapper.unmount()
   })
 })
