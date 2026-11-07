@@ -385,7 +385,6 @@ export default {
       firstRechargeLabel: 'First recharge bonus',
       firstRechargeBadge: 'First recharge +{amount}',
       firstRechargeDescription: 'Your first online recharge during the campaign earns an extra {amount} balance when the original recharge amount is at least ¥10. Stacks with recharge promotions.',
-      calculationHint: 'Discounts and fees are calculated on the original recharge amount. Bonus credits incur no charge.',
       creditedShort: 'Get {amount}',
       payShort: 'Pay {amount}',
       amountLabel: 'Bonus',

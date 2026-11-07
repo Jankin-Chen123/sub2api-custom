@@ -409,7 +409,6 @@ export default {
       firstRechargeLabel: '新用户首充赠送',
       firstRechargeBadge: '首充 +{amount}',
       firstRechargeDescription: '活动期间首次完成在线充值，单笔充值原额满 ¥10 额外赠送 {amount} 余额，可与充值优惠叠加。',
-      calculationHint: '优惠和手续费均按充值原额计算，赠送额度不参与计费。',
       creditedShort: '到账 {amount}',
       payShort: '实付 {amount}',
       amountLabel: '赠送额度',
