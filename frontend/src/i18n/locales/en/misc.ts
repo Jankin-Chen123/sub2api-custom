@@ -75,10 +75,10 @@ export default {
 
   campaign: {
     firstRechargeShortcut: 'First-recharge bonus',
-    firstRechargeShortcutHint: 'Recharge ¥10, get ¥2',
+    firstRechargeShortcutHint: 'Recharge ¥10, get $2 balance',
     firstRechargeTitle: 'Newcomer first-recharge bonus',
-    firstRechargeDescription: 'Your first completed online recharge during the campaign earns an extra ¥2 when the recharge amount is at least ¥10.',
-    firstRechargeBadge: 'First recharge +¥2',
+    firstRechargeDescription: 'Your first completed online recharge during the campaign earns an extra $2 balance when the recharge amount is at least ¥10.',
+    firstRechargeBadge: 'First recharge +$2',
     rechargeAmount: 'Recharge amount',
     rechargeFee: 'Payment fee',
     gift: 'Campaign bonus',
@@ -382,6 +382,10 @@ export default {
     paymentAmount: 'Payment Amount',
     creditedBalance: 'Credited Balance',
     rechargeBonus: {
+      firstRechargeLabel: 'First recharge bonus',
+      firstRechargeBadge: 'First recharge +{amount}',
+      firstRechargeDescription: 'Your first online recharge during the campaign earns an extra {amount} balance when the original recharge amount is at least ¥10. Stacks with recharge promotions.',
+      calculationHint: 'Discounts and fees are calculated on the original recharge amount. Bonus credits incur no charge.',
       creditedShort: 'Get {amount}',
       payShort: 'Pay {amount}',
       amountLabel: 'Bonus',

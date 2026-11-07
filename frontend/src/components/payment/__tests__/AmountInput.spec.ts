@@ -42,6 +42,14 @@ describe('recharge amount input', () => {
 })
 
 describe('recharge bonus hints on quick amounts', () => {
+  it('matches the unified settlement when first recharge, tiers and fees overlap', () => {
+    const wrapper = mount(AmountInput, { props: {
+      modelValue: 20, amounts: [10, 20], bonusTiers: [{ min_amount: 20, bonus_percent: 3 }],
+      bonusMode: 'discount', feeRate: 5, campaignAmount: 10, campaignReward: 2,
+    } })
+    expect(wrapper.get('[data-testid="quick-amount-20"]').text()).toContain('$2.00')
+    expect(wrapper.get('[data-testid="quick-amount-20"]').text()).toContain('20.40')
+  })
   const tiers = [
     { min_amount: 100, bonus_percent: 20 },
     { min_amount: 500, bonus_percent: 30 },

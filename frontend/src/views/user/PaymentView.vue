@@ -35,7 +35,7 @@
             </div>
             <div v-if="campaignFirstRechargeVisible" class="rounded-xl border border-primary-200 bg-primary-50 p-4 dark:border-primary-900/40 dark:bg-primary-900/20" data-test="campaign-recharge-prompt">
               <p class="text-sm font-semibold text-primary-800 dark:text-primary-200">{{ t('campaign.firstRechargeTitle') }}</p>
-              <p class="mt-1 text-xs text-primary-700 dark:text-primary-300">{{ t('campaign.firstRechargeDescription') }}</p>
+              <p class="mt-1 text-xs text-primary-700 dark:text-primary-300">{{ t('payment.rechargeBonus.firstRechargeDescription', { amount: '$' + (campaignStatus?.first_recharge.reward_amount ?? 0).toFixed(2) }) }}</p>
             </div>
             <div v-if="checkout.balance_disabled || enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
@@ -55,6 +55,8 @@
                 :min="globalMinAmount"
                 :max="globalMaxAmount"
                 :campaign-amount="campaignFirstRechargeVisible ? 10 : undefined"
+                :campaign-reward="campaignFirstRechargeVisible ? campaignStatus?.first_recharge.reward_amount : 0"
+                :fee-rate="feeRate"
                 :bonus-tiers="rechargeBonusTiers"
                 :bonus-mode="rechargeBonusMode"
                 :multiplier="balanceRechargeMultiplier"
@@ -69,7 +71,7 @@
                 @select="selectedMethod = $event"
               />
             </div>
-            <div v-if="validAmount > 0" class="card p-6">
+            <div v-if="validAmount > 0" class="card p-6" data-testid="recharge-settlement">
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.paymentAmount') }}</span>
@@ -79,45 +81,30 @@
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.rechargeBonus.discountLabelWithPercent', { percent: formatRechargeBonusNumber(bonusQuote.percent) }) }}</span>
                   <span class="font-medium text-red-600 dark:text-red-400">-{{ formatSelectedPaymentAmount(discountAmount) }}</span>
                 </div>
-                <div v-if="feeRate > 0" class="flex justify-between">
+                <div v-if="feeRate > 0" class="flex justify-between" data-testid="recharge-fee-row">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
                   <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
                 </div>
-                <div v-if="showActualPay" class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
+                <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600" data-testid="recharge-pay-row">
                   <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
                   <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(totalAmount) }}</span>
                 </div>
-                <div v-if="showBonusRow" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': !showActualPay }" data-testid="recharge-bonus-row">
+                <div v-if="showBonusRow" class="flex justify-between" data-testid="recharge-bonus-row">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.rechargeBonus.amountLabelWithPercent', { percent: formatRechargeBonusNumber(bonusQuote.percent) }) }}</span>
                   <span class="font-medium text-red-600 dark:text-red-400">+${{ bonusQuote.bonus.toFixed(2) }}</span>
                 </div>
-                <div v-if="showCreditedBalance" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': !showActualPay && !showBonusRow }" data-testid="recharge-credited-row">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
-                  <span :class="bonusQuote.percent > 0 ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'">${{ creditedAmount.toFixed(2) }}</span>
+                <div v-if="firstRechargeBonus > 0" class="flex justify-between" data-testid="recharge-first-bonus-row">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.rechargeBonus.firstRechargeLabel') }}</span>
+                  <span class="font-semibold text-amber-600 dark:text-amber-300">+${{ firstRechargeBonus.toFixed(2) }}</span>
                 </div>
+                <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600" data-testid="recharge-credited-row">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
+                  <span class="font-semibold text-gray-900 dark:text-white">${{ creditedAmount.toFixed(2) }}</span>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.rechargeBonus.calculationHint') }}</p>
                 <p v-if="balanceRechargeMultiplier !== 1" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
                   {{ t('payment.rechargeRatePreview', { currency: selectedCurrency, usd: balanceRechargeMultiplier.toFixed(2) }) }}
                 </p>
-              </div>
-            </div>
-            <div v-if="campaignFirstRechargeVisible && validAmount >= 10" class="card border border-primary-200 p-6 dark:border-primary-900/40" data-test="campaign-recharge-breakdown">
-              <div class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('campaign.rechargeAmount') }}</span>
-                  <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(validAmount) }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('campaign.rechargeFee') }}</span>
-                  <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('campaign.gift') }}</span>
-                  <span class="font-semibold text-amber-600 dark:text-amber-300">+¥2.00</span>
-                </div>
-                <div class="flex justify-between border-t border-primary-200 pt-2 font-semibold dark:border-primary-900/40">
-                  <span class="text-primary-800 dark:text-primary-200">{{ t('campaign.estimatedArrival') }}</span>
-                  <span class="text-lg text-primary-700 dark:text-primary-300">{{ formatSelectedPaymentAmount(campaignExpectedArrival) }}</span>
-                </div>
               </div>
             </div>
             <button :class="['btn w-full py-3 text-base font-medium', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
@@ -166,7 +153,8 @@ import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
 import type { CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
-import { formatRechargeBonusNumber, normalizeRechargeBonusMode, normalizeRechargeBonusTiers, quoteRechargeBonus } from '@/utils/rechargeBonus'
+import { formatRechargeBonusNumber, normalizeRechargeBonusMode, normalizeRechargeBonusTiers } from '@/utils/rechargeBonus'
+import { quoteRechargeSettlement } from '@/utils/rechargeSettlement'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -205,7 +193,7 @@ const campaignFirstRechargeVisible = computed(() => {
   return campaignStatus.value?.phase === 'active'
     && !!first?.eligible
     && selectedCurrency.value === DEFAULT_PAYMENT_CURRENCY
-    && (first.reward_status === 'pending' || first.reward_status === 'qualified')
+    && first.reward_status === 'pending'
 })
 
 const loading = ref(true)
@@ -465,25 +453,20 @@ function currencyFractionDigits(currency: string): number {
   }
 }
 
-function roundPaymentAmount(value: number, currency: string): number {
-  if (!Number.isFinite(value)) return 0
-  const factor = 10 ** currencyFractionDigits(currency)
-  return Math.round(value * factor) / factor
-}
-
 // 充值优惠：阈值按输入金额命中；赠金模式按到账基数（输入 × 倍率）加赠送，折扣模式按百分比减实付。
-// 与后端 quoteRechargeBonus 一致；渠道限额、手续费、实付都按折后基数（payBaseAmount）计算，提交仍发送输入金额。
-const bonusQuote = computed(() => quoteRechargeBonus(rechargeBonusTiers.value, validAmount.value, {
+// 与后端一致：优惠和手续费分别按原充值金额计算；赠送只增加余额，不参与计费。
+const bonusQuote = computed(() => quoteRechargeSettlement(rechargeBonusTiers.value, validAmount.value, {
   multiplier: balanceRechargeMultiplier.value,
   mode: rechargeBonusMode.value,
   currencyDigits: currencyFractionDigits(selectedCurrency.value),
+  feeRate: feeRate.value,
+  firstRechargeReward: campaignFirstRechargeVisible.value ? campaignStatus.value?.first_recharge.reward_amount : 0,
 }))
 const payBaseAmount = computed(() => bonusQuote.value.payBase)
-const discountAmount = computed(() => roundPaymentAmount(validAmount.value - payBaseAmount.value, selectedCurrency.value))
-const creditedAmount = computed(() => bonusQuote.value.credited)
-const campaignExpectedArrival = computed(() => Math.round((creditedAmount.value + (campaignFirstRechargeVisible.value ? 2 : 0)) * 100) / 100)
+const discountAmount = computed(() => bonusQuote.value.discount)
+const firstRechargeBonus = computed(() => bonusQuote.value.firstBonus)
+const creditedAmount = computed(() => bonusQuote.value.creditedTotal)
 const showBonusRow = computed(() => bonusQuote.value.mode !== 'discount' && bonusQuote.value.bonus > 0)
-const showCreditedBalance = computed(() => balanceRechargeMultiplier.value !== 1 || bonusQuote.value.percent > 0)
 
 const methodOptions = computed<PaymentMethodOption[]>(() =>
   enabledMethods.value.map((type) => {
@@ -498,17 +481,8 @@ const methodOptions = computed<PaymentMethodOption[]>(() =>
 )
 
 const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
-const feeAmount = computed(() =>
-  feeRate.value > 0 && payBaseAmount.value > 0
-    ? Math.ceil(((payBaseAmount.value * feeRate.value) / 100) * 100) / 100
-    : 0
-)
-const totalAmount = computed(() =>
-  feeRate.value > 0 && payBaseAmount.value > 0
-    ? Math.round((payBaseAmount.value + feeAmount.value) * 100) / 100
-    : payBaseAmount.value
-)
-const showActualPay = computed(() => feeRate.value > 0 || discountAmount.value > 0)
+const feeAmount = computed(() => bonusQuote.value.fee)
+const totalAmount = computed(() => bonusQuote.value.payTotal)
 
 const amountError = computed(() => {
   if (validAmount.value <= 0) return ''

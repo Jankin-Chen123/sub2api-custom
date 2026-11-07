@@ -73,10 +73,10 @@ export default {
 
   campaign: {
     firstRechargeShortcut: '首充福利',
-    firstRechargeShortcutHint: '满 ¥10 赠 ¥2',
+    firstRechargeShortcutHint: '满 ¥10 赠 $2 余额',
     firstRechargeTitle: '迎新首充福利',
-    firstRechargeDescription: '活动期间首次完成真实在线充值，单笔满 ¥10 可额外获得 ¥2 不可提现额度。',
-    firstRechargeBadge: '首充 +¥2',
+    firstRechargeDescription: '活动期间首次完成真实在线充值，单笔满 ¥10 可额外获得 $2 不可提现余额。',
+    firstRechargeBadge: '首充 +$2',
     rechargeAmount: '充值金额',
     rechargeFee: '手续费',
     gift: '活动赠送',
@@ -406,6 +406,10 @@ export default {
     paymentAmount: '支付金额',
     creditedBalance: '到账余额',
     rechargeBonus: {
+      firstRechargeLabel: '新用户首充赠送',
+      firstRechargeBadge: '首充 +{amount}',
+      firstRechargeDescription: '活动期间首次完成在线充值，单笔充值原额满 ¥10 额外赠送 {amount} 余额，可与充值优惠叠加。',
+      calculationHint: '优惠和手续费均按充值原额计算，赠送额度不参与计费。',
       creditedShort: '到账 {amount}',
       payShort: '实付 {amount}',
       amountLabel: '赠送额度',

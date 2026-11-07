@@ -11,6 +11,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRechargeSettlementChargesOnlyOriginalPrincipal(t *testing.T) {
+	for _, tc := range []struct {
+		name, mode, currency                                                    string
+		principal, percent, feeRate, multiplier, wantPay, wantCredit, wantBonus float64
+	}{
+		{"discount and fee", "discount", "CNY", 20, 3, 5, 1, 20.40, 20, 0.60},
+		{"decimal half-up discount", "discount", "CNY", 33.50, 3, 0, 1, 32.50, 33.50, 1},
+		{"bonus and fee", "bonus", "CNY", 20, 3, 5, 1, 21, 20.60, 0.60},
+		{"bonus with multiplier", "bonus", "CNY", 20, 3, 5, 0.14, 21, 2.88, 0.08},
+		{"fee rounds up", "discount", "USD", 20.01, 3, 5, 1, 20.42, 20.01, 0.60},
+		{"zero digit currency", "discount", "JPY", 101, 15, 2.5, 1, 89, 101, 15},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &PaymentConfig{BalanceRechargeMultiplier: tc.multiplier, RechargeBonusMode: tc.mode,
+				RechargeBonusTiers: []RechargeBonusTier{{MinAmount: 10, BonusPercent: tc.percent}}}
+			q := quoteRechargeBonus(cfg, tc.principal, tc.currency)
+			_, pay, err := calculateCreateOrderCharge(tc.principal, q.PayBase, tc.feeRate, tc.currency, payment.OrderTypeBalance, 0)
+			require.NoError(t, err)
+			require.Equal(t, tc.wantPay, pay)
+			require.Equal(t, tc.wantCredit, q.Credited)
+			require.InDelta(t, tc.wantBonus, q.Bonus, 0.000001)
+		})
+	}
+	// Subscriptions keep the configured USD-to-CNY conversion and fee calculation.
+	_, pay, err := calculateCreateOrderCharge(999, 10, 5, "CNY", payment.OrderTypeSubscription, 7)
+	require.NoError(t, err)
+	require.Equal(t, 73.5, pay)
+}
+
 func TestNormalizeRechargeBonusTiers(t *testing.T) {
 	t.Run("sorts ascending by min amount", func(t *testing.T) {
 		out, err := NormalizeRechargeBonusTiers([]RechargeBonusTier{

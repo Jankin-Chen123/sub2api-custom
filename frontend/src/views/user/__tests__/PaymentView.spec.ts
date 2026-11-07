@@ -254,11 +254,54 @@ describe('PaymentView newcomer campaign', () => {
     expect(input.props('modelValue')).toBe(10)
     expect(input.props('campaignAmount')).toBe(10)
     expect(wrapper.find('[data-test="campaign-recharge-prompt"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="campaign-recharge-breakdown"]').text()).toContain('+¥2.00')
-    expect(wrapper.find('[data-test="campaign-recharge-breakdown"]').text()).toContain(
-      formatPaymentAmount(12, 'CNY'),
-    )
+    expect(wrapper.findAll('[data-testid="recharge-settlement"]')).toHaveLength(1)
+    expect(wrapper.find('[data-test="campaign-recharge-breakdown"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="recharge-first-bonus-row"]').text()).toContain('+$2.00')
+    expect(wrapper.get('[data-testid="recharge-credited-row"]').text()).toContain('$12.00')
     expect(fetchCampaignStatus).toHaveBeenCalledWith(true)
+  })
+
+  it.each([
+    { mode: 'discount' as const, amount: 20, multiplier: 1, expectedPay: 20.40, expectedCredit: '$22.00', tierBonus: false },
+    { mode: 'bonus' as const, amount: 20, multiplier: 1, expectedPay: 21, expectedCredit: '$22.60', tierBonus: true },
+    { mode: 'bonus' as const, amount: 20, multiplier: 0.14, expectedPay: 21, expectedCredit: '$4.88', tierBonus: true },
+    { mode: 'bonus' as const, amount: 9.99, multiplier: 1, expectedPay: 10.49, expectedCredit: '$9.99', tierBonus: false },
+  ])('unifies $mode settlement for $amount at multiplier $multiplier', async ({ mode, amount, multiplier, expectedPay, expectedCredit, tierBonus }) => {
+    routeState.path = '/purchase'
+    routeState.query = {}
+    campaignStoreState.status = newcomerCampaignFixture()
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture({
+      recharge_bonus_mode: mode,
+      recharge_bonus_tiers: [{ min_amount: 20, bonus_percent: 3 }],
+      balance_recharge_multiplier: multiplier,
+      recharge_fee_rate: 5,
+    }))
+    const wrapper = shallowMount(PaymentView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } },
+    })
+    await flushPromises()
+    wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', amount)
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid="recharge-settlement"]')).toHaveLength(1)
+    expect(wrapper.get('[data-testid="recharge-pay-row"]').text()).toContain(formatPaymentAmount(expectedPay, 'CNY'))
+    expect(wrapper.get('button').text()).toContain(formatPaymentAmount(expectedPay, 'CNY'))
+    expect(wrapper.get('[data-testid="recharge-credited-row"]').text()).toContain(expectedCredit)
+    expect(wrapper.find('[data-testid="recharge-bonus-row"]').exists()).toBe(tierBonus)
+    expect(wrapper.find('[data-testid="recharge-first-bonus-row"]').exists()).toBe(amount >= 10)
+  })
+
+  it.each(['qualified', 'granted', 'revoked', 'ineligible'])('does not promise a new first recharge bonus for %s', async (reward_status) => {
+    routeState.query = {}
+    campaignStoreState.status = newcomerCampaignFixture({ first_recharge: { eligible: true, reward_status, reward_amount: 2 } })
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture())
+    const wrapper = shallowMount(PaymentView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } },
+    })
+    await flushPromises()
+    wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 20)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="recharge-first-bonus-row"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="recharge-credited-row"]').text()).toContain('$20.00')
   })
 
   it('does not show or preselect the campaign entry when the server says the user is not eligible', async () => {

@@ -35,8 +35,8 @@
             </span>
           </span>
           <span class="block">{{ amountSymbol }}{{ amt }}</span>
-          <span v-if="campaignAmount === amt" class="mt-0.5 block text-[11px] font-semibold text-amber-600 dark:text-amber-300">
-            {{ t('campaign.firstRechargeBadge') }}
+          <span v-if="campaignAmount !== undefined && amt >= campaignAmount && quoteFor(amt).firstBonus > 0" class="mt-0.5 block text-[11px] font-semibold text-amber-600 dark:text-amber-300">
+            {{ t('payment.rechargeBonus.firstRechargeBadge', { amount: '$' + quoteFor(amt).firstBonus.toFixed(2) }) }}
           </span>
           <!-- 配置了优惠阶梯时，所有按钮都显示第二行，保持高度一致：赠金显示到账 USD，折扣显示折后实付 -->
           <span
@@ -77,7 +77,8 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { RechargeBonusTier } from '@/types/payment'
-import { formatRechargeBonusNumber, quoteRechargeBonus, type RechargeBonusMode } from '@/utils/rechargeBonus'
+import { formatRechargeBonusNumber, type RechargeBonusMode } from '@/utils/rechargeBonus'
+import { quoteRechargeSettlement } from '@/utils/rechargeSettlement'
 import { currencySymbol, formatPaymentAmount } from './currency'
 
 const props = withDefaults(defineProps<{
@@ -87,6 +88,8 @@ const props = withDefaults(defineProps<{
   max?: number
   /** 充值优惠阶梯（按 min_amount 升序）；为空时不显示价签与第二行 */
   campaignAmount?: number
+  campaignReward?: number
+  feeRate?: number
   bonusTiers?: RechargeBonusTier[]
   /** 阶梯模式：bonus 赠金 / discount 折扣 */
   bonusMode?: RechargeBonusMode
@@ -99,6 +102,8 @@ const props = withDefaults(defineProps<{
   min: 0,
   max: 0,
   campaignAmount: undefined,
+  campaignReward: 0,
+  feeRate: 0,
   bonusTiers: () => [],
   bonusMode: 'bonus',
   multiplier: 1,
@@ -119,7 +124,7 @@ const filteredAmounts = computed(() =>
   props.amounts.filter((a) => (props.min <= 0 || a >= props.min) && (props.max <= 0 || a <= props.max))
 )
 
-const showSecondLine = computed(() => props.bonusTiers.length > 0)
+const showSecondLine = computed(() => props.bonusTiers.length > 0 || props.feeRate > 0 || props.campaignReward > 0)
 
 function currencyDigits(): number {
   if (!props.currency) return 2
@@ -131,10 +136,12 @@ function currencyDigits(): number {
 }
 
 function quoteFor(amt: number) {
-  return quoteRechargeBonus(props.bonusTiers, amt, {
+  return quoteRechargeSettlement(props.bonusTiers, amt, {
     multiplier: props.multiplier,
     mode: props.bonusMode,
     currencyDigits: currencyDigits(),
+    feeRate: props.feeRate,
+    firstRechargeReward: props.campaignAmount !== undefined ? props.campaignReward : 0,
   })
 }
 
@@ -147,9 +154,9 @@ function badgeText(amt: number): string {
 function secondLine(amt: number): string {
   const quote = quoteFor(amt)
   if (props.bonusMode === 'discount') {
-    return t('payment.rechargeBonus.payShort', { amount: formatPaymentAmount(quote.payBase, props.currency) })
+    return t('payment.rechargeBonus.payShort', { amount: formatPaymentAmount(quote.payTotal, props.currency) })
   }
-  return t('payment.rechargeBonus.creditedShort', { amount: '$' + quote.credited.toFixed(2) })
+  return t('payment.rechargeBonus.creditedShort', { amount: '$' + quote.creditedTotal.toFixed(2) })
 }
 
 const placeholderText = computed(() => {

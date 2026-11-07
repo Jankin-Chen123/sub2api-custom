@@ -74,7 +74,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		bonusAmount = quote.Bonus
 		orderAmount = quote.Credited
 	}
-	payAmountStr, payAmount, err := calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate, methodCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
+	payAmountStr, payAmount, err := calculateCreateOrderCharge(req.Amount, limitAmount, feeRate, methodCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		selectedCurrency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
 	}
 	if selectedCurrency != methodCurrency {
-		payAmountStr, payAmount, err = calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate, selectedCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
+		payAmountStr, payAmount, err = calculateCreateOrderCharge(req.Amount, limitAmount, feeRate, selectedCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
 		if err != nil {
 			return nil, err
 		}
@@ -722,6 +722,26 @@ func calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate float64, cur
 		paymentAmount = calculateSubscriptionGatewayBaseAmount(limitAmount, usdToCnyRate, currency)
 	}
 	return calculateCreateOrderPayAmount(paymentAmount, feeRate, currency)
+}
+
+// calculateCreateOrderCharge 余额充值的手续费仅按原充值金额计算，优惠和赠送不改变手续费基数。
+// 订阅仍沿用订阅换算与计费规则。
+func calculateCreateOrderCharge(principal, payBase, feeRate float64, currency, orderType string, usdToCnyRate float64) (string, float64, error) {
+	if orderType != payment.OrderTypeBalance {
+		return calculateCreateOrderPayAmountForOrderType(payBase, feeRate, currency, orderType, usdToCnyRate)
+	}
+	if err := validateCreateOrderAmountCurrency(principal, currency); err != nil {
+		return "", 0, err
+	}
+	if err := validateCreateOrderAmountCurrency(payBase, currency); err != nil {
+		return "", 0, err
+	}
+	fee := decimal.Zero
+	if feeRate > 0 {
+		fee = decimal.NewFromFloat(principal).Mul(decimal.NewFromFloat(feeRate)).
+			Div(decimal.NewFromInt(100)).RoundUp(int32(payment.CurrencyMaxFractionDigits(currency)))
+	}
+	return calculateCreateOrderPayAmount(decimal.NewFromFloat(payBase).Add(fee).InexactFloat64(), 0, currency)
 }
 
 // calculateSubscriptionGatewayBaseAmount 计算订阅订单的网关扣款基数。
