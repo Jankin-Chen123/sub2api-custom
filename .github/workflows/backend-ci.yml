@@ -9,7 +9,8 @@ permissions:
 
 jobs:
   shell:
-    runs-on: macos-15
+    # Keep native macOS shell checks on the Intel pool when arm64 capacity is constrained.
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v6
       - name: Check deployment scripts
