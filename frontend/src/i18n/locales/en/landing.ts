@@ -5,6 +5,22 @@ export default {
   },
   // Home Page
   home: {
+    sticker: {
+      navigation: 'Home navigation',
+      tagline: 'We take care of every route to AI.',
+      mascot: 'Smiling OK hand mascot',
+      docs: 'Documentation',
+      start: 'Get started',
+      guide: 'Quickstart',
+      benefits: 'Less setup, more confidence',
+      pricing: { title: 'Transparent pricing', description: 'See exactly what each request costs.' },
+      routing: { title: 'Flexible routing', description: 'Requests use available routes to reduce waiting.' },
+      verification: { title: 'Routes checked before launch', description: 'The site operator checks account pools before making them available.' },
+      setup: 'Connect your first app',
+      signIn: 'Sign in',
+      request: 'Send a request using the guide',
+      footer: 'Community-run · Transparent billing',
+    },
     viewOnGithub: 'View on GitHub',
     viewDocs: 'View Documentation',
     docs: 'Docs',

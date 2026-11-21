@@ -5,6 +5,7 @@ import Toast from '@/components/common/Toast.vue'
 import NavigationProgress from '@/components/common/NavigationProgress.vue'
 import AdminComplianceDialog from '@/components/admin/AdminComplianceDialog.vue'
 import { resolveRouteDocumentTitle } from '@/router/title'
+import { installPaperTurns } from '@/router/paperTurn'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore, useAdminSettingsStore } from '@/stores'
 import { getSetupStatus } from '@/api/setup'
@@ -20,6 +21,7 @@ const subscriptionStore = useSubscriptionStore()
 const announcementStore = useAnnouncementStore()
 const adminComplianceStore = useAdminComplianceStore()
 const adminSettingsStore = useAdminSettingsStore()
+const removePaperTurns = installPaperTurns(router)
 
 function updateDocumentTitle() {
   const customMenuItems = [
@@ -135,6 +137,7 @@ router.afterEach(() => {
 })
 
 onBeforeUnmount(() => {
+  removePaperTurns()
   document.removeEventListener('visibilitychange', onVisibilityChange)
   window.removeEventListener('admin-compliance-required', onAdminComplianceRequired)
 })

@@ -1,0 +1,20 @@
+.paper-turn-stage {
+  position: fixed;
+  z-index: 45;
+  pointer-events: none;
+  overflow: hidden;
+  isolation: isolate;
+}
+.paper-turn-sheet, .paper-turn-shadow, .paper-turn-fibre { position: absolute; inset: 0; }
+.paper-turn-sheet { background: #fafaf9; backface-visibility: hidden; }
+.dark .paper-turn-sheet { background: #111827; }
+.paper-turn-sheet.sticker-dashboard { background: var(--notebook-page) var(--notebook-texture); }
+.paper-turn-stage .sticker-mascot { animation: none; }
+.paper-turn-stage .notebook-rings { visibility: hidden; }
+.paper-turn-shadow { background: #48362938; }
+.paper-turn-fibre {
+  background: #ffe4be url('/sticker/paper.webp') repeat;
+  background-size: 83px;
+  background-blend-mode: screen;
+}
+@media (prefers-reduced-motion: reduce) { .paper-turn-stage { display: none; } }

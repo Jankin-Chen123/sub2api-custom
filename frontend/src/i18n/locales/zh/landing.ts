@@ -5,6 +5,22 @@ export default {
   },
   // Home Page
   home: {
+    sticker: {
+      navigation: '首页导航',
+      tagline: '认真维护每一条通往 AI 的线路',
+      mascot: '微笑的 OK 手吉祥物',
+      docs: '教程文档',
+      start: '开始使用',
+      guide: '接入教程',
+      benefits: '少一点折腾，多一点确定',
+      pricing: { title: '价格清楚可追溯', description: '费用明细清晰，使用有据可查。' },
+      routing: { title: '多线路灵活调度', description: '智能选择可用线路，减少等待。' },
+      verification: { title: '上线前认真验证', description: '号池上架前，由站主亲自检查。' },
+      setup: '开始接入',
+      signIn: '登录账户',
+      request: '按教程发起请求',
+      footer: '公益运营 · 透明计费',
+    },
     viewOnGithub: '在 GitHub 上查看',
     viewDocs: '查看文档',
     docs: '文档',

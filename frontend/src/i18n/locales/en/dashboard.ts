@@ -1,5 +1,13 @@
 export default {
   dashboard: {
+    analytics: 'Usage analytics',
+    cacheWrite: 'Cache write',
+    cacheRead: 'Cache read',
+    cacheHitRate: 'Cache hit rate',
+    modelDetails: 'Model usage details',
+    time: 'Time',
+    overview: 'Account overview',
+    loadFailed: 'Your account overview could not be loaded.',
     title: 'Dashboard',
     welcomeMessage: "Welcome back! Here's an overview of your account.",
     balance: 'Balance',

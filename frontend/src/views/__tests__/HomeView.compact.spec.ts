@@ -87,6 +87,32 @@ describe('HomeView compact mode', () => {
     expect(wrapper.find('[data-testid="compact-home"]').exists()).toBe(false)
   })
 
+  it('keeps unrelated custom HTML with a similar class name', () => {
+    const wrapper = mountHome({
+      home_content: '<main class="ab-home"><h1>站点标题</h1><a href="/login">进入</a></main>',
+    })
+
+    expect(wrapper.get('.ab-home h1').text()).toBe('站点标题')
+    expect(wrapper.get('.ab-home a').attributes('href')).toBe('/login')
+  })
+
+  it('upgrades the installed brand template to the Vue sticker home', () => {
+    const wrapper = mountHome({
+      home_content: `<div class="ab-home"><style></style><header class="ab-nav"></header>
+        <main><section class="ab-hero"><div class="ab-emblem"><img alt=""></div></section>
+        <section class="ab-benefits"><div class="ab-benefit-grid"></div></section></main>
+        <footer class="ab-footer"></footer></div>`,
+    })
+    expect(wrapper.get('[data-sticker-home] h1').text()).toBe('Test site')
+    expect(wrapper.find('.ab-home').exists()).toBe(false)
+  })
+
+  it('supports selecting the sticker homepage explicitly', () => {
+    authStore.isAuthenticated = true
+    const wrapper = mountHome({ home_content: 'sticker-home', compact_home_enabled: true })
+    expect(wrapper.get('[data-sticker-home]').findAllComponents(RouterLinkStub).some(link => link.props('to') === '/dashboard')).toBe(true)
+  })
+
   it('renders custom URL content ahead of compact mode', () => {
     const wrapper = mountHome({
       compact_home_enabled: true,

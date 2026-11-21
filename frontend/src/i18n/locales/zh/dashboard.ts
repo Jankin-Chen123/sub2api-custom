@@ -1,5 +1,13 @@
 export default {
   dashboard: {
+    analytics: '使用分析',
+    cacheWrite: '缓存写入',
+    cacheRead: '缓存读取',
+    cacheHitRate: '缓存命中率',
+    modelDetails: '模型用量明细',
+    time: '时间',
+    overview: '账户概览',
+    loadFailed: '暂时无法加载账户概览。',
     title: '仪表盘',
     welcomeMessage: '欢迎回来！这是您账户的概览。',
     balance: '余额',

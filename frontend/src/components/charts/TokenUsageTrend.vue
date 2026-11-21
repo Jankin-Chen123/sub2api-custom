@@ -1,7 +1,7 @@
 <template>
-  <div class="card p-4">
+  <div class="card p-4" :class="{ 'notebook-trend': sticker }">
     <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-      {{ t('admin.dashboard.tokenUsageTrend') }}
+      {{ t(sticker ? 'dashboard.tokenUsageTrend' : 'admin.dashboard.tokenUsageTrend') }}
     </h3>
     <div v-if="loading" class="flex h-48 items-center justify-center">
       <LoadingSpinner />
@@ -19,7 +19,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useMutationObserver } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import {
   Chart as ChartJS,
@@ -52,17 +53,20 @@ const { t } = useI18n()
 const props = defineProps<{
   trendData: TrendDataPoint[]
   loading?: boolean
+  sticker?: boolean
 }>()
 
-const isDarkMode = computed(() => {
-  return document.documentElement.classList.contains('dark')
-})
+const pageRoot = document.documentElement
+const isDarkMode = ref(pageRoot.classList.contains('dark'))
+useMutationObserver(pageRoot, () => {
+  isDarkMode.value = pageRoot.classList.contains('dark')
+}, { attributes: true, attributeFilter: ['class'] })
 
 const chartColors = computed(() => ({
   text: isDarkMode.value ? '#e5e7eb' : '#374151',
-  grid: isDarkMode.value ? '#374151' : '#e5e7eb',
-  input: '#3b82f6',
-  output: '#10b981',
+  grid: isDarkMode.value ? '#374151' : props.sticker ? '#e5d9c7' : '#e5e7eb',
+  input: props.sticker ? '#2498ef' : '#3b82f6',
+  output: props.sticker ? '#ff9063' : '#10b981',
   cacheCreation: '#f59e0b',
   cacheRead: '#06b6d4',
   cacheHitRate: '#8b5cf6'
@@ -75,7 +79,7 @@ const chartData = computed(() => {
     labels: props.trendData.map((d) => d.date),
     datasets: [
       {
-        label: 'Input',
+        label: props.sticker ? t('dashboard.input') : 'Input',
         data: props.trendData.map((d) => d.input_tokens),
         borderColor: chartColors.value.input,
         backgroundColor: `${chartColors.value.input}20`,
@@ -83,7 +87,7 @@ const chartData = computed(() => {
         tension: 0.3
       },
       {
-        label: 'Output',
+        label: props.sticker ? t('dashboard.output') : 'Output',
         data: props.trendData.map((d) => d.output_tokens),
         borderColor: chartColors.value.output,
         backgroundColor: `${chartColors.value.output}20`,
@@ -91,7 +95,7 @@ const chartData = computed(() => {
         tension: 0.3
       },
       {
-        label: 'Cache Creation',
+        label: props.sticker ? t('dashboard.cacheWrite') : 'Cache Creation',
         data: props.trendData.map((d) => d.cache_creation_tokens),
         borderColor: chartColors.value.cacheCreation,
         backgroundColor: `${chartColors.value.cacheCreation}20`,
@@ -99,7 +103,7 @@ const chartData = computed(() => {
         tension: 0.3
       },
       {
-        label: 'Cache Read',
+        label: props.sticker ? t('dashboard.cacheRead') : 'Cache Read',
         data: props.trendData.map((d) => d.cache_read_tokens),
         borderColor: chartColors.value.cacheRead,
         backgroundColor: `${chartColors.value.cacheRead}20`,
@@ -107,7 +111,7 @@ const chartData = computed(() => {
         tension: 0.3
       },
       {
-        label: 'Cache Hit Rate',
+        label: props.sticker ? t('dashboard.cacheHitRate') : 'Cache Hit Rate',
         data: props.trendData.map((d) => {
           const totalPromptTokens = d.input_tokens + d.cache_read_tokens + d.cache_creation_tokens
           return totalPromptTokens > 0 ? (d.cache_read_tokens / totalPromptTokens) * 100 : 0
@@ -126,6 +130,9 @@ const chartData = computed(() => {
 const lineOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  ...(props.sticker ? {
+    animation: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? false as const : { duration: 220 }
+  } : {}),
   interaction: {
     intersect: false,
     mode: 'index' as const
@@ -155,7 +162,9 @@ const lineOptions = computed(() => ({
           const dataIndex = tooltipItems[0]?.dataIndex
           if (dataIndex !== undefined && props.trendData[dataIndex]) {
             const data = props.trendData[dataIndex]
-            return `Actual: $${formatCost(data.actual_cost)} | Standard: $${formatCost(data.cost)}`
+            const actual = props.sticker ? t('dashboard.actual') : 'Actual'
+            const standard = props.sticker ? t('dashboard.standard') : 'Standard'
+            return `${actual}: $${formatCost(data.actual_cost)} | ${standard}: $${formatCost(data.cost)}`
           }
           return ''
         }

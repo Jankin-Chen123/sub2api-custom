@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 
 import TokenUsageTrend from '../TokenUsageTrend.vue'
 
@@ -20,12 +20,31 @@ vi.mock('vue-i18n', async () => {
 
 vi.mock('vue-chartjs', () => ({
   Line: {
+    name: 'Line',
     props: ['data', 'options'],
     template: '<div class="chart-data">{{ JSON.stringify(data) }}</div>',
   },
 }))
 
 describe('TokenUsageTrend', () => {
+  it('updates label contrast when the page theme changes', async () => {
+    const wrapper = mount(TokenUsageTrend, {
+      props: { trendData: [{ date: '2026-11-21', requests: 1, input_tokens: 2, output_tokens: 1, cache_creation_tokens: 0, cache_read_tokens: 0, total_tokens: 3, cost: 0, actual_cost: 0 }] },
+    })
+    const labelColor = () => wrapper.getComponent({ name: 'Line' }).props('options').plugins.legend.labels.color
+    const initialColor = labelColor()
+    const html = document.documentElement
+    const originallyDark = html.classList.contains('dark')
+    try {
+      html.classList.toggle('dark', !originallyDark)
+      await flushPromises()
+      expect(labelColor()).not.toBe(initialColor)
+    } finally {
+      wrapper.unmount()
+      html.classList.toggle('dark', originallyDark)
+    }
+  })
+
   it('calculates cache hit rate against all prompt tokens', () => {
     const wrapper = mount(TokenUsageTrend, {
       props: {

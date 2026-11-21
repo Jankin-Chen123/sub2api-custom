@@ -1,6 +1,15 @@
 <template>
+  <StickerHome
+    v-if="showStickerHome"
+    :site-name="siteName"
+    :site-logo="siteLogo"
+    :doc-url="docUrl"
+    :signed-in="isAuthenticated"
+    :dashboard-path="dashboardPath"
+    :show-model-plaza="showModelPlazaEntry"
+  />
   <!-- Custom Home Content: Full Page Mode -->
-  <div v-if="hasHomeContent" class="min-h-screen">
+  <div v-else-if="hasHomeContent" class="min-h-screen">
     <!-- iframe mode -->
     <iframe
       v-if="isHomeContentUrl"
@@ -499,6 +508,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
+import StickerHome from '@/components/landing/StickerHome.vue'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
@@ -516,6 +526,27 @@ const homeContent = computed(() => appStore.cachedPublicSettings?.home_content |
 const hasHomeContent = computed(() => homeContent.value.trim().length > 0)
 const compactHomeEnabled = computed(() => appStore.cachedPublicSettings?.compact_home_enabled === true)
 const modelPlazaEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.modelPlaza))
+
+const showStickerHome = computed(() => {
+  const content = homeContent.value.trim()
+  if (content === 'sticker-home') return true
+  // Upgrade the previously shipped brand landing page. Unrelated custom
+  // pages (including URL embeds) still render through their existing branch.
+  if (!content.startsWith('<div class="ab-home">')) return false
+  const template = document.createElement('template')
+  template.innerHTML = content
+  const legacy = template.content.firstElementChild
+  if (template.content.children.length !== 1 || !legacy) return false
+  const signature = [
+    ':scope > header.ab-nav',
+    ':scope > main > section.ab-hero .ab-emblem img',
+    ':scope > main > section.ab-benefits .ab-benefit-grid',
+    ':scope > footer.ab-footer',
+  ]
+  return legacy.children.length === 4 &&
+    legacy.querySelector(':scope > main')?.children.length === 2 &&
+    signature.every(selector => legacy.querySelector(selector))
+})
 
 // Check if homeContent is a URL (for iframe display)
 const isHomeContentUrl = computed(() => {
