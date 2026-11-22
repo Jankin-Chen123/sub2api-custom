@@ -86,16 +86,10 @@ function capturePaper(source: HTMLElement) {
   Object.assign(stage.style, { left: left + 'px', top: top + 'px', width: width + 'px', height: height + 'px' })
   const sheet = document.createElement('div')
   sheet.className = 'paper-turn-sheet'
-  if (source.closest('.sticker-dashboard')) sheet.classList.add('sticker-dashboard')
 
   const snapshot = source.cloneNode(true) as HTMLElement
   snapshot.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'))
   snapshot.querySelectorAll('iframe, video, audio').forEach(element => element.remove())
-  const canvases = source.querySelectorAll('canvas')
-  snapshot.querySelectorAll('canvas').forEach((canvas, index) => {
-    const original = canvases[index]
-    if (original.width && original.height) canvas.getContext('2d')?.drawImage(original, 0, 0)
-  })
   Object.assign(snapshot.style, {
     position: 'absolute', left: rect.left - left + 'px', top: rect.top - top + 'px',
     width: rect.width + 'px', maxWidth: 'none', margin: '0',
@@ -106,7 +100,7 @@ function capturePaper(source: HTMLElement) {
   return { stage, sheet, width, height }
 }
 
-/** Animate only the brand cover and the notebook's overview/usage sheet. */
+/** Tear the brand cover when heading to sign-in or an account workspace. */
 export function installPaperTurns(router: Router) {
   let active: HTMLElement | undefined
   let cleanupTimer: ReturnType<typeof setTimeout> | undefined
@@ -128,11 +122,8 @@ export function installPaperTurns(router: Router) {
 
     clear()
     if (!document.documentElement.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const tear = from.path === '/home' && ['/login', '/dashboard', '/admin/dashboard'].includes(to.path)
-    const flip = (from.path === '/dashboard' && to.path === '/usage') ||
-      (from.path === '/usage' && to.path === '/dashboard')
-    if (!tear && !flip) return
-    const source = document.querySelector<HTMLElement>(tear ? '[data-sticker-home]' : '[data-app-content]')
+    if (from.path !== '/home' || !['/login', '/dashboard', '/admin/dashboard'].includes(to.path)) return
+    const source = document.querySelector<HTMLElement>('[data-sticker-home]')
     if (!source) return
     const paper = capturePaper(source)
     if (!paper) return
@@ -141,30 +132,18 @@ export function installPaperTurns(router: Router) {
     await nextTick()
     if (active !== stage) return
 
-    const duration = tear ? 1080 : 580
+    const duration = 1080
     cleanupTimer = setTimeout(clear, duration + 160)
-    let motion: Animation
-    if (tear) {
-      const frames = tearFrames(width, height, backwards)
-      const shadow = document.createElement('div')
-      shadow.className = 'paper-turn-shadow'
-      const fibre = document.createElement('div')
-      fibre.className = 'paper-turn-fibre'
-      stage.prepend(shadow, fibre)
-      const timing: KeyframeAnimationOptions = { duration, fill: 'forwards' }
-      shadow.animate(frames.shadow, timing)
-      fibre.animate(frames.fibre, timing)
-      motion = sheet.animate(frames.sheet, timing)
-    } else {
-      const reverse = backwards || from.path === '/usage'
-      sheet.style.transformOrigin = reverse ? 'right center' : 'left center'
-      const direction = reverse ? 1 : -1
-      motion = sheet.animate([
-        { transform: 'perspective(1700px) rotateY(0deg)', filter: 'brightness(1)' },
-        { offset: .55, transform: `perspective(1700px) rotateY(${direction * 52}deg)`, filter: 'brightness(.85)' },
-        { transform: `perspective(1700px) rotateY(${direction * 100}deg)`, filter: 'brightness(.68)', opacity: .25 },
-      ], { duration, easing: 'cubic-bezier(.32,.02,.18,1)', fill: 'forwards' })
-    }
+    const frames = tearFrames(width, height, backwards)
+    const shadow = document.createElement('div')
+    shadow.className = 'paper-turn-shadow'
+    const fibre = document.createElement('div')
+    fibre.className = 'paper-turn-fibre'
+    stage.prepend(shadow, fibre)
+    const timing: KeyframeAnimationOptions = { duration, fill: 'forwards' }
+    shadow.animate(frames.shadow, timing)
+    fibre.animate(frames.fibre, timing)
+    const motion = sheet.animate(frames.sheet, timing)
     motion.finished.then(() => { if (active === stage) clear() }, () => {})
   })
 

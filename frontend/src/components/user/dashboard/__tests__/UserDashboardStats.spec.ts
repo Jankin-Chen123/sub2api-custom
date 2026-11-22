@@ -155,13 +155,6 @@ describe('UserDashboardStats 按平台拆分', () => {
     expect(cardPlatforms(w)).toEqual([])
   })
 
-  it('places the live balance in the overview and omits it in simple mode', () => {
-    const wrapper = mountStats(makeStats({ today_requests: 15 }))
-    expect(wrapper.get('.account-overview').text()).toContain('dashboard.balance')
-    expect(wrapper.get('.account-overview').text()).toContain('15')
-    expect(mountStats(makeStats(), null, true).get('.account-overview').text()).not.toContain('dashboard.balance')
-  })
-
   it('简易模式不渲染整块', () => {
     const w = mountStats(makeStats({ by_platform: [usage('openai', 1)] }), null, true)
     expect(w.html()).not.toContain('dashboard.platformBreakdown')

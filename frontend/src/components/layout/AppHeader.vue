@@ -11,11 +11,7 @@
           <Icon name="menu" size="md" />
         </button>
 
-        <RouterLink v-if="stickerDashboard" to="/home" class="sticker-account-brand lg:hidden">
-          <img :src="stickerLogo" alt="" width="30" height="30" />
-          <span>{{ appStore.siteName }}</span>
-        </RouterLink>
-        <div v-else class="hidden lg:block">
+        <div class="hidden lg:block">
           <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
             {{ pageTitle }}
           </h1>
@@ -27,13 +23,6 @@
 
       <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
       <div class="flex min-w-0 items-center gap-1 sm:gap-3">
-        <button
-          v-if="stickerDashboard"
-          type="button"
-          class="sticker-theme-button"
-          :aria-label="stickerDark ? t('nav.lightMode') : t('nav.darkMode')"
-          @click="toggleStickerTheme"
-        ><Icon :name="stickerDark ? 'sun' : 'moon'" size="sm" /></button>
         <!-- Server-authorized newcomer first-recharge shortcut -->
         <router-link
           v-if="showFirstRechargeShortcut"
@@ -343,7 +332,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useMutationObserver } from '@vueuse/core'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
@@ -367,18 +355,6 @@ const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
 const onboardingStore = useOnboardingStore()
 const campaignStore = useCampaignStore()
-
-const props = defineProps<{ stickerDashboard?: boolean }>()
-const stickerLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }) || '/brand-icon.png')
-const stickerDark = ref(document.documentElement.classList.contains('dark'))
-useMutationObserver(document.documentElement, () => {
-  if (props.stickerDashboard) stickerDark.value = document.documentElement.classList.contains('dark')
-}, { attributes: true, attributeFilter: ['class'] })
-function toggleStickerTheme() {
-  stickerDark.value = !stickerDark.value
-  document.documentElement.classList.toggle('dark', stickerDark.value)
-  localStorage.setItem('theme', stickerDark.value ? 'dark' : 'light')
-}
 
 const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)

@@ -1,7 +1,7 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-dark-950" :class="{ 'sticker-dashboard': stickerDashboard }">
+  <div class="min-h-screen bg-gray-50 dark:bg-dark-950">
     <!-- Background Decoration -->
-    <div v-if="!stickerDashboard" class="pointer-events-none fixed inset-0 bg-mesh-gradient"></div>
+    <div class="pointer-events-none fixed inset-0 bg-mesh-gradient"></div>
 
     <!-- Sidebar -->
     <AppSidebar />
@@ -12,15 +12,10 @@
       :class="[sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64']"
     >
       <!-- Header -->
-      <AppHeader :sticker-dashboard="stickerDashboard" />
+      <AppHeader />
 
       <!-- Main Content -->
-      <main
-        class="p-4 md:p-6 lg:p-8"
-        :class="{ 'sticker-dashboard-main': stickerDashboard }"
-        data-app-content
-      >
-        <div v-if="stickerDashboard" class="notebook-rings" aria-hidden="true"><i v-for="ring in 5" :key="ring"></i></div>
+      <main class="p-4 md:p-6 lg:p-8">
         <slot />
       </main>
     </div>
@@ -36,8 +31,6 @@ import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { useOnboardingStore } from '@/stores/onboarding'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
-
-defineProps<{ stickerDashboard?: boolean }>()
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
