@@ -1,5 +1,5 @@
 <template>
-  <header class="glass sticky top-0 z-30 border-b border-gray-200/50 dark:border-dark-700/50">
+  <header class="journal-header sticky top-0 z-30">
     <div class="flex h-16 items-center justify-between gap-2 px-2 sm:px-4 md:px-6">
       <!-- Left: Mobile Menu Toggle + Page Title -->
       <div class="flex shrink-0 items-center gap-2 sm:gap-4">
@@ -12,17 +12,21 @@
         </button>
 
         <div class="hidden lg:block">
-          <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
-            {{ pageTitle }}
-          </h1>
-          <p v-if="pageDescription" class="text-xs text-gray-500 dark:text-dark-400">
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-lg font-black tracking-tight text-[#27221d] dark:text-[#f5ede0]">
+              {{ pageTitle }}
+            </h1>
+            <CraftSparks variant="right" size="sm" />
+          </div>
+          <p v-if="pageDescription" class="text-xs text-[#756758] dark:text-[#9aa4b8]">
             {{ pageDescription }}
           </p>
         </div>
       </div>
 
       <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
-      <div class="flex min-w-0 items-center gap-1 sm:gap-3">
+      <div class="flex min-w-0 items-center gap-1 sm:gap-2.5">
+
         <!-- Server-authorized newcomer first-recharge shortcut -->
         <router-link
           v-if="showFirstRechargeShortcut"
@@ -47,7 +51,7 @@
           :href="docUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white sm:flex"
+          class="hidden items-center gap-1.5 rounded-full border border-[var(--craft-border)] bg-[var(--craft-surface)] px-3 py-1.5 text-xs font-bold text-[var(--craft-ink-soft)] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[var(--craft-surface-hover)] hover:text-[var(--craft-ink)] sm:flex"
         >
           <Icon name="book" size="sm" />
           <span class="hidden sm:inline">{{ t('nav.docs') }}</span>
@@ -59,7 +63,7 @@
           :to="{ path: '/model-plaza', query: { embedded: '1' } }"
           :title="t('nav.modelPlaza')"
           :aria-label="t('nav.modelPlaza')"
-          class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
+          class="flex items-center gap-1.5 rounded-full border border-[var(--craft-border)] bg-[var(--craft-surface)] px-3 py-1.5 text-xs font-bold text-[var(--craft-ink-soft)] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[var(--craft-surface-hover)] hover:text-[var(--craft-ink)]"
         >
           <Icon name="grid" size="sm" />
           <span class="hidden sm:inline">{{ t('nav.modelPlaza') }}</span>
@@ -74,14 +78,14 @@
         <!-- Balance Display -->
         <div
           v-if="user"
-          class="group relative hidden items-center gap-2 rounded-xl bg-primary-50 px-3 py-1.5 dark:bg-primary-900/20 sm:flex"
+          class="group relative hidden items-center gap-2 rounded-full border border-[#d9cbb2] bg-[#fffaf0] px-3 py-1.5 shadow-sm dark:border-[#394257] dark:bg-[#232939] sm:flex"
         >
           <svg
-            class="h-4 w-4 text-primary-600 dark:text-primary-400"
+            class="h-4 w-4 text-[#2a8bd4] dark:text-[#6ec4fc]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
-            stroke-width="1.5"
+            stroke-width="1.75"
           >
             <path
               stroke-linecap="round"
@@ -89,7 +93,7 @@
               d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
             />
           </svg>
-          <span class="text-sm font-semibold text-primary-700 dark:text-primary-300">
+          <span class="text-sm font-bold tabular-nums text-[#27221d] dark:text-[#f5ede0]">
             {{ formatHeaderMoney(availableBalance) }}
           </span>
           <span
@@ -127,7 +131,7 @@
             :aria-label="t('common.userMenu')"
             data-test="user-menu-trigger"
           >
-            <div class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 text-sm font-medium text-white shadow-sm">
+            <div class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl border border-[#d8c3a2] bg-[#fffdf8] text-sm font-medium text-[#27221d] shadow-sm ring-1 ring-white/80 dark:border-dark-600 dark:bg-dark-800 dark:text-white dark:ring-white/10">
               <img
                 v-if="avatarUrl"
                 :src="avatarUrl"
@@ -142,10 +146,11 @@
               </div>
               <div v-if="currentCampaignMembership" class="mt-0.5 flex items-center gap-1.5" data-test="campaign-membership-summary">
                 <span
-                  class="rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+                  class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold"
                   :class="campaignTierTheme(currentCampaignMembership.tier_key).badge"
                 >
-                  {{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}{{ t('campaign.membershipUserSuffix') }}
+                  <CampaignTierIcon :tier-key="currentCampaignMembership.tier_key" size="xs" />
+                  <span>{{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}{{ t('campaign.membershipUserSuffix') }}</span>
                 </span>
               </div>
               <div v-else class="text-xs text-gray-500 dark:text-dark-400">
@@ -168,22 +173,22 @@
 
               <!-- Campaign membership card; benefit details stay inside this same information card. -->
               <div v-if="currentCampaignMembership" data-test="campaign-membership-menu">
-                <div class="relative overflow-hidden border-b border-primary-100 bg-gradient-to-br from-white via-primary-50 to-cyan-50 px-5 py-5 text-gray-900 dark:border-dark-700 dark:from-dark-950 dark:via-dark-900 dark:to-dark-800 dark:text-white">
-                  <div class="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-primary-400/10 blur-2xl dark:bg-primary-400/20"></div>
-                  <div class="absolute -bottom-12 -left-8 h-24 w-24 rounded-full bg-cyan-400/10 blur-2xl dark:bg-cyan-400/15"></div>
-                  <div class="relative flex items-center gap-3">
+                <div class="relative overflow-hidden border-b border-[#e5d5ba] bg-gradient-to-br from-[#fffdf8] via-[#fff5e2] to-[#e9f5ff] px-5 py-5 text-[#27221d] dark:border-dark-700 dark:from-dark-950 dark:via-dark-900 dark:to-dark-800 dark:text-white">
+                  <div class="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#ffd45e]/20 blur-2xl dark:bg-primary-400/20"></div>
+                  <div class="absolute -bottom-12 -left-8 h-24 w-24 rounded-full bg-[#92d4fb]/25 blur-2xl dark:bg-cyan-400/15"></div>
+                  <div class="relative flex items-center gap-3.5">
                     <span
-                      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg ring-1 ring-white/25"
+                      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
                       :class="campaignTierTheme(currentCampaignMembership.tier_key).icon"
                       aria-hidden="true"
                     >
                       <CampaignTierIcon :tier-key="currentCampaignMembership.tier_key" />
                     </span>
                     <span class="min-w-0 flex-1">
-                      <span class="block truncate text-lg font-semibold text-gray-900 dark:text-white">
+                      <span class="block truncate text-lg font-bold text-[#27221d] dark:text-white">
                         {{ campaignTierLabel(currentCampaignMembership.tier_key, currentCampaignMembership.tier_name) }}{{ t('campaign.membershipUserSuffix') }}
                       </span>
-                      <span class="mt-0.5 block text-sm text-gray-500 dark:text-slate-300">
+                      <span class="mt-0.5 block text-sm text-[#6b5d4d] dark:text-slate-300">
                         {{ t('campaign.membershipOriginalFactor', { percent: membershipPercent(currentCampaignMembership.factor) }) }}
                       </span>
                     </span>
@@ -342,7 +347,9 @@ import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import CampaignTierIcon from '@/components/common/CampaignTierIcon.vue'
 import { useCampaignStore } from '@/stores/campaign'
 import Icon from '@/components/icons/Icon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
 import { sanitizeUrl } from '@/utils/url'
+import { resolveUserAvatarUrl } from '@/utils/defaultAvatar'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { resolveRouteMetaKeys } from '@/router/title'
 import { resolveSiteBillingMode } from '@/utils/siteBillingMode'
@@ -362,7 +369,7 @@ const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
 const docUrl = computed(() => sanitizeUrl(appStore.docUrl))
 const modelPlazaEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.modelPlaza))
-const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
+const avatarUrl = computed(() => resolveUserAvatarUrl(user.value))
 const availableBalance = computed(() => Number(user.value?.balance || 0))
 const frozenBalance = computed(() => Number(user.value?.frozen_balance || 0))
 const totalBalance = computed(() => availableBalance.value + frozenBalance.value)
@@ -413,22 +420,22 @@ function membershipPercent(factor: number): number {
 function campaignTierTheme(key: string): { badge: string; text: string; icon: string } {
   if (key === 'gold') {
     return {
-      badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
-      text: 'text-amber-600 dark:text-amber-300',
-      icon: 'bg-gradient-to-br from-amber-300 via-orange-400 to-rose-500 text-white'
+      badge: 'border-[#efd199] bg-[#fff5de] text-[#8a4d17] dark:border-amber-500/35 dark:bg-amber-900/40 dark:text-amber-200',
+      text: 'text-[#b5661b] dark:text-amber-300',
+      icon: 'border border-[#ecc67c] bg-gradient-to-br from-[#fffdf4] via-[#fff0cb] to-[#ffe0a1] shadow-[0_3px_0_rgba(180,122,32,0.16)] dark:border-amber-500/35 dark:from-amber-950/70 dark:to-orange-900/50'
     }
   }
   if (key === 'diamond') {
     return {
-      badge: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
-      text: 'text-violet-600 dark:text-violet-300',
-      icon: 'bg-gradient-to-br from-violet-400 via-indigo-500 to-blue-600 text-white'
+      badge: 'border-[#d6c7fa] bg-[#f5f0ff] text-[#5e3ea8] dark:border-violet-500/35 dark:bg-violet-900/40 dark:text-violet-200',
+      text: 'text-[#6a48be] dark:text-violet-300',
+      icon: 'border border-[#cab8f7] bg-gradient-to-br from-[#fbf8ff] via-[#eee4ff] to-[#dcd0ff] shadow-[0_3px_0_rgba(116,86,214,0.15)] dark:border-violet-500/35 dark:from-violet-950/70 dark:to-indigo-900/50'
     }
   }
   return {
-    badge: 'bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-200',
-    text: 'text-primary-600 dark:text-primary-300',
-    icon: 'bg-gradient-to-br from-teal-400 via-cyan-500 to-sky-600 text-white'
+    badge: 'border-[#bae0f8] bg-[#ecf7ff] text-[#1c6294] dark:border-sky-500/35 dark:bg-sky-900/40 dark:text-sky-200',
+    text: 'text-[#2176b5] dark:text-sky-300',
+    icon: 'border border-[#9ed0f5] bg-gradient-to-br from-[#f2faff] via-[#def2ff] to-[#c4e7ff] shadow-[0_3px_0_rgba(42,139,212,0.14)] dark:border-sky-500/35 dark:from-sky-950/70 dark:to-cyan-900/50'
   }
 }
 

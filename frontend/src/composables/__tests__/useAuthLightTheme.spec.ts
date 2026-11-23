@@ -32,7 +32,7 @@ afterEach(async () => {
 })
 
 describe('useAuthLightTheme', () => {
-  it('restores an initially dark document after the auth scope unmounts', async () => {
+  it('keeps a previously dark document light after leaving auth', async () => {
     document.documentElement.classList.add('dark')
 
     const wrapper = mountHarness()
@@ -41,7 +41,7 @@ describe('useAuthLightTheme', () => {
     wrapper.unmount()
     await flushThemeRestore()
 
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
   it('keeps the document light when one auth scope is immediately replaced by another', async () => {
@@ -57,10 +57,10 @@ describe('useAuthLightTheme', () => {
     second.unmount()
     await flushThemeRestore()
 
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
-  it('restores dark mode only after the last overlapping auth scope unmounts', async () => {
+  it('keeps the document light across overlapping auth scopes', async () => {
     document.documentElement.classList.add('dark')
 
     const first = mountHarness()
@@ -75,7 +75,7 @@ describe('useAuthLightTheme', () => {
     second.unmount()
     await flushThemeRestore()
 
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
   it('leaves an initially light document light after the auth scope unmounts', async () => {

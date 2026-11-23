@@ -259,4 +259,24 @@ describe('ProfileAvatarCard', () => {
     expect(authStoreState.user?.avatar_url).toBeNull()
     expect(showSuccessMock).toHaveBeenCalledWith('Avatar removed')
   })
+
+  it('shows a handcrafted default avatar and 6 preset choices when user has no custom avatar', () => {
+    authStoreState.user = createUser({ id: 5, avatar_url: null })
+
+    const wrapper = mount(ProfileAvatarCard, {
+      props: {
+        user: authStoreState.user
+      },
+      global: {
+        stubs: {
+          Icon: true
+        }
+      }
+    })
+
+    const preview = wrapper.get('[data-testid="profile-avatar-preview"]')
+    expect(preview.attributes('src')).toMatch(/^\/sticker\/avatars\/avatar-\d\.webp$/)
+    const picker = wrapper.get('[data-testid="profile-default-avatar-picker"]')
+    expect(picker.findAll('button')).toHaveLength(6)
+  })
 })

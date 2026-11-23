@@ -1,17 +1,21 @@
 <template>
-  <div :class="props.embedded ? 'space-y-4' : 'card'">
+  <div :class="props.embedded ? 'space-y-4' : 'card overflow-hidden'">
     <div
       v-if="!props.embedded"
-      class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+      class="journal-card-band flex items-center gap-2.5 px-6 py-4"
     >
-      <h2 class="text-lg font-medium text-gray-900 dark:text-white">
+      <span class="journal-icon-well journal-icon-well--sm shrink-0">
+        <CraftIcon name="key" size="xs" />
+      </span>
+      <h2 class="journal-section-title text-lg font-extrabold text-[#221d17] dark:text-white">
         {{ t('profile.changePassword') }}
       </h2>
     </div>
     <div :class="props.embedded ? '' : 'px-6 py-6'">
       <form @submit.prevent="handleChangePassword" class="space-y-4">
-        <div v-if="props.embedded">
-          <p class="text-sm font-semibold text-gray-900 dark:text-white">
+        <div v-if="props.embedded" class="flex items-center gap-2">
+          <CraftIcon name="key" size="xs" />
+          <p class="text-sm font-bold text-[#221d17] dark:text-white">
             {{ t('profile.changePassword') }}
           </p>
         </div>
@@ -73,6 +77,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
 import { useAppStore } from '@/stores/app'
 import { userAPI } from '@/api'
 import { extractApiErrorMessage } from '@/utils/apiError'

@@ -10,16 +10,12 @@
     </div>
     <div :class="props.embedded ? '' : 'px-6 py-6'">
       <form @submit.prevent="handleUpdateProfile" class="space-y-4">
-        <div v-if="props.embedded">
-          <p class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ t('profile.editProfile') }}
-          </p>
-        </div>
         <div>
           <label for="username" class="input-label">
             {{ t('profile.username') }}
           </label>
           <input
+            ref="nameInput"
             id="username"
             v-model="username"
             type="text"
@@ -28,9 +24,12 @@
           />
         </div>
 
-        <div class="flex justify-end pt-4">
+        <div :class="props.embedded ? 'flex flex-wrap gap-2' : 'flex justify-end pt-4'">
           <button type="submit" :disabled="loading" class="btn btn-primary">
-            {{ loading ? t('profile.updating') : t('profile.updateProfile') }}
+            {{ loading ? t('profile.updating') : props.embedded ? t('common.save') : t('profile.updateProfile') }}
+          </button>
+          <button v-if="props.embedded" type="button" class="btn btn-secondary" :disabled="loading" @click="emit('done')">
+            {{ t('common.cancel') }}
           </button>
         </div>
       </form>
@@ -39,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
@@ -57,6 +56,12 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 const appStore = useAppStore()
 
+const emit = defineEmits<{ done: [] }>()
+const nameInput = ref<HTMLInputElement>()
+onMounted(() => {
+  if (props.embedded) nameInput.value?.focus()
+})
+
 const username = ref(props.initialUsername)
 let savedUsername = props.initialUsername
 const loading = ref(false)
@@ -67,6 +72,7 @@ watch(() => props.initialUsername, (val) => {
 })
 
 const handleUpdateProfile = async () => {
+  if (loading.value) return
   if (!username.value.trim()) {
     appStore.showError(t('profile.usernameRequired'))
     return
@@ -78,10 +84,12 @@ const handleUpdateProfile = async () => {
     const updatedUser = await userAPI.updateProfile({
       username: submittedUsername
     })
-    if (username.value === submittedUsername) username.value = updatedUser.username
+    const unchanged = username.value === submittedUsername
+    if (unchanged) username.value = updatedUser.username
     savedUsername = updatedUser.username
     authStore.user = updatedUser
     appStore.showSuccess(t('profile.updateSuccess'))
+    if (unchanged) emit('done')
   } catch (error: unknown) {
     appStore.showError(extractApiErrorMessage(error, t('profile.updateFailed')))
   } finally {

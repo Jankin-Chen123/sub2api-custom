@@ -1,6 +1,6 @@
 <template>
-  <div :class="{ dark: isDarkTheme }" data-testid="contact-theme-root">
-    <main class="contact-page">
+  <div data-testid="contact-theme-root">
+    <main class="contact-page" :class="{ 'contact-page--embedded': isEmbedded }">
       <div class="contact-page-shape contact-page-shape--peach" aria-hidden="true"></div>
       <div class="contact-page-shape contact-page-shape--aqua" aria-hidden="true"></div>
       <div class="contact-page-route" aria-hidden="true">
@@ -40,10 +40,13 @@
 
           <header class="contact-hero">
             <div class="contact-hero-mark" aria-hidden="true">
-              <Icon name="chatBubble" size="xl" :stroke-width="1.8" />
+              <JournalBannerSticker name="contact" size="sm" />
             </div>
             <p class="contact-kicker">{{ t('contactPage.kicker') }}</p>
-            <h1>{{ t('contactPage.title') }}</h1>
+            <div class="contact-hero-title-row">
+              <h1>{{ t('contactPage.title') }}</h1>
+              <CraftSparks variant="right" size="sm" />
+            </div>
             <p class="contact-subtitle">{{ t('contactPage.subtitle') }}</p>
           </header>
 
@@ -167,9 +170,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, ref } from 'vue'
+import { computed, defineComponent, h, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getContactPageSettings } from '@/api/auth'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
+import JournalBannerSticker from '@/components/craft/JournalBannerSticker.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useClipboard } from '@/composables/useClipboard'
 import { contactPageConfig, type ContactPageConfig } from '@/config/contactPage'
@@ -188,9 +193,6 @@ const searchParams = typeof window === 'undefined'
   ? new URLSearchParams()
   : new URLSearchParams(window.location.search)
 
-const requestedTheme = searchParams.get('theme')
-const isDarkTheme = requestedTheme === 'dark'
-  || (requestedTheme !== 'light' && typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
 const isEmbedded = searchParams.get('ui_mode') === 'embedded'
 
 const siteName = computed(
@@ -248,6 +250,11 @@ async function copyQqGroupNumber() {
 }
 
 onMounted(async () => {
+  if (isEmbedded && typeof document !== 'undefined') {
+    document.documentElement.classList.add('contact-embedded-host')
+    document.body.classList.add('contact-embedded-host')
+  }
+
   try {
     const runtimeSettings = await getContactPageSettings()
     contactSettings.value = {
@@ -263,6 +270,13 @@ onMounted(async () => {
     }
   } catch {
     // Keep the packaged defaults when the backend is unavailable during preview.
+  }
+})
+
+onUnmounted(() => {
+  if (isEmbedded && typeof document !== 'undefined') {
+    document.documentElement.classList.remove('contact-embedded-host')
+    document.body.classList.remove('contact-embedded-host')
   }
 })
 
@@ -331,25 +345,32 @@ const QrPlaceholder = defineComponent({
 </script>
 
 <style>
+html.contact-embedded-host,
+body.contact-embedded-host {
+  margin: 0;
+  background: transparent !important;
+  min-height: 0 !important;
+}
+
 .contact-page {
-  --contact-bg: #f6fbfa;
-  --contact-surface: rgba(255, 255, 255, 0.97);
-  --contact-panel: #f9fcfc;
-  --contact-panel-strong: #f2faf9;
-  --contact-ink: #102d32;
-  --contact-ink-soft: #355a60;
-  --contact-muted: #6d898e;
-  --contact-faint: #94aaae;
-  --contact-border: #d9e9eb;
-  --contact-divider: #e4eeee;
-  --contact-brand: #12a49b;
-  --contact-brand-strong: #087f83;
-  --contact-brand-soft: #dff5f6;
-  --contact-peach: #ffb49f;
-  --contact-yellow: #ffd45a;
-  --contact-telegram: #229ed9;
-  --contact-grid: rgba(18, 164, 155, 0.045);
-  --contact-shadow: 0 26px 75px rgba(42, 100, 106, 0.15);
+  --contact-bg: #fdf6e9;
+  --contact-surface: #fffdf8;
+  --contact-panel: #fff9ee;
+  --contact-panel-strong: #fff2da;
+  --contact-ink: #27221d;
+  --contact-ink-soft: #4e4336;
+  --contact-muted: #7b6b57;
+  --contact-faint: #9a8872;
+  --contact-border: #e3d2b6;
+  --contact-divider: #e8dac0;
+  --contact-brand: #40a7ef;
+  --contact-brand-strong: #2682c8;
+  --contact-brand-soft: #e6f5fe;
+  --contact-peach: #ffad87;
+  --contact-yellow: #ffdf76;
+  --contact-telegram: #2a9be0;
+  --contact-grid: rgba(143, 108, 65, 0.055);
+  --contact-shadow: 0 10px 0 rgba(143, 108, 65, 0.08), 0 24px 56px rgba(108, 78, 42, 0.14);
   position: relative;
   display: grid;
   height: 100svh;
@@ -357,12 +378,29 @@ const QrPlaceholder = defineComponent({
   place-items: center;
   overflow: hidden;
   color: var(--contact-ink);
+  font-family: 'PingFang SC', 'Hiragino Maru Gothic ProN', 'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, sans-serif;
   background-color: var(--contact-bg);
   background-image:
     linear-gradient(var(--contact-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--contact-grid) 1px, transparent 1px),
-    linear-gradient(135deg, rgba(248, 255, 255, 0.92), rgba(237, 249, 247, 0.9) 48%, rgba(255, 248, 238, 0.88));
-  background-size: 72px 72px, 72px 72px, 100% 100%;
+    linear-gradient(135deg, rgba(255, 250, 240, 0.88), rgba(253, 244, 226, 0.82) 52%, rgba(233, 246, 255, 0.78)),
+    url('/sticker/cream.webp');
+  background-size: 72px 72px, 72px 72px, 100% 100%, 160px 160px;
+}
+
+.contact-page--embedded {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  background: transparent;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.contact-page--embedded .contact-page-shape,
+.contact-page--embedded .contact-page-route {
+  display: none;
 }
 
 .contact-page-inner {
@@ -373,8 +411,10 @@ const QrPlaceholder = defineComponent({
 }
 
 .contact-page-inner--embedded {
-  padding-top: 12px;
-  padding-bottom: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 2px 6px 12px;
 }
 
 .contact-page-shape,
@@ -389,7 +429,7 @@ const QrPlaceholder = defineComponent({
   width: 300px;
   height: 300px;
   border-radius: 50%;
-  background: rgba(255, 180, 159, 0.2);
+  background: rgba(255, 173, 135, 0.2);
 }
 
 .contact-page-shape--aqua {
@@ -397,7 +437,7 @@ const QrPlaceholder = defineComponent({
   right: -105px;
   width: 390px;
   height: 390px;
-  border: 1px solid rgba(18, 164, 155, 0.12);
+  border: 1.5px dashed rgba(124, 199, 249, 0.45);
   border-radius: 50%;
 }
 
@@ -406,13 +446,13 @@ const QrPlaceholder = defineComponent({
   bottom: 4vh;
   width: 170px;
   height: 110px;
-  opacity: 0.72;
+  opacity: 0.78;
 }
 
 .contact-page-route-line {
   position: absolute;
   inset: 18px 12px 12px 8px;
-  border: 2px dashed rgba(17, 150, 142, 0.28);
+  border: 2px dashed rgba(143, 108, 65, 0.25);
   border-radius: 50%;
   transform: rotate(-14deg);
 }
@@ -421,9 +461,9 @@ const QrPlaceholder = defineComponent({
   position: absolute;
   z-index: 1;
   display: block;
-  border: 5px solid rgba(255, 255, 255, 0.78);
+  border: 5px solid rgba(255, 253, 248, 0.9);
   border-radius: 50%;
-  box-shadow: 0 8px 18px rgba(24, 120, 119, 0.13);
+  box-shadow: 0 6px 14px rgba(108, 78, 42, 0.15);
 }
 
 .contact-page-route-dot--teal {
@@ -431,7 +471,7 @@ const QrPlaceholder = defineComponent({
   left: 2px;
   width: 38px;
   height: 38px;
-  background: #7bd9d5;
+  background: #7cc7f9;
 }
 
 .contact-page-route-dot--yellow {
@@ -457,14 +497,59 @@ const QrPlaceholder = defineComponent({
   margin-inline: auto;
   padding: 20px 36px 22px;
   overflow: hidden;
-  border: 1px solid var(--contact-border);
+  border: 1.5px solid var(--contact-border);
   border-radius: 28px;
+  outline: 1.5px dashed rgba(213, 190, 154, 0.65);
+  outline-offset: -8px;
   background: var(--contact-surface);
   box-shadow: var(--contact-shadow);
 }
 
 .contact-shell--embedded {
-  box-shadow: 0 18px 52px rgba(42, 100, 106, 0.11);
+  width: 100%;
+  max-width: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px clamp(28px, 3.5vw, 52px) 22px;
+  box-shadow: 0 6px 0 rgba(143, 108, 65, 0.08), 0 10px 24px rgba(108, 78, 42, 0.1);
+}
+
+.contact-shell--embedded .contact-hero {
+  max-width: 760px;
+  margin: 12px auto 18px;
+}
+
+.contact-shell--embedded .contact-hero h1 {
+  font-size: 36px;
+}
+
+.contact-shell--embedded .contact-subtitle {
+  font-size: 14px;
+}
+
+.contact-shell--embedded .contact-action-grid,
+.contact-shell--embedded .contact-qr-grid {
+  gap: 18px;
+}
+
+.contact-shell--embedded .contact-action-card {
+  min-height: 122px;
+  padding: 18px 22px 15px;
+}
+
+.contact-shell--embedded .contact-card-value {
+  font-size: 20px;
+}
+
+.contact-shell--embedded .contact-qr-card {
+  padding: 16px;
+}
+
+.contact-shell--embedded .contact-qr-frame {
+  width: min(100%, 340px);
+  height: clamp(250px, 34vh, 330px);
 }
 
 .contact-shell-blob {
@@ -479,7 +564,7 @@ const QrPlaceholder = defineComponent({
   width: 410px;
   height: 340px;
   border-radius: 46% 54% 64% 36%;
-  background: rgba(111, 215, 217, 0.16);
+  background: rgba(148, 212, 252, 0.22);
   transform: rotate(16deg);
 }
 
@@ -489,7 +574,7 @@ const QrPlaceholder = defineComponent({
   width: 230px;
   height: 230px;
   border-radius: 50%;
-  background: rgba(255, 180, 159, 0.13);
+  background: rgba(255, 173, 135, 0.18);
 }
 
 .contact-topbar,
@@ -520,10 +605,11 @@ const QrPlaceholder = defineComponent({
   width: 40px;
   height: 40px;
   flex: 0 0 40px;
+  border: 2px solid #fffdf8;
   border-radius: 13px;
   object-fit: cover;
-  box-shadow: 0 9px 22px rgba(18, 139, 135, 0.2);
-  animation: contact-logo-float 4.8s ease-in-out infinite;
+  box-shadow: 0 4px 10px rgba(108, 78, 42, 0.18);
+  transform: rotate(-3deg);
 }
 
 .contact-brand-name {
@@ -540,11 +626,11 @@ const QrPlaceholder = defineComponent({
   flex: 0 0 auto;
   align-items: center;
   gap: 7px;
-  padding: 6px 10px;
-  border: 1px solid rgba(18, 164, 155, 0.2);
+  padding: 6px 11px;
+  border: 1px solid #dcc39b;
   border-radius: 999px;
-  color: var(--contact-brand-strong);
-  background: rgba(223, 245, 246, 0.72);
+  color: #7a4e1e;
+  background: #fff6e2;
   font-size: 11px;
   font-weight: 800;
 }
@@ -553,27 +639,26 @@ const QrPlaceholder = defineComponent({
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #25b99f;
-  box-shadow: 0 0 0 4px rgba(37, 185, 159, 0.12);
+  background: #30b57a;
+  box-shadow: 0 0 0 4px rgba(48, 181, 122, 0.16);
 }
 
 .contact-hero {
   max-width: 680px;
-  margin: 12px auto 14px;
+  margin: 10px auto 14px;
   text-align: center;
 }
 
 .contact-hero-mark {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  margin: 0 auto 7px;
-  place-items: center;
-  border: 1px solid rgba(18, 164, 155, 0.14);
-  border-radius: 14px;
-  color: var(--contact-brand-strong);
-  background: var(--contact-brand-soft);
-  box-shadow: 0 10px 24px rgba(18, 139, 135, 0.1);
+  display: inline-flex;
+  width: auto;
+  height: auto;
+  margin: 0 auto 4px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .contact-kicker {
@@ -584,11 +669,18 @@ const QrPlaceholder = defineComponent({
   letter-spacing: 0.08em;
 }
 
+.contact-hero-title-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .contact-hero h1 {
-  margin: 5px 0 4px;
+  margin: 4px 0 4px;
   color: var(--contact-ink);
-  font-size: 34px;
-  font-weight: 850;
+  font-size: 32px;
+  font-weight: 900;
   letter-spacing: -0.03em;
   line-height: 1.12;
 }
@@ -617,17 +709,17 @@ const QrPlaceholder = defineComponent({
   justify-content: space-between;
   padding: 15px 18px 13px;
   overflow: hidden;
-  border: 1px solid var(--contact-border);
-  border-top: 3px solid var(--card-accent);
+  border: 1.5px solid var(--contact-border);
+  border-top: 4px solid var(--card-accent);
   border-radius: 19px;
   color: inherit;
   text-align: left;
   text-decoration: none;
   appearance: none;
-  background: var(--contact-panel);
-  box-shadow: 0 10px 26px rgba(42, 100, 106, 0.055);
+  background: #fffaf0;
+  box-shadow: 0 5px 0 rgba(143, 108, 65, 0.08);
   font: inherit;
-  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+  transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1), border-color 220ms ease, box-shadow 220ms ease;
 }
 
 button.contact-action-card:not(:disabled),
@@ -645,16 +737,18 @@ a.contact-action-card {
   opacity: 0.72;
 }
 
-.contact-action-card:not(.contact-action-card--disabled):not(:disabled):hover {
-  border-right-color: rgba(18, 164, 155, 0.32);
-  border-bottom-color: rgba(18, 164, 155, 0.32);
-  border-left-color: rgba(18, 164, 155, 0.32);
-  box-shadow: 0 16px 34px rgba(42, 100, 106, 0.11);
-  animation: contact-card-hover-float 1.8s ease-in-out infinite;
+@media (hover: hover) and (pointer: fine) {
+  .contact-action-card:not(.contact-action-card--disabled):not(:disabled):hover {
+    transform: translateY(-3px);
+    border-right-color: #d5b98e;
+    border-bottom-color: #d5b98e;
+    border-left-color: #d5b98e;
+    box-shadow: 0 8px 0 rgba(143, 108, 65, 0.12);
+  }
 }
 
 .contact-action-card:focus-visible {
-  outline: 3px solid rgba(18, 164, 155, 0.2);
+  outline: 3px solid rgba(64, 167, 239, 0.28);
   outline-offset: 3px;
 }
 
@@ -676,22 +770,22 @@ a.contact-action-card {
   height: 40px;
   flex: 0 0 40px;
   place-items: center;
-  border: 1px solid transparent;
+  border: 1.5px solid transparent;
   border-radius: 13px;
 }
 
 .contact-platform-icon--qq,
 .contact-placeholder-icon--qq {
-  border-color: rgba(18, 164, 155, 0.12);
+  border-color: #cde3f3;
   color: var(--contact-brand-strong);
   background: var(--contact-brand-soft);
 }
 
 .contact-platform-icon--telegram,
 .contact-placeholder-icon--telegram {
-  border-color: rgba(34, 158, 217, 0.13);
+  border-color: rgba(42, 155, 224, 0.22);
   color: var(--contact-telegram);
-  background: rgba(34, 158, 217, 0.09);
+  background: rgba(148, 212, 252, 0.2);
 }
 
 .contact-platform-icon--small {
@@ -721,7 +815,7 @@ a.contact-action-card {
   display: block;
   color: var(--contact-ink-soft);
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 800;
 }
 
 .contact-card-value {
@@ -730,7 +824,7 @@ a.contact-action-card {
   overflow: hidden;
   color: var(--contact-ink);
   font-size: 18px;
-  font-weight: 850;
+  font-weight: 900;
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -748,7 +842,7 @@ a.contact-action-card {
   gap: 12px;
   padding-top: 9px;
   margin-top: 9px;
-  border-top: 1px solid var(--contact-divider);
+  border-top: 1.5px dashed var(--contact-divider);
   color: var(--contact-muted);
   font-size: 11px;
   font-weight: 700;
@@ -760,10 +854,11 @@ a.contact-action-card {
   height: 27px;
   flex: 0 0 27px;
   place-items: center;
+  border: 1px solid var(--contact-border);
   border-radius: 10px;
   color: var(--card-accent);
   background: var(--contact-panel-strong);
-  transition: transform 220ms ease, background-color 220ms ease;
+  transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1), background-color 220ms ease;
 }
 
 .contact-action-card:hover .contact-card-action-icon {
@@ -778,9 +873,10 @@ a.contact-action-card {
 }
 
 .contact-scan-line {
-  height: 1px;
+  height: 0;
   flex: 1;
-  background: var(--contact-divider);
+  border-top: 1.5px dashed #dec8a4;
+  background: transparent;
 }
 
 .contact-scan-label {
@@ -801,7 +897,7 @@ a.contact-action-card {
 }
 
 .contact-scan-dot--teal {
-  background: #7bd9d5;
+  background: #7cc7f9;
 }
 
 .contact-scan-dot--yellow {
@@ -810,17 +906,19 @@ a.contact-action-card {
 
 .contact-qr-card {
   padding: 12px;
-  border: 1px solid var(--contact-border);
+  border: 1.5px solid var(--contact-border);
   border-radius: 18px;
-  background: var(--contact-panel);
-  box-shadow: 0 10px 26px rgba(42, 100, 106, 0.045);
-  transition: border-color 220ms ease, box-shadow 220ms ease;
+  background: #fffaf0;
+  box-shadow: 0 5px 0 rgba(143, 108, 65, 0.08);
+  transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1), border-color 220ms ease, box-shadow 220ms ease;
 }
 
-.contact-qr-card:hover {
-  border-color: rgba(18, 164, 155, 0.32);
-  box-shadow: 0 16px 34px rgba(42, 100, 106, 0.11);
-  animation: contact-card-hover-float 1.8s ease-in-out infinite;
+@media (hover: hover) and (pointer: fine) {
+  .contact-qr-card:hover {
+    transform: translateY(-3px);
+    border-color: #d5b98e;
+    box-shadow: 0 8px 0 rgba(143, 108, 65, 0.12);
+  }
 }
 
 .contact-qr-platform {
@@ -842,7 +940,7 @@ a.contact-action-card {
   padding: 8px;
   margin-inline: auto;
   overflow: hidden;
-  border: 1px solid var(--contact-border);
+  border: 1.5px dashed #dcc6a4;
   border-radius: 18px;
   background: #fff;
 }
@@ -865,10 +963,10 @@ a.contact-action-card {
   justify-content: center;
   flex-direction: column;
   padding: 20px;
-  border: 1px dashed rgba(18, 164, 155, 0.22);
+  border: 1.5px dashed #d5bc93;
   border-radius: 15px;
   text-align: center;
-  background: var(--contact-panel-strong);
+  background: #fff4de;
 }
 
 .contact-placeholder-icon {
@@ -928,7 +1026,7 @@ a.contact-action-card {
 }
 
 .contact-footer-dots span:nth-child(1) {
-  background: #7bd9d5;
+  background: #7cc7f9;
 }
 
 .contact-footer-dots span:nth-child(2) {
@@ -939,28 +1037,14 @@ a.contact-action-card {
   background: var(--contact-peach);
 }
 
-@keyframes contact-logo-float {
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-@keyframes contact-card-hover-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
 @media (min-width: 761px) and (max-height: 820px) {
-  .contact-page-inner,
-  .contact-page-inner--embedded {
+  .contact-page-inner {
     padding-top: 8px;
     padding-bottom: 8px;
+  }
+
+  .contact-page-inner--embedded {
+    padding: 2px 6px 10px;
   }
 
   .contact-shell {
@@ -968,16 +1052,23 @@ a.contact-action-card {
     padding-bottom: 14px;
   }
 
-  .contact-hero {
-    margin-top: 7px;
+  .contact-shell--embedded {
+    padding: 14px clamp(20px, 3vw, 36px) 14px;
+  }
+
+  .contact-hero,
+  .contact-shell--embedded .contact-hero {
+    margin-top: 6px;
     margin-bottom: 10px;
   }
 
+  .contact-shell--embedded .contact-hero h1 {
+    font-size: 30px;
+  }
+
   .contact-hero-mark {
-    width: 36px;
-    height: 36px;
-    margin-bottom: 4px;
-    border-radius: 12px;
+    margin-bottom: 2px;
+    transform: scale(0.88);
   }
 
   .contact-action-card {
@@ -986,12 +1077,18 @@ a.contact-action-card {
     padding-bottom: 11px;
   }
 
+  .contact-shell--embedded .contact-action-card {
+    min-height: 102px;
+    padding: 13px 18px 11px;
+  }
+
   .contact-scan-divider {
     margin-top: 10px;
     margin-bottom: 8px;
   }
 
-  .contact-qr-frame {
+  .contact-qr-frame,
+  .contact-shell--embedded .contact-qr-frame {
     height: clamp(205px, 28vh, 220px);
   }
 
@@ -1001,15 +1098,19 @@ a.contact-action-card {
 }
 
 @media (max-width: 760px) {
-  .contact-page {
+  .contact-page,
+  .contact-page--embedded {
     display: block;
     height: auto;
     overflow: visible;
   }
 
-  .contact-page-inner,
-  .contact-page-inner--embedded {
+  .contact-page-inner {
     padding: 16px 12px;
+  }
+
+  .contact-page-inner--embedded {
+    padding: 4px 4px 12px;
   }
 
   .contact-page-shape,
@@ -1048,18 +1149,12 @@ a.contact-action-card {
     margin: 32px auto 26px;
   }
 
-  .contact-hero-mark {
-    width: 54px;
-    height: 54px;
-    border-radius: 18px;
-  }
-
   .contact-kicker {
     font-size: 10px;
   }
 
   .contact-hero h1 {
-    font-size: 34px;
+    font-size: 32px;
   }
 
   .contact-subtitle {
@@ -1085,7 +1180,6 @@ a.contact-action-card {
   .contact-qr-card {
     padding: 17px;
   }
-
 }
 
 @media (max-width: 390px) {
@@ -1104,18 +1198,6 @@ a.contact-action-card {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .contact-brand-logo {
-    animation: none;
-  }
-
-  .contact-action-card:not(.contact-action-card--disabled):not(:disabled):hover {
-    animation: none;
-  }
-
-  .contact-qr-card:hover {
-    animation: none;
-  }
-
   .contact-action-card,
   .contact-action-card *,
   .contact-qr-card,

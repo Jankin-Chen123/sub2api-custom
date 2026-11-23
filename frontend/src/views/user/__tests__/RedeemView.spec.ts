@@ -125,4 +125,21 @@ describe('RedeemView refresh after redemption', () => {
     expect(showWarning).not.toHaveBeenCalled()
     wrapper.unmount()
   })
+
+  it('renders the hero banner header alongside balance and concurrency ticket cards', async () => {
+    const wrapper = mount(RedeemView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Icon: true, DailyCheckinWheel: true } },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('redeem.title')
+    expect(wrapper.text()).toContain('redeem.description')
+    const balanceTicket = wrapper.get('[data-testid="redeem-balance-ticket"]')
+    const concurrencyTicket = wrapper.get('[data-testid="redeem-concurrency-ticket"]')
+    expect(balanceTicket.text()).toContain('redeem.currentBalance')
+    expect(balanceTicket.text()).toContain('10.00')
+    expect(concurrencyTicket.text()).toContain('redeem.concurrency')
+    expect(concurrencyTicket.text()).toContain('2')
+    wrapper.unmount()
+  })
 })

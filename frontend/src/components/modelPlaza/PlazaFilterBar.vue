@@ -1,8 +1,8 @@
 <template>
-  <div class="space-y-3">
+  <div class="card space-y-3 p-4 sm:p-5">
     <!-- 一级:平台 -->
     <div class="flex items-start gap-2">
-      <span class="w-10 shrink-0 pt-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-dark-500">
+      <span class="w-10 shrink-0 pt-2 text-xs font-semibold uppercase tracking-wider text-[var(--craft-muted)]">
         {{ t('modelPlaza.filters.platformLabel') }}
       </span>
       <div class="flex flex-wrap items-center gap-2">
@@ -171,8 +171,8 @@ function rateEnabled(r: number): boolean {
 
 function chipClass(active: boolean): string {
   return active
-    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-sm shadow-primary-500/30'
-    : 'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 enabled:hover:bg-gray-50 enabled:hover:text-gray-900 enabled:hover:ring-gray-300 dark:bg-dark-800/60 dark:text-dark-300 dark:ring-dark-700 dark:enabled:hover:bg-dark-800 dark:enabled:hover:text-white'
+    ? 'bg-gradient-to-b from-[#40a7ef] to-[#2682c8] text-white shadow-sm shadow-[#2682c8]/30'
+    : 'bg-[var(--craft-surface-muted)] text-[var(--craft-ink-soft)] ring-1 ring-inset ring-[var(--craft-border)] enabled:hover:bg-[var(--craft-surface-hover)] enabled:hover:text-[var(--craft-ink)] enabled:hover:ring-[var(--craft-border-strong)]'
 }
 </script>
 

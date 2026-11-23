@@ -1,8 +1,14 @@
 <template>
   <AppLayout>
     <div class="space-y-4">
+      <JournalPageHeader
+        icon="receipt"
+        variant="apricot"
+        :title="t('payment.orders.title')"
+      />
+
       <!-- Filters -->
-      <div class="card p-4">
+      <div class="journal-toolbar-card p-4">
         <div class="flex flex-wrap items-center gap-3">
           <Select v-model="currentFilter" :options="statusFilters" class="w-36" @change="handlePageChange(1)" />
           <div class="flex flex-1 items-center justify-end gap-2">
@@ -89,6 +95,7 @@ import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import type { PaymentOrder } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import JournalPageHeader from '@/components/craft/JournalPageHeader.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'

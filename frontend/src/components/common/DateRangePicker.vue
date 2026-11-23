@@ -89,6 +89,8 @@ interface DatePreset {
 interface Props {
   startDate: string
   endDate: string
+  // Date-only reports omit this prop and use calendar-day presets.
+  appliedPeriod?: 'dates' | '24h'
 }
 
 interface Emits {
@@ -106,7 +108,7 @@ const isOpen = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
 const localStartDate = ref(props.startDate)
 const localEndDate = ref(props.endDate)
-const activePreset = ref<string | null>('last24Hours')
+const activePreset = ref<string | null>(null)
 
 const today = () => formatDateToString(new Date())
 
@@ -126,7 +128,7 @@ const formatDateToString = (date: Date): string => {
   return `${year}-${month}-${day}`
 }
 
-const presets: DatePreset[] = [
+const presets = computed<DatePreset[]>(() => [
   {
     labelKey: 'dates.today',
     value: 'today',
@@ -146,11 +148,13 @@ const presets: DatePreset[] = [
     }
   },
   {
-    labelKey: 'dates.last24Hours',
-    value: 'last24Hours',
+    labelKey: props.appliedPeriod === undefined ? 'dates.yesterdayAndToday' : 'dates.last24Hours',
+    value: props.appliedPeriod === undefined ? 'yesterdayAndToday' : 'last24Hours',
     getRange: () => {
       const end = new Date()
-      const start = new Date(end.getTime() - 24 * 60 * 60 * 1000)
+      const start = new Date(end)
+      if (props.appliedPeriod === undefined) start.setDate(start.getDate() - 1)
+      else start.setTime(end.getTime() - 24 * 60 * 60 * 1000)
       return {
         start: formatDateToString(start),
         end: formatDateToString(end)
@@ -209,11 +213,11 @@ const presets: DatePreset[] = [
       return { start, end }
     }
   }
-]
+])
 
 const displayValue = computed(() => {
   if (activePreset.value) {
-    const preset = presets.find((p) => p.value === activePreset.value)
+    const preset = presets.value.find((p) => p.value === activePreset.value)
     if (preset) return t(preset.labelKey)
   }
 
@@ -247,7 +251,8 @@ const selectPreset = (preset: DatePreset) => {
 const onDateChange = () => {
   // Check if current dates match any preset
   activePreset.value = null
-  for (const preset of presets) {
+  for (const preset of presets.value) {
+    if (preset.value === 'last24Hours') continue
     const range = preset.getRange()
     if (range.start === localStartDate.value && range.end === localEndDate.value) {
       activePreset.value = preset.value
@@ -257,6 +262,7 @@ const onDateChange = () => {
 }
 
 const toggle = () => {
+  if (!isOpen.value) syncAppliedRange()
   isOpen.value = !isOpen.value
 }
 
@@ -283,36 +289,27 @@ const handleEscape = (event: KeyboardEvent) => {
   }
 }
 
-// Restore the applied range after dismissal, including parent updates from Apply.
-watch(isOpen, (open) => {
-  if (open) return
+function syncAppliedRange() {
+  if (props.appliedPeriod === '24h') {
+    const rolling = presets.value.find(preset => preset.value === 'last24Hours')
+    if (rolling) {
+      selectPreset(rolling)
+      return
+    }
+  }
   localStartDate.value = props.startDate
   localEndDate.value = props.endDate
   onDateChange()
+}
+
+watch(isOpen, (open) => {
+  if (!open) syncAppliedRange()
 }, { flush: 'post' })
-
-// Sync local state with props
-watch(
-  () => props.startDate,
-  (val) => {
-    localStartDate.value = val
-    onDateChange()
-  }
-)
-
-watch(
-  () => props.endDate,
-  (val) => {
-    localEndDate.value = val
-    onDateChange()
-  }
-)
+watch(() => [props.startDate, props.endDate, props.appliedPeriod], syncAppliedRange, { immediate: true })
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('keydown', handleEscape)
-  // Initialize active preset detection
-  onDateChange()
 })
 
 onUnmounted(() => {
@@ -324,22 +321,32 @@ onUnmounted(() => {
 <style scoped>
 .date-picker-trigger {
   @apply flex items-center gap-2;
-  @apply rounded-lg px-3 py-2 text-sm;
-  @apply bg-white dark:bg-dark-800;
-  @apply border border-gray-200 dark:border-dark-600;
-  @apply text-gray-700 dark:text-gray-300;
+  @apply rounded-[14px] px-3 py-2 text-sm;
+  background-color: var(--craft-surface, #fffdf8);
+  border: 1px solid var(--craft-border-strong, #d5c09e);
+  color: var(--craft-ink, #27221d);
   @apply transition-all duration-200;
-  @apply focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30;
-  @apply hover:border-gray-300 dark:hover:border-dark-500;
   @apply cursor-pointer;
 }
 
+.date-picker-trigger:hover {
+  background-color: var(--craft-surface-hover, #f7edda);
+  border-color: var(--craft-sky-deep, #2a8bd4);
+}
+
+.date-picker-trigger:focus {
+  outline: none;
+  border-color: var(--craft-sky-deep, #2a8bd4);
+  box-shadow: 0 0 0 3px var(--craft-sky-soft, #e6f5fe);
+}
+
 .date-picker-trigger-open {
-  @apply border-primary-500 ring-2 ring-primary-500/30;
+  border-color: var(--craft-sky-deep, #2a8bd4);
+  box-shadow: 0 0 0 3px var(--craft-sky-soft, #e6f5fe);
 }
 
 .date-picker-icon {
-  @apply text-gray-400 dark:text-dark-400;
+  color: var(--craft-muted, #756758);
 }
 
 .date-picker-value {
@@ -347,17 +354,21 @@ onUnmounted(() => {
 }
 
 .date-picker-chevron {
-  @apply text-gray-400 dark:text-dark-400;
+  color: var(--craft-muted, #756758);
 }
 
 .date-picker-dropdown {
   @apply absolute left-0 z-[100] mt-2;
-  @apply bg-white dark:bg-dark-800;
-  @apply rounded-xl;
-  @apply border border-gray-200 dark:border-dark-700;
-  @apply shadow-lg shadow-black/10 dark:shadow-black/30;
+  background-color: var(--craft-surface, #fffdf8);
+  border: 1px solid var(--craft-border-strong, #d5c09e);
+  @apply rounded-2xl;
+  box-shadow: 0 12px 30px rgba(72, 52, 26, 0.14);
   @apply overflow-hidden;
   @apply min-w-[320px];
+}
+
+.dark .date-picker-dropdown {
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.48);
 }
 
 .date-picker-presets {
@@ -365,19 +376,24 @@ onUnmounted(() => {
 }
 
 .date-picker-preset {
-  @apply rounded-md px-3 py-1.5 text-xs font-medium;
-  @apply text-gray-600 dark:text-gray-400;
-  @apply hover:bg-gray-100 dark:hover:bg-dark-700;
+  @apply rounded-xl px-3 py-1.5 text-xs font-medium;
+  color: var(--craft-ink-soft, #4c4237);
   @apply transition-colors duration-150;
 }
 
+.date-picker-preset:hover {
+  background-color: var(--craft-surface-hover, #f7edda);
+  color: var(--craft-ink, #27221d);
+}
+
 .date-picker-preset-active {
-  @apply bg-primary-100 dark:bg-primary-900/30;
-  @apply text-primary-700 dark:text-primary-300;
+  background-color: var(--craft-sky-soft, #e6f5fe);
+  color: var(--craft-sky-deep, #2a8bd4);
+  font-weight: 600;
 }
 
 .date-picker-divider {
-  @apply border-t border-gray-100 dark:border-dark-700;
+  border-top: 1px solid var(--craft-border, #e6d7be);
 }
 
 .date-picker-custom {
@@ -389,15 +405,21 @@ onUnmounted(() => {
 }
 
 .date-picker-label {
-  @apply mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400;
+  @apply mb-1 block text-xs font-medium;
+  color: var(--craft-muted, #756758);
 }
 
 .date-picker-input {
-  @apply w-full rounded-md px-2 py-1.5 text-sm;
-  @apply bg-gray-50 dark:bg-dark-700;
-  @apply border border-gray-200 dark:border-dark-600;
-  @apply text-gray-900 dark:text-gray-100;
-  @apply focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30;
+  @apply w-full rounded-xl px-2.5 py-1.5 text-sm;
+  background-color: var(--craft-surface-muted, #faf2e2);
+  border: 1px solid var(--craft-border-strong, #d5c09e);
+  color: var(--craft-ink, #27221d);
+}
+
+.date-picker-input:focus {
+  outline: none;
+  border-color: var(--craft-sky-deep, #2a8bd4);
+  box-shadow: 0 0 0 3px var(--craft-sky-soft, #e6f5fe);
 }
 
 .date-picker-input::-webkit-calendar-picker-indicator {
@@ -418,10 +440,15 @@ onUnmounted(() => {
 }
 
 .date-picker-apply {
-  @apply rounded-lg px-4 py-1.5 text-sm font-medium;
-  @apply bg-primary-600 text-white;
-  @apply hover:bg-primary-700;
-  @apply transition-colors duration-150;
+  @apply rounded-xl px-4 py-1.5 text-sm font-semibold text-white;
+  background-image: linear-gradient(180deg, #40a7ef 0%, #2682c8 100%);
+  border: 1px solid rgba(25, 102, 165, 0.35);
+  box-shadow: 0 2px 0 rgba(21, 90, 146, 0.25);
+  @apply transition-all duration-150;
+}
+
+.date-picker-apply:hover {
+  background-image: linear-gradient(180deg, #52b2f5 0%, #2d8fd8 100%);
 }
 
 /* Dropdown animation */

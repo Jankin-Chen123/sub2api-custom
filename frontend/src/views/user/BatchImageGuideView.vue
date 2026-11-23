@@ -1,8 +1,18 @@
 <template>
   <AppLayout>
     <TablePageLayout>
+      <template #actions>
+        <JournalPageHeader
+          icon="batch"
+          variant="apricot"
+          compact
+          :title="t('batchImageGuide.title')"
+          :description="t('batchImageGuide.description')"
+        />
+      </template>
+
       <template #filters>
-        <div class="flex flex-col gap-3">
+        <div class="journal-toolbar-card flex flex-col gap-3 p-3">
           <div class="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
             <div class="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[260px_160px_144px_152px] 2xl:w-auto">
               <div class="min-w-0">
@@ -217,12 +227,19 @@
 	          </template>
 
           <template #empty>
-            <div class="flex min-h-[260px] flex-col items-center justify-center py-6 md:min-h-[300px]">
-              <Icon name="sparkles" size="xl" class="mb-4 h-12 w-12 text-gray-400 dark:text-dark-500" />
-              <p class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ t('batchImage.list.empty') }}</p>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t('batchImage.list.emptyHint') }}
-              </p>
+            <div class="flex min-h-[260px] flex-col items-center justify-center py-8 md:min-h-[300px]">
+              <div class="mx-auto flex max-w-sm flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#dcc6a4] bg-[#fffaf0]/80 px-8 py-7 text-center dark:border-dark-700 dark:bg-dark-800/50">
+                <div class="relative mb-3 inline-flex">
+                  <div class="journal-icon-well -rotate-3">
+                    <CraftIcon name="palette" size="lg" />
+                  </div>
+                  <CraftSparks variant="right" size="sm" class="ml-1 self-start" />
+                </div>
+                <p class="text-base font-extrabold text-[#221d17] dark:text-gray-100">{{ t('batchImage.list.empty') }}</p>
+                <p class="mt-1 text-sm text-[#6f6252] dark:text-gray-400">
+                  {{ t('batchImage.list.emptyHint') }}
+                </p>
+              </div>
             </div>
           </template>
         </DataTable>
@@ -755,6 +772,9 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
+import JournalPageHeader from '@/components/craft/JournalPageHeader.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'

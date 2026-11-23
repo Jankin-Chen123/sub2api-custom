@@ -12,28 +12,38 @@
 
       <div v-else class="space-y-8">
         <!-- Page heading -->
-        <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-[2rem]">
-              {{ t('userSubscriptions.title') }}
-            </h1>
-            <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
-              {{ t('userSubscriptions.description') }}
-            </p>
+        <JournalPageHeader
+          icon="crown"
+          variant="sky"
+          :title="t('userSubscriptions.title')"
+          :description="t('userSubscriptions.description')"
+        >
+          <template #actions>
+            <div class="hidden items-center gap-2 rounded-full border border-[#d6c2a2] bg-[#fffdf8]/90 px-3 py-1.5 text-xs font-semibold text-[#5a4e3e] shadow-xs dark:border-dark-600 dark:bg-dark-800/85 dark:text-dark-200 sm:flex">
+              <CraftIcon name="shield" size="xs" />
+              <span>{{ t('userSubscriptions.balanceProtected') }}</span>
+            </div>
+          </template>
+        </JournalPageHeader>
+
+        <div class="journal-toolbar-card flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+          <div class="flex items-center gap-2 text-xs font-semibold text-[#6f6252] dark:text-dark-300">
+            <CraftIcon name="sparkles" size="xs" />
+            <span>{{ t('userSubscriptions.manageHint') }}</span>
           </div>
           <div class="flex items-center gap-2 sm:gap-3">
             <div ref="managementRef" class="relative">
               <button
                 type="button"
                 data-test="manage-subscriptions"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white/80 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-primary-400 hover:bg-primary-50/60 hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-dark-700 dark:bg-dark-900/70 dark:text-dark-200 dark:hover:border-primary-500 dark:hover:bg-primary-950/30 dark:hover:text-primary-300"
+                class="inline-flex items-center gap-1.5 rounded-full border border-[#d8c3a2] bg-[#fffdf8] px-3.5 py-1.5 text-sm font-bold text-[#2b241d] shadow-[0_2px_0_rgba(143,108,65,0.12)] transition-all hover:-translate-y-0.5 hover:border-[#e39c64] hover:bg-[#fff6e6] focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-dark-600 dark:bg-dark-800 dark:text-dark-100 dark:hover:border-primary-500"
                 :aria-expanded="managementOpen"
                 aria-controls="subscription-management-menu"
                 @click="managementOpen = !managementOpen"
               >
-                <Icon name="creditCard" size="sm" />
+                <CraftIcon name="crown" size="xs" />
                 <span>{{ t('userSubscriptions.manage') }}</span>
-                <span class="rounded-full bg-primary-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-400/10 dark:text-primary-300">
+                <span class="rounded-full bg-[#ffe6d1] px-1.5 py-0.5 text-[10px] font-extrabold text-[#b45309] dark:bg-primary-900/40 dark:text-primary-300">
                   {{ visibleSubscriptions.length }}
                 </span>
                 <Icon :name="managementOpen ? 'chevronUp' : 'chevronDown'" size="xs" class="ml-0.5" />
@@ -115,28 +125,26 @@
               </Transition>
             </div>
 
-            <div class="hidden items-center gap-2 text-xs text-gray-500 dark:text-dark-400 sm:flex">
-              <Icon name="shield" size="sm" class="text-primary-500 dark:text-primary-400" />
-              <span>{{ t('userSubscriptions.balanceProtected') }}</span>
-            </div>
           </div>
-        </header>
+        </div>
 
         <!-- Current subscription summary -->
         <section
-          class="subscription-surface overflow-hidden rounded-2xl border border-gray-200/80 bg-white/80 p-5 shadow-sm dark:border-dark-700/70 dark:bg-dark-900/70 sm:p-6"
+          class="subscription-surface overflow-hidden rounded-2xl border border-[#e3d2b6] bg-[#fffdf8] shadow-[0_6px_0_rgba(143,108,65,0.08)] dark:border-dark-700/80 dark:bg-dark-900/80"
           aria-labelledby="current-subscription-title"
         >
-          <div class="flex items-center gap-3">
+          <div class="journal-card-band flex items-center justify-between gap-3 px-5 py-3.5 sm:px-6">
             <div class="flex items-center gap-3">
-              <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-500/15 text-primary-600 dark:text-primary-300">
-                <Icon name="checkCircle" size="md" />
-              </span>
-              <h2 id="current-subscription-title" class="text-base font-semibold text-gray-900 dark:text-white">
+              <div class="journal-icon-well journal-icon-well--sm">
+                <CraftIcon name="crown" size="sm" />
+              </div>
+              <h2 id="current-subscription-title" class="journal-section-title text-base font-extrabold text-[#221d17] dark:text-white">
                 {{ t('userSubscriptions.currentSubscription') }}
               </h2>
             </div>
+            <CraftSparks variant="right" size="sm" />
           </div>
+          <div class="p-5 sm:p-6">
 
           <div v-if="activeSubscription" class="mt-6 grid gap-5 lg:grid-cols-[minmax(16rem,1fr)_minmax(0,2fr)] lg:items-center">
             <div class="min-w-0">
@@ -177,58 +185,69 @@
             </div>
 
             <div class="grid gap-3 sm:grid-cols-3">
-              <div class="subscription-stat rounded-xl bg-gray-50/90 p-3.5 dark:bg-dark-800/80">
-                <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
-                  <Icon name="calendar" size="sm" class="text-primary-500 dark:text-primary-400" />
+              <div class="subscription-stat journal-kpi-warm rounded-2xl p-4">
+                <div class="flex items-center gap-2 text-xs font-semibold text-[#6f6252] dark:text-dark-300">
+                  <span class="journal-icon-well journal-icon-well--sm">
+                    <CraftIcon name="calendar" size="xs" />
+                  </span>
                   <span>{{ t('userSubscriptions.remaining') }}</span>
                 </div>
-                <p class="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                <p class="mt-2.5 text-sm font-extrabold text-[#221d17] dark:text-white">
                   {{ subscriptionRemainingLabel(activeSubscription) }}
                 </p>
               </div>
-              <div class="subscription-stat rounded-xl bg-gray-50/90 p-3.5 dark:bg-dark-800/80">
-                <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
-                  <Icon name="clock" size="sm" class="text-primary-500 dark:text-primary-400" />
+              <div class="subscription-stat journal-kpi-warm rounded-2xl p-4">
+                <div class="flex items-center gap-2 text-xs font-semibold text-[#6f6252] dark:text-dark-300">
+                  <span class="journal-icon-well journal-icon-well--sm">
+                    <CraftIcon name="clock" size="xs" />
+                  </span>
                   <span>{{ t('userSubscriptions.expires') }}</span>
                 </div>
-                <p class="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                <p class="mt-2.5 text-sm font-extrabold text-[#221d17] dark:text-white">
                   {{ subscriptionExpiryLabel(activeSubscription) }}
                 </p>
               </div>
-              <div class="subscription-stat rounded-xl bg-gray-50/90 p-3.5 dark:bg-dark-800/80">
-                <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
-                  <Icon name="chartBar" size="sm" class="text-primary-500 dark:text-primary-400" />
+              <div class="subscription-stat journal-kpi-warm rounded-2xl p-4">
+                <div class="flex items-center gap-2 text-xs font-semibold text-[#6f6252] dark:text-dark-300">
+                  <span class="journal-icon-well journal-icon-well--sm">
+                    <CraftIcon name="bars" size="xs" />
+                  </span>
                   <span>{{ t('userSubscriptions.quota') }}</span>
                 </div>
-                <p class="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                <p class="mt-2.5 text-sm font-extrabold text-[#221d17] dark:text-white">
                   {{ subscriptionQuotaLabel(activeSubscription) }}
                 </p>
               </div>
             </div>
           </div>
 
-          <div v-else class="mt-5 flex flex-col items-start gap-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/70 px-4 py-5 sm:flex-row sm:items-center dark:border-dark-700 dark:bg-dark-800/50">
-            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-200 text-gray-500 dark:bg-dark-700 dark:text-dark-400">
-              <Icon name="creditCard" size="md" />
+          <div v-else class="mt-2 flex flex-col items-start gap-4 rounded-2xl border-2 border-dashed border-[#dcc6a4] bg-[#fffaf0]/80 px-5 py-5 sm:flex-row sm:items-center dark:border-dark-700 dark:bg-dark-800/50">
+            <span class="journal-icon-well -rotate-3">
+              <CraftIcon name="crown" size="md" />
             </span>
             <div>
-              <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+              <h3 class="text-sm font-extrabold text-[#221d17] dark:text-white">
                 {{ t('userSubscriptions.noActiveSubscriptions') }}
               </h3>
-              <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
+              <p class="mt-1 text-sm text-[#6f6252] dark:text-dark-400">
                 {{ plans.length ? t('userSubscriptions.noPurchasedSubscriptionsDesc') : t('userSubscriptions.noActiveSubscriptionsDesc') }}
               </p>
             </div>
+          </div>
           </div>
         </section>
 
         <!-- Purchasable plans -->
         <section v-if="plans.length" id="subscription-plans" class="scroll-mt-6" aria-labelledby="available-plans-title">
           <div>
-            <h2 id="available-plans-title" class="text-lg font-semibold text-gray-900 dark:text-white sm:text-xl">
-              {{ t('userSubscriptions.availablePlans') }}
-            </h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
+            <div class="inline-flex items-center gap-2">
+              <CraftIcon name="sparkles" size="sm" />
+              <h2 id="available-plans-title" class="journal-section-title text-lg font-black text-[#221d17] dark:text-white sm:text-xl">
+                {{ t('userSubscriptions.availablePlans') }}
+              </h2>
+              <CraftSparks variant="right" size="sm" />
+            </div>
+            <p class="mt-1 text-sm text-[#6f6252] dark:text-dark-400">
               {{ t('userSubscriptions.availablePlansDesc') }}
             </p>
           </div>
@@ -239,13 +258,13 @@
               :key="plan.id"
               :data-test="`subscription-plan-${plan.id}`"
               :class="[
-                'subscription-plan-card group relative flex min-h-[31rem] flex-col overflow-hidden rounded-2xl border bg-white/90 p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl dark:bg-dark-900/80 sm:p-6',
+                'subscription-plan-card group relative flex min-h-[31rem] flex-col overflow-hidden rounded-2xl border bg-[#fffdf8] p-5 shadow-[0_6px_0_rgba(143,108,65,0.08)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_10px_0_rgba(143,108,65,0.12)] dark:bg-dark-900/85 sm:p-6',
                 isRecommendedPlan(plan)
-                  ? 'border-primary-500/80 ring-1 ring-primary-500/30 dark:border-primary-400/80'
-                  : 'border-gray-200/90 dark:border-dark-700/80'
+                  ? 'border-[#e8945a] ring-1 ring-[#f2b37d]/40 dark:border-primary-400/80'
+                  : 'border-[#e3d2b6] dark:border-dark-700/80'
               ]"
             >
-              <div v-if="isRecommendedPlan(plan)" class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-primary-500"></div>
+              <div v-if="isRecommendedPlan(plan)" class="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-[#f08b57] via-[#f6be68] to-[#7dc6e8]"></div>
 
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
@@ -297,7 +316,7 @@
                 <button
                   type="button"
                   :data-test="`plan-purchase-${plan.id}`"
-                  class="w-full rounded-xl bg-primary-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-primary-600 dark:hover:bg-primary-500"
+                  class="btn-primary w-full rounded-xl px-4 py-3 text-sm font-bold shadow-[0_3px_0_rgba(143,108,65,0.2)] transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                   :disabled="purchasingPlanId === plan.id"
                   @click="purchasePlan(plan)"
                 >
@@ -407,6 +426,9 @@ import type { UserSubscription } from '@/types'
 import type { SubscriptionPlan } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
+import JournalPageHeader from '@/components/craft/JournalPageHeader.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
 import { extractApiErrorMessage } from '@/utils/apiError'

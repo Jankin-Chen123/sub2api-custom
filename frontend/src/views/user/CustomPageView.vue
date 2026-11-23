@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <div class="custom-page-layout">
-      <div class="card flex-1 min-h-0 overflow-hidden">
+      <div :class="isFramelessEmbed ? 'flex-1 min-h-0 overflow-visible' : 'card flex-1 min-h-0 overflow-hidden'">
         <div v-if="loading" class="flex h-full items-center justify-center py-12">
           <div
             class="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
@@ -94,7 +94,12 @@
         </div>
 
         <!-- Iframe embed mode -->
-        <div v-else ref="embedShell" class="custom-embed-shell">
+        <div
+          v-else
+          ref="embedShell"
+          class="custom-embed-shell"
+          :class="{ 'custom-embed-shell--frameless': isFramelessEmbed }"
+        >
           <a
             v-if="!menuItem?.hide_open_button"
             ref="openButton"
@@ -136,7 +141,7 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { buildApiUrl } from '@/api/client'
-import { buildCustomPageEmbeddedUrl, detectTheme } from '@/utils/embedded-url'
+import { buildCustomPageEmbeddedUrl, detectTheme, isSameOriginContactPageUrl } from '@/utils/embedded-url'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -258,6 +263,14 @@ const isValidUrl = computed(() => {
   const url = embeddedUrl.value
   return url.startsWith('http://') || url.startsWith('https://')
 })
+
+const isFramelessEmbed = computed(
+  () =>
+    !loading.value &&
+    !isMarkdownMode.value &&
+    isValidUrl.value &&
+    isSameOriginContactPageUrl(menuItem.value?.url || '')
+)
 
 function generateHeadingId(text: string, index: number): string {
   const base = text
@@ -459,7 +472,9 @@ onUnmounted(() => {
 }
 
 .toc-sidebar {
-  @apply flex flex-col h-full border-r border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-800;
+  @apply flex flex-col h-full;
+  background-color: var(--craft-surface-muted, #faf2e2);
+  border-right: 1px solid var(--craft-border, #e6d7be);
   width: min(240px, 30%);
   min-width: 160px;
   max-width: 280px;
@@ -480,15 +495,23 @@ onUnmounted(() => {
 }
 
 .toc-header {
-  @apply flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-600;
+  @apply flex items-center justify-between px-4 py-3;
+  border-bottom: 1px solid var(--craft-border, #e6d7be);
 }
 
 .toc-title {
-  @apply text-sm font-semibold text-gray-700 dark:text-dark-200;
+  @apply text-sm font-semibold;
+  color: var(--craft-ink, #27221d);
 }
 
 .toc-close-btn {
-  @apply p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-dark-200 hover:bg-gray-200 dark:hover:bg-dark-600 transition-colors;
+  @apply p-1 rounded-lg transition-colors;
+  color: var(--craft-muted, #756758);
+}
+
+.toc-close-btn:hover {
+  background-color: var(--craft-surface-hover, #f7edda);
+  color: var(--craft-ink, #27221d);
 }
 
 .toc-nav {
@@ -496,12 +519,19 @@ onUnmounted(() => {
 }
 
 .toc-item {
-  @apply block px-2 py-1.5 text-sm rounded transition-colors truncate;
-  @apply text-gray-600 dark:text-dark-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-dark-600;
+  @apply block px-2.5 py-1.5 text-sm rounded-lg transition-colors truncate;
+  color: var(--craft-ink-soft, #4c4237);
+}
+
+.toc-item:hover {
+  background-color: var(--craft-surface-hover, #f7edda);
+  color: var(--craft-ink, #27221d);
 }
 
 .toc-item.toc-active {
-  @apply text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 font-medium;
+  background-color: var(--craft-sky-soft, #e6f5fe);
+  color: var(--craft-sky-deep, #2a8bd4);
+  font-weight: 600;
 }
 
 .toc-level-1 { padding-left: 8px; }
@@ -510,17 +540,29 @@ onUnmounted(() => {
 .toc-level-4 { padding-left: 44px; }
 
 .toc-toggle-btn {
-  @apply absolute left-2 top-2 z-10 flex items-center px-2 py-1.5 rounded-md text-sm;
-  @apply bg-white dark:bg-dark-700 border border-gray-200 dark:border-dark-500;
-  @apply text-gray-600 dark:text-dark-300 hover:bg-gray-100 dark:hover:bg-dark-600;
+  @apply absolute left-2 top-2 z-10 flex items-center px-2.5 py-1.5 rounded-xl text-sm;
+  background-color: var(--craft-surface, #fffdf8);
+  border: 1px solid var(--craft-border-strong, #d5c09e);
+  color: var(--craft-ink-soft, #4c4237);
   @apply shadow-sm transition-colors cursor-pointer;
+}
+
+.toc-toggle-btn:hover {
+  background-color: var(--craft-surface-hover, #f7edda);
+  color: var(--craft-ink, #27221d);
 }
 
 .custom-embed-shell {
   @apply relative;
   @apply h-full w-full overflow-hidden rounded-2xl;
-  @apply bg-gradient-to-b from-gray-50 to-white dark:from-dark-900 dark:to-dark-950;
+  background-color: var(--craft-surface, #fffdf8);
   @apply p-0;
+}
+
+.custom-embed-shell--frameless {
+  background-color: transparent;
+  border-radius: 0;
+  overflow: visible;
 }
 
 .custom-open-fab {
@@ -545,7 +587,7 @@ onUnmounted(() => {
   line-height: 1.7;
   color: inherit;
 }
-.markdown-page-content h1 { @apply text-3xl font-bold mt-8 mb-4 pb-2 border-b border-gray-200 dark:border-dark-600; }
+.markdown-page-content h1 { @apply text-3xl font-bold mt-8 mb-4 pb-2; border-bottom: 1px solid var(--craft-border, #e6d7be); }
 .markdown-page-content h2 { @apply text-2xl font-bold mt-6 mb-3; }
 .markdown-page-content h3 { @apply text-xl font-semibold mt-5 mb-2; }
 .markdown-page-content h4 { @apply text-lg font-semibold mt-4 mb-2; }
@@ -553,16 +595,16 @@ onUnmounted(() => {
 .markdown-page-content ul { @apply list-disc pl-6 mb-4; }
 .markdown-page-content ol { @apply list-decimal pl-6 mb-4; }
 .markdown-page-content li { @apply mb-1; }
-.markdown-page-content a { @apply text-primary-500 hover:text-primary-600 underline; }
-.markdown-page-content blockquote { @apply border-l-4 border-gray-300 dark:border-dark-500 pl-4 italic text-gray-600 dark:text-dark-300 my-4; }
-.markdown-page-content img { @apply max-w-full h-auto rounded-lg my-4; }
+.markdown-page-content a { color: var(--craft-sky-deep, #2a8bd4); @apply underline; }
+.markdown-page-content blockquote { border-left: 4px solid var(--craft-border-strong, #d5c09e); color: var(--craft-muted, #756758); @apply pl-4 italic my-4; }
+.markdown-page-content img { @apply max-w-full h-auto rounded-xl my-4; }
 .markdown-page-content table { @apply w-full border-collapse my-4; }
-.markdown-page-content th { @apply border border-gray-300 dark:border-dark-500 px-3 py-2 bg-gray-50 dark:bg-dark-700 font-semibold text-left; }
-.markdown-page-content td { @apply border border-gray-300 dark:border-dark-500 px-3 py-2; }
-.markdown-page-content code { @apply bg-gray-100 dark:bg-dark-700 px-1.5 py-0.5 rounded text-sm font-mono; }
-.markdown-page-content pre { @apply bg-gray-900 dark:bg-dark-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4 relative; }
-.markdown-page-content pre code { @apply bg-transparent p-0 text-inherit; }
-.markdown-page-content hr { @apply my-6 border-gray-200 dark:border-dark-600; }
+.markdown-page-content th { border: 1px solid var(--craft-border-strong, #d5c09e); background-color: var(--craft-surface-header, #f7ead2); @apply px-3 py-2 font-semibold text-left; }
+.markdown-page-content td { border: 1px solid var(--craft-border, #e6d7be); @apply px-3 py-2; }
+.markdown-page-content code { background-color: var(--craft-surface-muted, #faf2e2); border: 1px solid var(--craft-border, #e6d7be); @apply px-1.5 py-0.5 rounded-md text-sm font-mono; }
+.markdown-page-content pre { @apply bg-[#221e1a] text-[#f5ede0] p-4 rounded-xl overflow-x-auto my-4 relative; }
+.markdown-page-content pre code { @apply border-0 bg-transparent p-0 text-inherit; }
+.markdown-page-content hr { @apply my-6; border-color: var(--craft-border, #e6d7be); }
 
 .copy-btn {
   position: absolute;

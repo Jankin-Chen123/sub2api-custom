@@ -1,3 +1,4 @@
+import { nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 
@@ -206,5 +207,105 @@ describe('HomeView compact mode', () => {
     })
 
     expect(modelPlazaDestination(wrapper)).toBeUndefined()
+  })
+
+  it('renders QQ group link and sound toggle in sticker navbar and moves docs button into hero actions', async () => {
+    localStorage.setItem('sticker_paper_sound_enabled', 'true')
+    const docsUrl = 'https://docs.example.com/guide'
+    const wrapper = mountHome({
+      home_content: 'sticker-home',
+      doc_url: docsUrl,
+    })
+
+    const navActions = wrapper.get('[data-sticker-home] .sticker-nav-actions')
+    const qqLink = navActions.get('a[href="https://qm.qq.com/q/DiCjrJU00i"]')
+    expect(qqLink.attributes('target')).toBe('_blank')
+    expect(navActions.find('.sticker-nav-doc').exists()).toBe(false)
+    expect(
+      navActions.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/login')
+    ).toBe(false)
+
+    const soundToggle = navActions.get('.sticker-sound-toggle')
+    expect(soundToggle.attributes('aria-pressed')).toBe('true')
+    await soundToggle.trigger('click')
+    expect(soundToggle.attributes('aria-pressed')).toBe('false')
+    expect(localStorage.getItem('sticker_paper_sound_enabled')).toBe('false')
+    await soundToggle.trigger('click')
+    expect(soundToggle.attributes('aria-pressed')).toBe('true')
+    expect(localStorage.getItem('sticker_paper_sound_enabled')).toBe('true')
+
+    const heroDocs = wrapper.get('[data-sticker-home] .sticker-actions a.sticker-button-docs')
+    expect(heroDocs.attributes('href')).toBe(docsUrl)
+    expect(heroDocs.text()).toContain('home.sticker.docs')
+
+    const setupSection = wrapper.get('[data-sticker-home] .sticker-setup')
+    expect(setupSection.find('.sticker-setup-cta').exists()).toBe(false)
+    expect(setupSection.find(`a[href="${docsUrl}"]`).exists()).toBe(false)
+  })
+
+  it('animates the hero OK mascot with magnetic tilt hover and High-Five stamp bursts on click', async () => {
+    const wrapper = mountHome({ home_content: 'sticker-home' })
+    const mascotBtn = wrapper.get('[data-sticker-home] .sticker-mascot-trigger')
+
+    vi.spyOn(mascotBtn.element, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 400,
+      right: 400,
+      bottom: 400,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect)
+
+    await mascotBtn.trigger('pointerenter', { clientX: 300, clientY: 100 })
+    expect(mascotBtn.classes()).toContain('is-hovered')
+
+    await mascotBtn.trigger('pointermove', { clientX: 300, clientY: 100 })
+    const hoverStyle = mascotBtn.attributes('style') || ''
+    expect(hoverStyle).toContain('--mascot-tx: 6.00px')
+    expect(hoverStyle).toContain('--mascot-ty: -13.00px')
+    expect(hoverStyle).toContain('--mascot-rx: 6.00deg')
+    expect(hoverStyle).toContain('--mascot-ry: 7.00deg')
+
+    await mascotBtn.trigger('pointerleave')
+    expect(mascotBtn.classes()).not.toContain('is-hovered')
+    expect(mascotBtn.attributes('style')).toContain('--mascot-tx: 0.00px')
+
+    await mascotBtn.trigger('click', { clientX: 200, clientY: 200 })
+    await nextTick()
+    expect(mascotBtn.classes()).toContain('is-slapping')
+    expect(mascotBtn.findAll('.sticker-mascot-stamp-text').map((el) => el.text())).toEqual(['OK ✓'])
+
+    await mascotBtn.trigger('click', { clientX: 220, clientY: 180 })
+    await nextTick()
+    expect(mascotBtn.findAll('.sticker-mascot-stamp-text').map((el) => el.text())).toEqual([
+      'OK ✓',
+      'NICE!',
+    ])
+
+    wrapper.unmount()
+  })
+
+  it('assigns independent frame-by-frame sprite sheets to each benefit card and renders stamp impact ring on verification', () => {
+    const wrapper = mountHome({ home_content: 'sticker-home' })
+
+    const cards = wrapper.findAll('[data-sticker-home] .sticker-benefit')
+    expect(cards).toHaveLength(3)
+
+    expect(cards[0].classes()).toContain('sticker-benefit--pricing')
+    expect(cards[0].find('.sticker-feature-sprite--pricing').exists()).toBe(true)
+    expect(cards[0].find('.sticker-stamp-impact-ring').exists()).toBe(false)
+
+    expect(cards[1].classes()).toContain('sticker-benefit--routing')
+    expect(cards[1].find('.sticker-feature-sprite--routing').exists()).toBe(true)
+    expect(cards[1].find('.sticker-stamp-impact-ring').exists()).toBe(false)
+
+    expect(cards[2].classes()).toContain('sticker-benefit--verification')
+    expect(cards[2].find('.sticker-feature-sprite--verification').exists()).toBe(true)
+    expect(cards[2].find('.sticker-stamp-impact-ring').exists()).toBe(true)
+
+    wrapper.unmount()
   })
 })

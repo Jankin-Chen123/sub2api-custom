@@ -7,7 +7,7 @@
       class="!hidden w-full table-fixed border-collapse text-sm lg:!table"
     >
       <thead>
-        <tr class="border-b border-gray-100 bg-gray-50/50 text-xs font-medium uppercase tracking-wide text-gray-500 dark:border-dark-700 dark:bg-dark-800/50 dark:text-gray-400">
+        <tr class="border-b border-[#e8dac0] bg-[#fff4de]/90 text-xs font-extrabold uppercase tracking-wide text-[#6b5336] dark:border-dark-700 dark:bg-dark-800/70 dark:text-dark-300">
           <th class="w-[180px] px-4 py-3 text-center">{{ columns.name }}</th>
           <th class="w-[200px] px-4 py-3 text-left">{{ columns.description }}</th>
           <th class="w-[140px] px-4 py-3 text-left">{{ columns.platform }}</th>
@@ -25,8 +25,15 @@
       <tbody v-else-if="rows.length === 0">
         <tr>
           <td colspan="5" class="py-12 text-center">
-            <Icon name="inbox" size="xl" class="mx-auto mb-3 h-12 w-12 text-gray-400" />
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ emptyLabel }}</p>
+            <div class="mx-auto flex max-w-xs flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#dcc6a4] bg-[#fffaf0]/80 px-6 py-6 dark:border-dark-700 dark:bg-dark-800/50">
+              <div class="relative mb-3 inline-flex">
+                <div class="journal-icon-well -rotate-3">
+                  <CraftIcon name="inbox" size="lg" />
+                </div>
+                <CraftSparks variant="right" size="sm" class="ml-1 self-start" />
+              </div>
+              <p class="text-sm font-bold text-[#4e4336] dark:text-dark-300">{{ emptyLabel }}</p>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -176,9 +183,16 @@
       <div v-if="loading" data-testid="mobile-loading" class="py-10 text-center">
         <Icon name="refresh" size="lg" class="inline-block animate-spin text-gray-400" />
       </div>
-      <div v-else-if="rows.length === 0" data-testid="mobile-empty" class="py-12 text-center">
-        <Icon name="inbox" size="xl" class="mx-auto mb-3 h-12 w-12 text-gray-400" />
-        <p class="text-sm text-gray-500 dark:text-gray-400">{{ emptyLabel }}</p>
+      <div v-else-if="rows.length === 0" data-testid="mobile-empty" class="px-4 py-10 text-center">
+        <div class="mx-auto flex max-w-xs flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#dcc6a4] bg-[#fffaf0]/80 px-6 py-6 dark:border-dark-700 dark:bg-dark-800/50">
+          <div class="relative mb-3 inline-flex">
+            <div class="journal-icon-well -rotate-3">
+              <CraftIcon name="inbox" size="lg" />
+            </div>
+            <CraftSparks variant="right" size="sm" class="ml-1 self-start" />
+          </div>
+          <p class="text-sm font-bold text-[#4e4336] dark:text-dark-300">{{ emptyLabel }}</p>
+        </div>
       </div>
       <section
         v-else
@@ -321,6 +335,8 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'

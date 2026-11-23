@@ -1,47 +1,81 @@
 <template>
   <AppLayout>
     <div class="mx-auto max-w-5xl space-y-6">
-      <section class="card p-5 sm:p-6" aria-labelledby="mcp-connection-title" :aria-busy="connectionLoading">
-        <div class="flex items-start gap-3">
-          <div class="rounded-xl bg-primary-50 p-3 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400">
-            <Icon name="mcp" size="lg" />
+      <JournalPageHeader
+        icon="plug"
+        variant="sky"
+        :title="t('mcp.title')"
+        :description="t('mcp.description')"
+      />
+
+      <section class="card overflow-hidden p-0" aria-labelledby="mcp-connection-title" :aria-busy="connectionLoading">
+        <div class="journal-card-band flex items-start justify-between gap-4 px-5 py-4 sm:px-6">
+          <div class="flex items-start gap-3">
+            <div class="journal-icon-well journal-icon-well--sm mt-0.5 shrink-0">
+              <CraftIcon name="plug" size="sm" />
+            </div>
+            <div>
+              <h2 id="mcp-connection-title" class="journal-section-title text-lg font-extrabold text-[#221d17] dark:text-white">{{ t('mcp.connectionTitle') }}</h2>
+              <p class="mt-0.5 text-sm text-[#6f6252] dark:text-gray-400">{{ t('mcp.connectionDescription') }}</p>
+            </div>
           </div>
+          <CraftSparks variant="right" size="sm" class="shrink-0" />
+        </div>
+        <div class="p-5 sm:p-6">
           <div>
-            <h2 id="mcp-connection-title" class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('mcp.connectionTitle') }}</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('mcp.connectionDescription') }}</p>
+            <label for="mcp-endpoint" class="input-label">{{ t('mcp.endpoint') }}</label>
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <input id="mcp-endpoint" :value="endpoint" :placeholder="connectionLoading ? t('mcp.connectionLoading') : ''" class="input min-w-0 flex-1 font-mono text-sm" readonly />
+              <button data-testid="copy-endpoint" class="btn btn-secondary shrink-0" type="button" :disabled="!endpoint || connectionLoading" @click="copyToClipboard(endpoint)">{{ t('mcp.copyEndpoint') }}</button>
+            </div>
+            <div v-if="connectionError" class="mt-3 flex flex-wrap items-center gap-3">
+              <p role="alert" class="text-sm text-red-600 dark:text-red-400">{{ connectionError }}</p>
+              <button data-testid="retry-connection" class="btn btn-secondary btn-sm" type="button" :disabled="connectionLoading" @click="loadConnection">{{ t('common.refresh') }}</button>
+            </div>
+            <ol class="mt-5 space-y-2.5 text-sm text-[#4e4336] dark:text-gray-300">
+              <li class="flex items-start gap-2.5">
+                <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#dcc29c] bg-[#fff3d6] text-xs font-extrabold text-[#8a4d17] dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-200">1</span>
+                <span>{{ t('mcp.connectStep1') }}</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#dcc29c] bg-[#fff3d6] text-xs font-extrabold text-[#8a4d17] dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-200">2</span>
+                <span>{{ t('mcp.connectStep2') }}</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#dcc29c] bg-[#fff3d6] text-xs font-extrabold text-[#8a4d17] dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-200">3</span>
+                <span>{{ t('mcp.connectStep3') }}</span>
+              </li>
+            </ol>
           </div>
+          <p class="mt-5 border-t border-dashed border-[#e5d5ba] pt-4 text-sm text-[#6f6252] dark:border-dark-700 dark:text-gray-400">{{ t('mcp.capabilities') }}</p>
         </div>
-        <div class="mt-5">
-          <label for="mcp-endpoint" class="input-label">{{ t('mcp.endpoint') }}</label>
-          <div class="flex flex-col gap-2 sm:flex-row">
-            <input id="mcp-endpoint" :value="endpoint" :placeholder="connectionLoading ? t('mcp.connectionLoading') : ''" class="input min-w-0 flex-1 font-mono text-sm" readonly />
-            <button data-testid="copy-endpoint" class="btn btn-secondary shrink-0" type="button" :disabled="!endpoint || connectionLoading" @click="copyToClipboard(endpoint)">{{ t('mcp.copyEndpoint') }}</button>
-          </div>
-          <div v-if="connectionError" class="mt-3 flex flex-wrap items-center gap-3">
-            <p role="alert" class="text-sm text-red-600 dark:text-red-400">{{ connectionError }}</p>
-            <button data-testid="retry-connection" class="btn btn-secondary btn-sm" type="button" :disabled="connectionLoading" @click="loadConnection">{{ t('common.refresh') }}</button>
-          </div>
-          <ol class="mt-5 list-decimal space-y-2 pl-5 text-sm text-gray-600 dark:text-gray-300">
-            <li>{{ t('mcp.connectStep1') }}</li>
-            <li>{{ t('mcp.connectStep2') }}</li>
-            <li>{{ t('mcp.connectStep3') }}</li>
-          </ol>
-        </div>
-        <p class="mt-5 border-t border-gray-100 pt-4 text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400">{{ t('mcp.capabilities') }}</p>
       </section>
 
-      <section class="card" aria-labelledby="mcp-grants-title">
-        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 p-5 dark:border-dark-700 sm:p-6">
-          <div class="max-w-xl">
-            <h2 id="mcp-grants-title" class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('mcp.grantsTitle') }}</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('mcp.grantsDescription') }}</p>
+      <section class="card overflow-hidden" aria-labelledby="mcp-grants-title">
+        <div class="journal-card-band flex flex-wrap items-start justify-between gap-4 px-5 py-4 sm:px-6">
+          <div class="flex max-w-xl items-start gap-3">
+            <div class="journal-icon-well journal-icon-well--sm mt-0.5 shrink-0">
+              <CraftIcon name="shield" size="sm" />
+            </div>
+            <div>
+              <h2 id="mcp-grants-title" class="journal-section-title text-lg font-extrabold text-[#221d17] dark:text-white">{{ t('mcp.grantsTitle') }}</h2>
+              <p class="mt-0.5 text-sm text-[#6f6252] dark:text-gray-400">{{ t('mcp.grantsDescription') }}</p>
+            </div>
           </div>
           <button data-testid="refresh-grants" type="button" class="btn btn-secondary" :disabled="loading || revoking" @click="loadGrants">{{ t('common.refresh') }}</button>
         </div>
         <div class="p-5 sm:p-6" :aria-busy="loading">
           <p v-if="loadError" role="alert" class="text-sm text-red-600 dark:text-red-400">{{ loadError }}</p>
           <p v-else-if="loading" role="status" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{{ t('mcp.loading') }}</p>
-          <p v-else-if="grants.length === 0" class="rounded-xl border border-dashed border-gray-200 px-4 py-10 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400">{{ t('mcp.empty') }}</p>
+          <div v-else-if="grants.length === 0" class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#dcc6a4] bg-[#fffaf0]/80 px-4 py-10 text-center dark:border-dark-700 dark:bg-dark-800/50">
+            <div class="relative mb-3 inline-flex">
+              <div class="journal-icon-well -rotate-3">
+                <CraftIcon name="inbox" size="lg" />
+              </div>
+              <CraftSparks variant="right" size="sm" class="ml-1 self-start" />
+            </div>
+            <p class="text-sm font-bold text-[#4e4336] dark:text-gray-300">{{ t('mcp.empty') }}</p>
+          </div>
           <ul v-else class="divide-y divide-gray-100 dark:divide-dark-700">
             <li v-for="grant in grants" :key="grant.id" class="flex items-start justify-between gap-4 py-5 first:pt-0 last:pb-0" :data-grant-id="grant.id">
               <div class="min-w-0 space-y-2">
@@ -83,7 +117,9 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { mcpAPI, type MCPGrant } from '@/api/mcp'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import { Icon } from '@/components/icons'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
+import JournalPageHeader from '@/components/craft/JournalPageHeader.vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { useClipboard } from '@/composables/useClipboard'
 import { useAppStore } from '@/stores/app'

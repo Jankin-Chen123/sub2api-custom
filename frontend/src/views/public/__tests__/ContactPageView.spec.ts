@@ -154,12 +154,20 @@ describe('ContactPageView', () => {
     expect(wrapper.get('[data-testid="telegram-contact-card"]').attributes('aria-disabled')).toBe('true')
   })
 
-  it('honors the embedded page theme supplied by the custom-page iframe', () => {
+  it('keeps legacy dark iframe URLs light while preserving embedded layout', () => {
     window.history.replaceState({}, '', '/contact?ui_mode=embedded&theme=dark')
 
     const wrapper = mountView()
 
-    expect(wrapper.get('[data-testid="contact-theme-root"]').classes()).toContain('dark')
+    expect(wrapper.get('[data-testid="contact-theme-root"]').classes()).not.toContain('dark')
+    expect(wrapper.get('main.contact-page').classes()).toContain('contact-page--embedded')
+    expect(wrapper.get('[data-testid="contact-shell"]').classes()).toContain('contact-shell--embedded')
+    expect(document.documentElement.classList.contains('contact-embedded-host')).toBe(true)
+    expect(document.body.classList.contains('contact-embedded-host')).toBe(true)
+
+    wrapper.unmount()
+    expect(document.documentElement.classList.contains('contact-embedded-host')).toBe(false)
+    expect(document.body.classList.contains('contact-embedded-host')).toBe(false)
   })
 
   it('keeps the branded light palette even when the host requests dark mode', () => {

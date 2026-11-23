@@ -2,22 +2,20 @@
   <div class="space-y-4">
     <!-- Quick Amount Buttons -->
     <div>
-      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {{ t('payment.quickAmounts') }}
-      </label>
-      <div class="grid grid-cols-3 gap-x-4 gap-y-4 pt-2">
+      <div role="group" :aria-label="t('payment.quickAmounts')" class="grid grid-cols-3 gap-x-4 gap-y-4 pt-2">
         <button
           v-for="amt in filteredAmounts"
           :key="amt"
           type="button"
           :class="[
-            'relative rounded-lg border-2 px-3 py-3 text-center font-medium transition-colors',
+            'relative rounded-[16px] border-2 px-3 py-3.5 text-center font-bold transition-all hover:-translate-y-0.5',
             modelValue === amt
-              ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-900/40 dark:text-primary-300'
+              ? 'border-[#2a8bd4] bg-[#dff2fe] text-[#1b4e75] shadow-[0_3px_0_rgba(42,139,212,0.22)] dark:border-[#6ec4fc] dark:bg-[#203c59] dark:text-[#d8effe]'
               : quoteFor(amt).percent > 0
-                ? 'border-red-200 bg-white text-gray-700 hover:border-red-300 dark:border-red-500/40 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-red-400/60'
-                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
+                ? 'border-red-300 bg-[var(--craft-surface-warm)] text-[var(--craft-ink)] shadow-[0_2px_0_rgba(196,60,60,0.12)] hover:border-red-400 dark:border-red-500/45 dark:bg-[#2a2126] dark:text-[#f5ede0]'
+                : 'border-[var(--craft-border-strong)] bg-[var(--craft-surface-warm)]/65 text-[var(--craft-ink)] shadow-[0_2px_0_rgba(104,78,43,0.08)] hover:border-[var(--craft-sky-deep)] hover:bg-[var(--craft-surface-hover)]',
           ]"
+          :aria-pressed="modelValue === amt"
           :data-testid="`quick-amount-${amt}`"
           @click="selectAmount(amt)"
         >

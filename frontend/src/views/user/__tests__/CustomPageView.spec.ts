@@ -165,4 +165,15 @@ describe('custom page open button', () => {
     expect(wrapper.find('iframe').exists()).toBe(false)
     expect(wrapper.get('.markdown-page-content h1').text()).toBe('Guide')
   })
+
+  it('uses frameless embedding without an outer card for same-origin contact pages', () => {
+    const externalWrapper = mountPage()
+    expect(externalWrapper.get('.custom-page-layout > div').classes()).toContain('card')
+    expect(externalWrapper.get('.custom-embed-shell').classes()).not.toContain('custom-embed-shell--frameless')
+
+    appStore.cachedPublicSettings.custom_menu_items = [{ id: 'docs', url: `${window.location.origin}/contact` }]
+    const contactWrapper = mountPage()
+    expect(contactWrapper.get('.custom-page-layout > div').classes()).not.toContain('card')
+    expect(contactWrapper.get('.custom-embed-shell').classes()).toContain('custom-embed-shell--frameless')
+  })
 })

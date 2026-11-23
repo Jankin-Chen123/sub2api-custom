@@ -1,17 +1,17 @@
 <template>
   <div
-    class="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4 dark:from-dark-900 dark:to-dark-800"
+    class="journal-standalone flex min-h-screen items-center justify-center p-4"
   >
     <div class="w-full max-w-2xl">
       <!-- Logo & Title -->
       <div class="mb-8 text-center">
         <div
-          class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg"
+          class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl border border-[#2574b3]/30 bg-gradient-to-b from-[#40a7ef] to-[#2682c8] shadow-lg shadow-[#2682c8]/25"
         >
           <Icon name="cog" size="xl" class="text-white" />
         </div>
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ t('setup.title') }}</h1>
-        <p class="mt-2 text-gray-500 dark:text-dark-400">{{ t('setup.description') }}</p>
+        <h1 class="text-3xl font-black text-[var(--craft-ink)]">{{ t('setup.title') }}</h1>
+        <p class="mt-2 text-[var(--craft-muted)]">{{ t('setup.description') }}</p>
       </div>
 
       <!-- Progress Steps -->
@@ -23,10 +23,10 @@
                 :class="[
                   'flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-all',
                   currentStep > index
-                    ? 'bg-primary-500 text-white'
+                    ? 'bg-[#2a8bd4] text-white'
                     : currentStep === index
-                      ? 'bg-primary-500 text-white ring-4 ring-primary-100 dark:ring-primary-900'
-                      : 'bg-gray-200 text-gray-500 dark:bg-dark-700 dark:text-dark-400'
+                      ? 'bg-[#2a8bd4] text-white ring-4 ring-[var(--craft-sky-soft)]'
+                      : 'border border-[var(--craft-border-strong)] bg-[var(--craft-surface-muted)] text-[var(--craft-muted)]'
                 ]"
               >
                 <Icon
@@ -41,8 +41,8 @@
                 class="ml-2 hidden text-sm font-medium sm:inline"
                 :class="
                   currentStep >= index
-                    ? 'text-gray-900 dark:text-white'
-                    : 'text-gray-400 dark:text-dark-500'
+                    ? 'text-[var(--craft-ink)] font-semibold'
+                    : 'text-[var(--craft-muted)]'
                 "
               >
                 {{ step.title }}
@@ -51,14 +51,14 @@
             <div
               v-if="index < steps.length - 1"
               class="mx-2 h-0.5 w-6 sm:mx-3 sm:w-12"
-              :class="currentStep > index ? 'bg-primary-500' : 'bg-gray-200 dark:bg-dark-700'"
+              :class="currentStep > index ? 'bg-[#2a8bd4]' : 'bg-[var(--craft-border-strong)]'"
             ></div>
           </template>
         </div>
       </div>
 
       <!-- Step Content -->
-      <div class="rounded-2xl bg-white p-8 shadow-xl dark:bg-dark-800">
+      <div class="card p-8 shadow-xl">
         <!-- Step 1: Database -->
         <div v-if="currentStep === 0" class="space-y-6">
           <div class="mb-6 text-center">

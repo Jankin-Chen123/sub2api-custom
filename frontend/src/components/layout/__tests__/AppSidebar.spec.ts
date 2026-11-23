@@ -3,6 +3,14 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
+import { mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
+import { createI18n } from 'vue-i18n'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import { useAppStore } from '@/stores/app'
+import zh from '@/i18n/locales/zh'
+import type { CustomMenuItem, PublicSettings } from '@/types'
+import AppSidebar from '../AppSidebar.vue'
 
 const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppSidebar.vue')
 const componentSource = readFileSync(componentPath, 'utf8')
@@ -26,8 +34,6 @@ describe('AppSidebar custom SVG styles', () => {
     expect(componentSource).toContain("externalUrl: 'https://aibaipiao.top/docs'")
     expect(componentSource).toContain(":is=\"item.externalUrl ? 'a' : 'router-link'\"")
     expect(componentSource).toContain("target: '_blank'")
-    expect(componentSource).toContain('appStore.backendModeEnabled ? backendModeNavItems : userNavItems')
-    expect(componentSource).toContain('const backendModeNavItems = computed')
   })
 
   it('opens documentation management inside the admin layout', () => {
@@ -104,5 +110,72 @@ describe('AppSidebar MCP entry', () => {
     expect(componentSource).toMatch(/path: '\/settings\/mcp'[^\n]*icon: MCPIcon, featureFlag: flagMCP/)
     expect(componentSource).toMatch(/if \(flagMCP\(\)\) filtered\.push\(\{ path: '\/settings\/mcp'[^\n]*icon: MCPIcon/)
     expect(componentSource).not.toMatch(/path: '\/settings\/mcp'[^\n]*PluginIcon/)
+  })
+})
+
+describe('account sidebar directory', () => {
+  async function render(settings: Partial<PublicSettings>) {
+    const pinia = createPinia()
+    const app = useAppStore(pinia)
+    app.$patch({ cachedPublicSettings: settings })
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
+    })
+    await router.push('/dashboard')
+    const i18n = createI18n({ legacy: false, locale: 'zh', messages: { zh } })
+    return mount(AppSidebar, { global: { plugins: [pinia, router, i18n], stubs: { VersionBadge: true } } })
+  }
+
+  function menu(id: string, label: string, sort_order: number): CustomMenuItem {
+    return { id, label, sort_order, url: 'about:blank', icon_svg: '', visibility: 'user' }
+  }
+
+  it('places the configured shop and contact once, keeps their routes and respects feature flags', async () => {
+    const wrapper = await render({
+      dedicated_image_enabled: true,
+      affiliate_enabled: true,
+      available_channels_enabled: false,
+      custom_menu_items: [menu('more', '资源', 0), menu('contact', '联系我们', 2), menu('shop', '气球小铺', 1)],
+    })
+    const groups = wrapper.findAll('nav section')
+    expect(groups.map(group => group.get('h2').text())).toEqual(['常规', '充值与订阅', '个人', '其他'])
+    const links = groups.map(group => group.findAll('a').map(link => link.attributes('href')))
+    expect(links).toEqual([
+      ['/dashboard', '/keys', '/image-workbench', '/usage', '/monitor'],
+      ['/subscriptions', '/purchase', '/orders', '/redeem', '/custom/shop'],
+      ['/affiliate', '/profile'],
+      ['https://aibaipiao.top/docs', '/custom/contact', '/custom/more'],
+    ])
+    wrapper.unmount()
+  })
+
+  it('uses the built-in contact page when no custom contact is configured', async () => {
+    const wrapper = await render({ dedicated_image_enabled: false, subscription_enabled: false })
+    expect(wrapper.find('nav a[href="/contact"]').exists()).toBe(true)
+    expect(wrapper.find('nav a[href="/image-workbench"]').exists()).toBe(false)
+    expect(wrapper.find('nav a[href="/subscriptions"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('opens the mobile directory with labels while retaining the compact desktop preference', async () => {
+    const wrapper = await render({})
+    const app = useAppStore()
+    app.setSidebarCollapsed(true)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('nav h2').exists()).toBe(false)
+    expect(wrapper.get('nav a[href="/keys"]').attributes('aria-label')).toBe('API 密钥')
+    app.setMobileOpen(true)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('nav h2').text()).toBe('常规')
+    expect(app.sidebarCollapsed).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('shows only documentation in backend mode', async () => {
+    const wrapper = await render({ backend_mode_enabled: true })
+    expect(wrapper.findAll('nav a').map(a => a.attributes('href'))).toEqual(['https://aibaipiao.top/docs'])
+    expect(wrapper.find('nav h2').exists()).toBe(false)
+    wrapper.unmount()
   })
 })

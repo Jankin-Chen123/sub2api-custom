@@ -1,13 +1,27 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
+      <JournalPageHeader
+        icon="bars"
+        variant="sky"
+        :title="t('usage.title')"
+        :description="t('usage.description')"
+      />
+
       <UsageStatsCards :stats="usageStats" :show-account-cost="false" :strike-standard-cost="true" />
 
       <div class="space-y-4">
-        <div class="card p-4">
+        <div class="flex items-center gap-1.5">
+          <h2 class="journal-section-title text-xl sm:text-2xl">
+            {{ t('dashboard.usageAnalysis') }}
+          </h2>
+          <CraftSparks variant="right" size="md" />
+        </div>
+
+        <div class="journal-toolbar-card">
           <div class="flex flex-wrap items-center gap-4">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.dashboard.timeRange') }}:</span>
+              <span class="text-sm font-semibold text-[var(--craft-ink-soft)]">{{ t('admin.dashboard.timeRange') }}:</span>
               <DateRangePicker
                 v-model:start-date="startDate"
                 v-model:end-date="endDate"
@@ -15,7 +29,7 @@
               />
             </div>
             <div class="ml-auto flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.dashboard.granularity') }}:</span>
+              <span class="text-sm font-semibold text-[var(--craft-ink-soft)]">{{ t('admin.dashboard.granularity') }}:</span>
               <div class="w-28">
                 <Select v-model="granularity" :options="granularityOptions" @change="loadChartData" />
               </div>
@@ -226,6 +240,8 @@ import { useAppStore } from '@/stores/app'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { keysAPI, usageAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import JournalPageHeader from '@/components/craft/JournalPageHeader.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'

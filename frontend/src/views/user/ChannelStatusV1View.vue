@@ -1,5 +1,12 @@
 <template>
   <AppLayout>
+    <JournalPageHeader
+      icon="radio"
+      variant="sky"
+      :title="t('channelStatus.title')"
+      :description="t('channelStatus.description')"
+      class="mb-4"
+    />
     <MonitorHero
       :overall-status="overallStatus"
       :interval-seconds="DEFAULT_INTERVAL_SECONDS"
@@ -40,6 +47,7 @@ import {
   type UserMonitorDetail,
 } from '@/api/channelMonitor'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import JournalPageHeader from '@/components/craft/JournalPageHeader.vue'
 import MonitorHero, {
   type MonitorWindow,
   type OverallStatus,

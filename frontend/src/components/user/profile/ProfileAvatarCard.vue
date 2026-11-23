@@ -1,5 +1,6 @@
 <template>
   <div :class="props.embedded ? 'space-y-4' : 'card'">
+    <slot name="summary" :preview-url="avatarPreviewUrl" :editing="editing" :toggle-editor="toggleEditor" />
     <div
       v-if="!props.embedded"
       class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
@@ -12,11 +13,18 @@
       </p>
     </div>
 
-    <div :class="props.embedded ? 'space-y-3' : 'flex flex-col gap-5 px-6 py-6 sm:flex-row sm:items-start'">
+    <div
+      v-if="!$slots.summary || editing"
+      :class="[
+        $slots.summary && 'rounded-2xl border border-white/80 bg-[var(--craft-paper)] p-4',
+        props.embedded ? 'space-y-3' : 'flex flex-col gap-5 px-6 py-6 sm:flex-row sm:items-start'
+      ]"
+    >
       <div
+        v-if="!$slots.summary"
         :class="props.embedded
-          ? 'flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-xl font-bold text-white shadow-lg shadow-primary-500/20'
-          : 'flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-3xl font-bold text-white shadow-lg shadow-primary-500/20'"
+          ? 'flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#e3d2b6] bg-[#fffdf8] text-xl font-bold text-[#27221d] shadow-md shadow-[#8f6c41]/15 dark:border-dark-600 dark:bg-dark-800 dark:text-white'
+          : 'flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#e3d2b6] bg-[#fffdf8] text-3xl font-bold text-[#27221d] shadow-md shadow-[#8f6c41]/15 dark:border-dark-600 dark:bg-dark-800 dark:text-white'"
       >
         <img
           v-if="avatarPreviewUrl"
@@ -42,12 +50,13 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-          <label class="btn btn-secondary btn-sm cursor-pointer">
+          <label class="btn btn-secondary btn-sm cursor-pointer focus-within:ring-2">
             <input
               data-testid="profile-avatar-file-input"
               type="file"
               accept="image/*"
-              class="hidden"
+              class="sr-only"
+              :disabled="avatarSaving"
               @change="handleAvatarFileChange"
             >
             {{ t('profile.avatar.uploadAction') }}
@@ -57,7 +66,7 @@
             data-testid="profile-avatar-save"
             type="button"
             class="btn btn-primary btn-sm"
-            :disabled="avatarSaving || !avatarDraft"
+            :disabled="avatarSaving || preparing || !avatarDraft"
             @click="handleAvatarSave"
           >
             {{ t('common.save') }}
@@ -67,11 +76,52 @@
             data-testid="profile-avatar-delete"
             type="button"
             class="btn btn-secondary btn-sm"
-            :disabled="avatarSaving"
+            :disabled="avatarSaving || preparing || !props.user?.avatar_url"
             @click="handleAvatarDelete"
           >
             {{ t('common.delete') }}
           </button>
+          <button v-if="$slots.summary" type="button" class="btn btn-secondary btn-sm" :disabled="avatarSaving" @click="toggleEditor">
+            {{ t('common.cancel') }}
+          </button>
+        </div>
+
+        <div
+          data-testid="profile-default-avatar-picker"
+          class="space-y-2 border-t border-dashed border-[#e5d5ba] pt-3 dark:border-dark-700"
+        >
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <span class="text-xs font-bold text-[#5a4e3e] dark:text-dark-200">
+              {{ t('profile.avatar.presetTitle') }}
+            </span>
+            <span class="text-[11px] text-[#857563] dark:text-dark-400">
+              {{ t('profile.avatar.presetHint') }}
+            </span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="preset in DEFAULT_JOURNAL_AVATARS"
+              :key="preset.id"
+              :data-testid="`profile-default-avatar-${preset.id}`"
+              type="button"
+              :disabled="avatarSaving"
+              :title="t(preset.labelKey)"
+              :aria-label="t(preset.labelKey)"
+              :class="[
+                'group relative overflow-hidden rounded-xl border p-0.5 transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary-500/40',
+                selectedPresetId === preset.id
+                  ? 'border-primary-500 bg-primary-50/70 ring-2 ring-primary-400/50 dark:bg-primary-900/30'
+                  : 'border-[#e3d2b6] bg-[#fffdf8] hover:border-[#cfa97a] dark:border-dark-600 dark:bg-dark-800'
+              ]"
+              @click="selectPresetAvatar(preset.url, preset.id)"
+            >
+              <img
+                :src="preset.url"
+                :alt="t(preset.labelKey)"
+                class="h-11 w-11 rounded-[10px] object-cover"
+              >
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -86,6 +136,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import type { User } from '@/types'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import { DEFAULT_JOURNAL_AVATARS, resolveUserAvatarUrl } from '@/utils/defaultAvatar'
 
 const props = withDefaults(defineProps<{
   user: User | null
@@ -102,16 +153,40 @@ const targetAvatarUploadBytes = 20 * 1024
 const avatarScaleSteps = [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44, 0.36]
 const avatarQualitySteps = [0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44, 0.36]
 const avatarDraft = ref('')
+const selectedPresetIdDraft = ref('')
 const avatarSaving = ref(false)
+const editing = ref(false)
+const preparing = ref(false)
+let selectionVersion = 0
+
+function toggleEditor() {
+  if (avatarSaving.value) return
+  selectionVersion++
+  preparing.value = false
+  avatarDraft.value = ''
+  selectedPresetIdDraft.value = ''
+  editing.value = !editing.value
+}
 
 const displayName = computed(() => props.user?.username?.trim() || props.user?.email?.trim() || t('profile.user'))
 const avatarInitial = computed(() => displayName.value.charAt(0).toUpperCase() || 'U')
-const avatarPreviewUrl = computed(() => avatarDraft.value.trim() || props.user?.avatar_url?.trim() || '')
+const avatarPreviewUrl = computed(() => avatarDraft.value.trim() || resolveUserAvatarUrl(props.user))
+const selectedPresetId = computed(() => {
+  if (selectedPresetIdDraft.value) {
+    return selectedPresetIdDraft.value
+  }
+  if (avatarDraft.value.trim()) {
+    return ''
+  }
+  const activeUrl = resolveUserAvatarUrl(props.user)
+  return DEFAULT_JOURNAL_AVATARS.find((item) => item.url === activeUrl)?.id ?? ''
+})
 
 watch(
   () => props.user?.avatar_url,
   () => {
     avatarDraft.value = ''
+    selectedPresetIdDraft.value = ''
   }
 )
 
@@ -214,30 +289,68 @@ async function handleAvatarFileChange(event: Event) {
     return
   }
 
+  const version = ++selectionVersion
+  preparing.value = true
   try {
     const preparedFile = await prepareAvatarUpload(file)
     const dataURL = await readFileAsDataURL(preparedFile)
+    if (version !== selectionVersion) return
     const normalized = normalizeUploadedAvatar(dataURL)
     if (!normalized) {
       return
     }
     avatarDraft.value = normalized
+    selectedPresetIdDraft.value = ''
   } catch (error: unknown) {
-    appStore.showError(extractApiErrorMessage(error, t('common.error')))
+    if (version === selectionVersion) appStore.showError(extractApiErrorMessage(error, t('common.error')))
+  } finally {
+    if (version === selectionVersion) preparing.value = false
+  }
+}
+
+async function selectPresetAvatar(presetUrl: string, presetId: string) {
+  if (avatarSaving.value) {
+    return
+  }
+  const version = ++selectionVersion
+  preparing.value = true
+  try {
+    const response = await fetch(presetUrl)
+    if (!response.ok) {
+      throw new Error(t('profile.avatar.presetLoadFailed'))
+    }
+    const blob = await response.blob()
+    const file = new File([blob], `${presetId}.webp`, { type: 'image/webp' })
+    const preparedFile = await prepareAvatarUpload(file)
+    const dataURL = await readFileAsDataURL(preparedFile)
+    if (version !== selectionVersion) return
+    const normalized = normalizeUploadedAvatar(dataURL)
+    if (!normalized) {
+      return
+    }
+    avatarDraft.value = normalized
+    selectedPresetIdDraft.value = presetId
+  } catch (error: unknown) {
+    if (version === selectionVersion) appStore.showError(extractApiErrorMessage(error, t('profile.avatar.presetLoadFailed')))
+  } finally {
+    if (version === selectionVersion) preparing.value = false
   }
 }
 
 async function handleAvatarSave() {
+  if (avatarSaving.value || preparing.value) return
   const normalized = normalizeUploadedAvatar(avatarDraft.value)
   if (!normalized) {
     return
   }
 
+  selectionVersion++
   avatarSaving.value = true
   try {
     const updated = await userAPI.updateProfile({ avatar_url: normalized })
     authStore.user = updated
-    avatarDraft.value = updated.avatar_url?.trim() || ''
+    editing.value = false
+    avatarDraft.value = ''
     appStore.showSuccess(t('profile.avatar.saveSuccess'))
   } catch (error: unknown) {
     appStore.showError(extractApiErrorMessage(error, t('common.error')))
@@ -255,11 +368,14 @@ async function handleAvatarDelete() {
     return
   }
 
+  selectionVersion++
   avatarSaving.value = true
   try {
     const updated = await userAPI.updateProfile({ avatar_url: '' })
     authStore.user = updated
     avatarDraft.value = ''
+    editing.value = false
+    selectedPresetIdDraft.value = ''
     appStore.showSuccess(t('profile.avatar.deleteSuccess'))
   } catch (error: unknown) {
     appStore.showError(extractApiErrorMessage(error, t('common.error')))

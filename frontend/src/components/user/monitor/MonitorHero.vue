@@ -3,7 +3,7 @@
     <div class="flex items-center justify-end gap-3 flex-wrap">
       <div
         role="tablist"
-        class="inline-flex p-0.5 rounded-xl bg-gray-100 dark:bg-dark-800 border border-gray-200/60 dark:border-dark-700/60 text-xs"
+        class="tabs inline-flex !p-0.5 text-xs"
       >
         <button
           v-for="opt in windowOptions"
@@ -11,10 +11,8 @@
           type="button"
           role="tab"
           :aria-selected="window === opt.value"
-          class="px-3 py-1 rounded-lg transition-colors"
-          :class="window === opt.value
-            ? 'bg-white dark:bg-dark-700 shadow-sm text-gray-900 dark:text-white font-semibold'
-            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+          class="tab !px-3 !py-1 transition-colors"
+          :class="window === opt.value ? 'tab-active font-semibold' : ''"
           @click="emit('update:window', opt.value)"
         >
           {{ opt.label }}

@@ -163,6 +163,12 @@ export default {
 
   // Navigation
   nav: {
+    sections: {
+      general: '常规',
+      billing: '充值与订阅',
+      personal: '个人',
+      other: '其他',
+    },
     dashboard: '仪表盘',
     announcements: '公告',
     apiKeys: 'API 密钥',

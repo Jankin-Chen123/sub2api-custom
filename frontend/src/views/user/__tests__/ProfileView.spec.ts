@@ -61,7 +61,7 @@ describe('ProfileView', () => {
       updated_at: '2026-04-20T00:00:00Z'
     }
     fetchPublicSettingsMock.mockResolvedValue({
-      contact_info: '',
+      contact_info: 'support-marker',
       balance_low_notify_enabled: false,
       balance_low_notify_threshold: 0,
       linuxdo_oauth_enabled: true,
@@ -90,6 +90,7 @@ describe('ProfileView', () => {
 
     await flushPromises()
 
+    expect(wrapper.text()).not.toContain('support-marker')
     expect(wrapper.findAll('.stat-card')).toHaveLength(0)
     expect(wrapper.get('[data-testid="profile-shell"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-info-card')

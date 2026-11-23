@@ -4,6 +4,14 @@
       <AuthBrandPanel :site-name="siteName" :site-logo="siteLogo || '/brand-icon.png'" />
 
       <main class="auth-form-panel">
+        <div class="auth-binder-rings" aria-hidden="true">
+          <span v-for="ring in 5" :key="ring" class="auth-ring-unit">
+            <span class="auth-hole-l" />
+            <span class="auth-ring-arc" />
+            <span class="auth-hole-r" />
+          </span>
+        </div>
+
         <RouterLink to="/" class="auth-home-link">
           <span aria-hidden="true">&larr;</span>
           <span>{{ t('auth.backHome') }}</span>
@@ -60,41 +68,42 @@ onMounted(() => {
   display: grid;
   min-height: 100vh;
   place-items: center;
-  padding: 38px 5vw;
+  padding: 36px 5vw;
   overflow: hidden;
-  background-color: #f6fbfa;
+  font-family: 'PingFang SC', 'Hiragino Maru Gothic ProN', 'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, sans-serif;
+  background-color: #f6ede0;
   background-image:
-    linear-gradient(rgba(18, 164, 155, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(18, 164, 155, 0.045) 1px, transparent 1px),
-    linear-gradient(135deg, rgba(248, 255, 255, 0.92), rgba(237, 249, 247, 0.9) 48%, rgba(255, 248, 238, 0.88));
-  background-size: 72px 72px, 72px 72px, 100% 100%;
+    radial-gradient(circle at 14% 18%, rgba(146, 212, 251, 0.28) 0%, transparent 42%),
+    radial-gradient(circle at 88% 82%, rgba(255, 166, 126, 0.24) 0%, transparent 42%),
+    url('/sticker/cream.webp');
+  background-size: 100% 100%, 100% 100%, 160px;
 }
 
 .auth-page::before,
 .auth-page::after {
   position: absolute;
   pointer-events: none;
-  border: 2px dashed rgba(18, 164, 155, 0.19);
+  border: 2px dashed rgba(212, 169, 122, 0.35);
   border-radius: 50%;
   content: '';
 }
 
 .auth-page::before {
-  width: 430px;
-  height: 210px;
+  width: 420px;
+  height: 200px;
   left: -120px;
   bottom: 6%;
   transform: rotate(-14deg);
 }
 
 .auth-page::after {
-  width: 340px;
-  height: 340px;
+  width: 320px;
+  height: 320px;
   top: 5%;
-  right: -120px;
+  right: -110px;
   border-style: solid;
   border-width: 1px;
-  opacity: 0.72;
+  opacity: 0.65;
 }
 
 .auth-shell {
@@ -103,13 +112,15 @@ onMounted(() => {
   display: grid;
   grid-template-columns: minmax(480px, 1fr) minmax(500px, 1fr);
   width: min(1280px, 100%);
-  min-height: 700px;
+  min-height: 750px;
   overflow: hidden;
-  border: 1px solid #d9e9eb;
+  border: 1.5px solid #e4d4ba;
   border-radius: 34px;
-  background: #fff;
-  box-shadow: 0 26px 75px rgba(42, 100, 106, 0.15);
-  animation: shell-enter 720ms cubic-bezier(0.22, 0.85, 0.32, 1) both;
+  background: #fffdf8;
+  box-shadow:
+    0 28px 72px rgba(96, 69, 36, 0.14),
+    0 6px 18px rgba(96, 69, 36, 0.08);
+  animation: shell-enter 640ms cubic-bezier(0.22, 0.85, 0.32, 1) both;
 }
 
 .auth-shell :deep(.auth-brand-panel) {
@@ -121,34 +132,86 @@ onMounted(() => {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  padding: 42px 64px 38px;
-  background: rgba(255, 255, 255, 0.98);
+  padding: 42px 64px 38px 72px;
+  border-left: 1px solid #eadbc3;
+  background-color: #fffcf5;
+  background-image: url('/sticker/cream.webp');
+  background-size: 160px;
+  box-shadow: inset 10px 0 22px -14px rgba(112, 84, 48, 0.14);
+}
+
+/* Open journal binder rings straddling the center spine */
+.auth-binder-rings {
+  position: absolute;
+  top: 76px;
+  left: -16px;
+  z-index: 6;
+  display: grid;
+  gap: 104px;
+  pointer-events: none;
+}
+
+.auth-ring-unit {
+  position: relative;
+  width: 31px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.auth-hole-l,
+.auth-hole-r {
+  width: 9.5px;
+  height: 9.5px;
+  border-radius: 999px;
+  background: #e9dac1;
+  border: 1px solid #cbb38e;
+  box-shadow: inset 0 1.5px 2px rgba(82, 58, 30, 0.38);
+  flex: none;
+}
+
+.auth-ring-arc {
+  position: absolute;
+  left: 3.5px;
+  right: 3.5px;
+  top: 3px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f3be7a 0%, #ffe6b3 34%, #d38b47 72%, #a8642d 100%);
+  border: 1px solid #b37138;
+  box-shadow: 0 2px 4px rgba(72, 48, 22, 0.25);
 }
 
 .auth-home-link {
   position: absolute;
   z-index: 3;
-  top: 53px;
+  top: 51px;
   right: 64px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: #729096;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid #e4d4ba;
+  background: rgba(255, 250, 240, 0.9);
+  color: #5e5042;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 750;
   text-decoration: none;
-  transition: color 220ms ease, transform 220ms ease;
+  transition: color 200ms ease, border-color 200ms ease, transform 200ms ease, background-color 200ms ease;
 }
 
 .auth-home-link:hover {
-  color: #087f83;
+  color: #27221d;
+  border-color: #92d4fb;
+  background: #e8f6fe;
   transform: translateX(-2px);
 }
 
 .auth-home-link:focus-visible {
-  border-radius: 4px;
-  outline: 3px solid rgba(14, 139, 142, 0.2);
-  outline-offset: 4px;
+  outline: 3px solid rgba(59, 157, 248, 0.28);
+  outline-offset: 3px;
 }
 
 .auth-form-content {
@@ -166,15 +229,15 @@ onMounted(() => {
 }
 
 .auth-motion--forward .auth-form-content {
-  animation: auth-content-enter-forward 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: auth-content-enter-forward 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .auth-motion--backward .auth-form-content {
-  animation: auth-content-enter-backward 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: auth-content-enter-backward 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .auth-motion--neutral .auth-form-content {
-  animation: auth-content-enter-neutral 240ms ease-out both;
+  animation: auth-content-enter-neutral 220ms ease-out both;
 }
 
 .auth-layout-footer {
@@ -184,9 +247,9 @@ onMounted(() => {
 }
 
 .auth-copyright {
-  margin: 22px 0 0;
-  color: #a1b3b6;
-  font-size: 9px;
+  margin: 20px 0 0;
+  color: #9a8b78;
+  font-size: 10px;
 }
 
 :deep(.auth-form-stack) {
@@ -194,23 +257,23 @@ onMounted(() => {
 }
 
 :deep(.auth-view-heading) {
-  margin: 31px 0 7px;
-  color: #102d32;
+  margin: 28px 0 7px;
+  color: #27221d;
   font-size: 30px;
-  font-weight: 800;
-  letter-spacing: 0;
+  font-weight: 900;
+  letter-spacing: -0.02em;
   line-height: 1.2;
 }
 
 :deep(.auth-view-description) {
-  margin: 0 0 25px;
-  color: #789093;
+  margin: 0 0 24px;
+  color: #756758;
   font-size: 13px;
 }
 
 :deep(.auth-form-stack form) {
   display: grid;
-  gap: 16px;
+  gap: 15px;
 }
 
 :deep(.auth-register-stack form) {
@@ -222,35 +285,35 @@ onMounted(() => {
 }
 
 :deep(.input) {
-  height: 49px;
-  min-height: 49px;
-  border: 1px solid #cee1e4;
-  border-radius: 14px;
-  color: #436269;
-  background: #fcfefe;
+  height: 48px;
+  min-height: 48px;
+  border: 1.25px solid #e2d2b8;
+  border-radius: 15px;
+  color: #27221d;
+  background: #fffaf0;
   transition:
-    border-color 220ms ease,
-    box-shadow 220ms ease,
-    transform 220ms ease;
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease,
+    transform 200ms ease;
 }
 
 :deep(.input:hover) {
-  border-color: #8bcac6;
-  box-shadow: 0 0 0 4px rgba(18, 164, 155, 0.07);
-  transform: translateY(-1px);
+  border-color: #7ec7f7;
+  box-shadow: 0 0 0 4px rgba(146, 212, 251, 0.22);
 }
 
 :deep(.input:focus),
 :deep(.input:focus-within) {
-  border-color: #8bcac6;
+  border-color: #3b9df8;
   outline: none;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(18, 164, 155, 0.09);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(59, 157, 248, 0.16);
 }
 
 :deep(.input-label) {
-  margin-bottom: 7px;
-  color: #436269;
+  margin-bottom: 6px;
+  color: #4c4237;
   font-size: 12px;
   font-weight: 750;
 }
@@ -258,7 +321,7 @@ onMounted(() => {
 :deep(.auth-turnstile-slot) {
   width: 100%;
   overflow: hidden;
-  border-radius: 11px;
+  border-radius: 14px;
 }
 
 :deep(.auth-primary-action) {
@@ -270,15 +333,21 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 14px;
-  color: #fff;
+  border: 2px solid #27221d;
+  border-radius: 999px;
+  background: #27221d;
+  background-image: none;
+  color: #fffaf2;
   text-align: center;
-  box-shadow: 0 11px 24px rgba(19, 166, 156, 0.22);
+  box-shadow:
+    0 4px 0 rgba(39, 34, 29, 0.24),
+    0 10px 22px rgba(39, 34, 29, 0.14);
   font-size: 14px;
   font-weight: 850;
   transition:
-    box-shadow 230ms ease,
-    transform 230ms ease;
+    box-shadow 200ms ease,
+    transform 200ms ease,
+    background-color 200ms ease;
 }
 
 :deep(.auth-primary-action::after) {
@@ -287,75 +356,86 @@ onMounted(() => {
   width: 26%;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 244, 224, 0.24), transparent);
   content: '';
   transform: rotate(18deg);
   transition: left 550ms ease;
 }
 
 :deep(.auth-primary-action:hover:not(:disabled)) {
+  background: #352e27;
+  background-image: none;
   transform: translateY(-2px);
-  box-shadow: 0 16px 30px rgba(19, 166, 156, 0.3);
+  box-shadow:
+    0 6px 0 rgba(39, 34, 29, 0.26),
+    0 14px 26px rgba(39, 34, 29, 0.18);
 }
 
 :deep(.auth-primary-action:hover:not(:disabled)::after) {
   left: 112%;
 }
 
+:deep(.auth-primary-action:active:not(:disabled)) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(39, 34, 29, 0.2);
+}
+
 :deep(.auth-primary-action:disabled) {
   cursor: not-allowed;
-  opacity: 0.62;
+  opacity: 0.58;
   transform: none;
-  box-shadow: 0 8px 18px rgba(8, 127, 131, 0.12);
+  box-shadow: 0 2px 0 rgba(39, 34, 29, 0.16);
 }
 
 :deep(.auth-status-card) {
-  border: 1px solid #d7e6e7;
-  border-radius: 14px;
+  border: 1px solid #e4d4ba;
+  border-radius: 16px;
   padding: 16px;
-  background: #f9fcfc;
+  background: #fffaf0;
 }
 
 :deep(.auth-status-card--success),
 :deep(.auth-status-card.success) {
-  border-color: #9ed9c7;
-  background: #effaf6;
+  border-color: #9ad8bc;
+  background: #eefaf4;
   color: #16634e;
 }
 
 :deep(.auth-status-card--warning),
 :deep(.auth-status-card.warning) {
-  border-color: #efd491;
-  background: #fff9e9;
+  border-color: #f0cf88;
+  background: #fff7e2;
   color: #785b14;
 }
 
 :deep(.auth-inline-link),
 :deep(.auth-footer-copy a) {
-  color: #087f83;
+  color: #2684ce;
   font-weight: 750;
   text-decoration: none;
 }
 
 :deep(.auth-inline-link:hover),
 :deep(.auth-footer-copy a:hover) {
-  color: #056568;
+  color: #1968a6;
+  text-decoration: underline;
 }
 
 :deep(.auth-footer-copy) {
   margin: 0;
-  color: #7c9499;
-  font-size: 11px;
+  color: #847664;
+  font-size: 12px;
 }
 
 :deep(.auth-back-chip) {
   display: inline-flex;
   min-height: 32px;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 11px;
-  color: #087f79;
-  background: #edf8f7;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid #badffb;
+  color: #1e6299;
+  background: #e8f5fe;
   font-size: 11px;
   font-weight: 800;
   text-decoration: none;
@@ -364,7 +444,7 @@ onMounted(() => {
 @keyframes shell-enter {
   from {
     opacity: 0;
-    transform: translateY(22px) scale(0.985);
+    transform: translateY(18px) scale(0.988);
   }
 
   to {
@@ -376,7 +456,7 @@ onMounted(() => {
 @keyframes auth-content-enter-forward {
   from {
     opacity: 0;
-    transform: translate3d(18px, 0, 0);
+    transform: translate3d(16px, 0, 0);
   }
 
   to {
@@ -388,7 +468,7 @@ onMounted(() => {
 @keyframes auth-content-enter-backward {
   from {
     opacity: 0;
-    transform: translate3d(-18px, 0, 0);
+    transform: translate3d(-16px, 0, 0);
   }
 
   to {
@@ -410,12 +490,13 @@ onMounted(() => {
 @media (max-width: 900px) {
   .auth-page {
     display: block;
-    padding: 20px 14px;
+    padding: 18px 14px;
     overflow: visible;
   }
 
   .auth-page::before,
-  .auth-page::after {
+  .auth-page::after,
+  .auth-binder-rings {
     display: none;
   }
 
@@ -431,16 +512,19 @@ onMounted(() => {
   }
 
   .auth-form-panel {
-    padding: 28px 25px 25px;
+    padding: 28px 24px 24px;
+    border-left: 0;
+    border-top: 1px solid #eadbc3;
+    box-shadow: none;
   }
 
   .auth-home-link {
-    top: 41px;
-    right: 25px;
+    top: 39px;
+    right: 24px;
   }
 
   :deep(.auth-view-heading) {
-    margin-top: 25px;
+    margin-top: 24px;
     font-size: 26px;
   }
 

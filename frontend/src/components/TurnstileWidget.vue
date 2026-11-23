@@ -44,7 +44,7 @@ const props = withDefaults(
     size?: 'normal' | 'compact' | 'flexible'
   }>(),
   {
-    theme: 'auto',
+    theme: 'light',
     size: 'flexible'
   }
 )

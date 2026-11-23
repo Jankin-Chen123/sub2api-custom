@@ -76,7 +76,7 @@ describe('ProfileInfoCard', () => {
     { profile_sources: { avatar: { provider: 'dingtalk' }, username: { provider: 'dingtalk' } } },
   ])('shows DingTalk as the synchronized profile source', (sources) => {
     const wrapper = mount(ProfileInfoCard, {
-      props: { user: createUser(sources), dingtalkEnabled: true },
+      props: { user: createUser(sources) },
       global: { stubs: { Icon: true } },
     })
     expect(wrapper.text()).toContain('Avatar synced from DingTalk')
@@ -99,8 +99,8 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.text()).toContain('alice@example.com')
     expect(wrapper.text()).toContain('alice')
     expect(wrapper.text()).toContain('User')
-    expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="profile-basics-panel"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(false)
   })
 
   it('renders third-party source hints from profile sources', () => {
@@ -186,7 +186,7 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.text()).not.toContain('legacy-user@wechat-connect.invalid')
   })
 
-  it('renders the approved overview hero and two-column content shell', () => {
+  it('opens the avatar picker and username form inside the overview and cancels drafts', async () => {
     const wrapper = mount(ProfileInfoCard, {
       props: {
         user: createUser()
@@ -203,9 +203,18 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.get('[data-testid="profile-overview-metric-concurrency"]').text()).toContain('Concurrency Limit')
     expect(wrapper.get('[data-testid="profile-overview-metric-member-since"]').text()).toContain('Member Since')
     expect(wrapper.find('[data-testid="profile-info-summary-grid"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="profile-main-column"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-side-column"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(true)
+    const hero = wrapper.get('[data-testid="profile-overview-hero"]')
+    const avatarButton = hero.get('button[aria-label="profile.changeAvatar"]')
+    const nameButton = hero.get('button[aria-label="profile.editUsername"]')
+    expect(hero.find('form').exists()).toBe(false)
+    await avatarButton.trigger('click')
+    expect(hero.get('[data-testid="profile-default-avatar-picker"]').findAll('button')).toHaveLength(6)
+    expect(nameButton.attributes('disabled')).toBeDefined()
+    await avatarButton.trigger('click')
+    await nameButton.trigger('click')
+    await hero.get('#username').setValue('unsaved')
+    await hero.get('form button[type="button"]').trigger('click')
+    expect(hero.get('h2').text()).toBe('alice')
+    expect(hero.find('form').exists()).toBe(false)
   })
 })

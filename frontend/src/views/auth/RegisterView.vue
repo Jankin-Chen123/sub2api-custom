@@ -416,41 +416,43 @@ const appStore = useAppStore()
 
 // ==================== State ====================
 
+const cachedSettings = appStore.cachedPublicSettings
+
 const isLoading = ref<boolean>(false)
-const settingsLoaded = ref<boolean>(false)
+const settingsLoaded = ref<boolean>(Boolean(cachedSettings))
 const errorMessage = ref<string>('')
 const showPassword = ref<boolean>(false)
 const showConfirmPassword = ref<boolean>(false)
 const confirmPassword = ref('')
 
-// Public settings
-const registrationEnabled = ref<boolean>(true)
-const emailVerifyEnabled = ref<boolean>(false)
-// Public settings are injected into the app store before Vue mounts. Use that
-// value for the first render so a disabled promo-code field never flashes
-// while the async settings request is still in flight. If injection is
-// unavailable, fail closed until the request explicitly enables the field.
-const promoCodeEnabled = ref<boolean>(
-  appStore.cachedPublicSettings?.promo_code_enabled === true
+// Public settings (seeded synchronously from cached settings to avoid frame-0 layout jumps during page flip)
+const registrationEnabled = ref<boolean>(cachedSettings?.registration_enabled !== false)
+const emailVerifyEnabled = ref<boolean>(cachedSettings?.email_verify_enabled === true)
+const promoCodeEnabled = ref<boolean>(cachedSettings?.promo_code_enabled === true)
+const invitationCodeEnabled = ref<boolean>(cachedSettings?.invitation_code_enabled === true)
+const affiliateEnabled = ref<boolean>(cachedSettings?.affiliate_enabled === true)
+const turnstileEnabled = ref<boolean>(cachedSettings?.turnstile_enabled === true)
+const turnstileSiteKey = ref<string>(cachedSettings?.turnstile_site_key || '')
+const siteName = ref<string>(
+  cachedSettings?.site_name && cachedSettings.site_name !== 'Sub2API'
+    ? cachedSettings.site_name
+    : '爱白嫖公益站'
 )
-const invitationCodeEnabled = ref<boolean>(false)
-const affiliateEnabled = ref<boolean>(false)
-const turnstileEnabled = ref<boolean>(false)
-const turnstileSiteKey = ref<string>('')
-const siteName = ref<string>('爱白嫖公益站')
-const tencentCaptchaEnabled = ref<boolean>(false)
-const tencentCaptchaAppId = ref<string>('')
-const tencentCaptchaRegion = ref<string>('cn')
-const aliyunCaptchaEnabled = ref<boolean>(false)
-const aliyunCaptchaSceneId = ref<string>('')
-const aliyunCaptchaPrefix = ref<string>('')
-const aliyunCaptchaRegion = ref<string>('cn')
-const linuxdoOAuthEnabled = ref<boolean>(false)
-const wechatOAuthEnabled = ref<boolean>(false)
-const oidcOAuthEnabled = ref<boolean>(false)
-const oidcOAuthProviderName = ref<string>('OIDC')
-const githubOAuthEnabled = ref<boolean>(false)
-const googleOAuthEnabled = ref<boolean>(false)
+const tencentCaptchaEnabled = ref<boolean>(cachedSettings?.tencent_captcha_enabled === true)
+const tencentCaptchaAppId = ref<string>(cachedSettings?.tencent_captcha_app_id || '')
+const tencentCaptchaRegion = ref<string>(cachedSettings?.tencent_captcha_region || 'cn')
+const aliyunCaptchaEnabled = ref<boolean>(cachedSettings?.aliyun_captcha_enabled === true)
+const aliyunCaptchaSceneId = ref<string>(cachedSettings?.aliyun_captcha_scene_id || '')
+const aliyunCaptchaPrefix = ref<string>(cachedSettings?.aliyun_captcha_prefix || '')
+const aliyunCaptchaRegion = ref<string>(cachedSettings?.aliyun_captcha_region || 'cn')
+const linuxdoOAuthEnabled = ref<boolean>(cachedSettings?.linuxdo_oauth_enabled === true)
+const wechatOAuthEnabled = ref<boolean>(
+  cachedSettings ? isWeChatWebOAuthEnabled(cachedSettings) : false
+)
+const oidcOAuthEnabled = ref<boolean>(cachedSettings?.oidc_oauth_enabled === true)
+const oidcOAuthProviderName = ref<string>(cachedSettings?.oidc_oauth_provider_name || 'OIDC')
+const githubOAuthEnabled = ref<boolean>(cachedSettings?.github_oauth_enabled === true)
+const googleOAuthEnabled = ref<boolean>(cachedSettings?.google_oauth_enabled === true)
 const registrationEmailSuffixWhitelist = ref<string[]>([])
 // 域名限量注册开关：开启时非白名单域名可注册 1 个账户（由后端判定），前端不做白名单预检。
 const emailDomainQuotaEnabled = ref<boolean>(false)

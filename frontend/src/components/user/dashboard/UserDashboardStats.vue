@@ -1,233 +1,242 @@
 <template>
-  <!-- Row 1: Core Stats -->
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-    <!-- Balance -->
-    <div v-if="!isSimple" class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-900/30">
-          <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-          </svg>
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.balance') }}</p>
-          <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">${{ formatBalance(balance) }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.available') }}</p>
-        </div>
+  <div class="space-y-4">
+    <!-- ==================== Overview Section ==================== -->
+    <section v-if="section === 'all' || section === 'overview'" class="space-y-3.5">
+      <div class="flex items-center gap-1.5">
+        <h2 class="text-xl font-black tracking-tight text-[#27221d] dark:text-[#f5ede0] sm:text-2xl">
+          {{ t('dashboard.accountOverview') }}
+        </h2>
+        <CraftSparks variant="right" size="md" />
       </div>
-    </div>
 
-    <!-- API Keys -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30">
-          <Icon name="key" size="md" class="text-blue-600 dark:text-blue-400" :stroke-width="2" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.apiKeys') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ stats?.total_api_keys || 0 }}</p>
-          <p class="text-xs text-green-600 dark:text-green-400">{{ stats?.active_api_keys || 0 }} {{ t('common.active') }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Today Requests -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
-          <Icon name="chart" size="md" class="text-green-600 dark:text-green-400" :stroke-width="2" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayRequests') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ stats?.today_requests || 0 }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.total') }}: {{ formatNumber(stats?.total_requests || 0) }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Today Cost -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/30">
-          <Icon name="dollar" size="md" class="text-purple-600 dark:text-purple-400" :stroke-width="2" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayCost') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">
-            <span class="text-purple-600 dark:text-purple-400" :title="t('dashboard.actual')">${{ formatCost(stats?.today_actual_cost || 0) }}</span>
-            <span class="text-sm font-normal text-gray-400 dark:text-gray-500" :title="t('dashboard.standard')"> / ${{ formatCost(stats?.today_cost || 0) }}</span>
-          </p>
-          <p class="text-xs">
-            <span class="text-gray-500 dark:text-gray-400">{{ t('common.total') }}: </span>
-            <span class="text-purple-600 dark:text-purple-400" :title="t('dashboard.actual')">${{ formatCost(stats?.total_actual_cost || 0) }}</span>
-            <span class="text-gray-400 dark:text-gray-500" :title="t('dashboard.standard')"> / ${{ formatCost(stats?.total_cost || 0) }}</span>
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Row 2: Token Stats -->
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-    <!-- Today Tokens -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/30">
-          <Icon name="cube" size="md" class="text-amber-600 dark:text-amber-400" :stroke-width="2" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayTokens') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ formatTokens(stats?.today_tokens || 0) }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.input') }}: {{ formatTokens(stats?.today_input_tokens || 0) }} / {{ t('dashboard.output') }}: {{ formatTokens(stats?.today_output_tokens || 0) }} / {{ t('dashboard.cache') }}: {{ formatTokens((stats?.today_cache_creation_tokens || 0) + (stats?.today_cache_read_tokens || 0)) }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Total Tokens -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-indigo-100 p-2 dark:bg-indigo-900/30">
-          <Icon name="database" size="md" class="text-indigo-600 dark:text-indigo-400" :stroke-width="2" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.totalTokens') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ formatTokens(stats?.total_tokens || 0) }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.input') }}: {{ formatTokens(stats?.total_input_tokens || 0) }} / {{ t('dashboard.output') }}: {{ formatTokens(stats?.total_output_tokens || 0) }} / {{ t('dashboard.cache') }}: {{ formatTokens((stats?.total_cache_creation_tokens || 0) + (stats?.total_cache_read_tokens || 0)) }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Performance (RPM/TPM) -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-violet-100 p-2 dark:bg-violet-900/30">
-          <Icon name="bolt" size="md" class="text-violet-600 dark:text-violet-400" :stroke-width="2" />
-        </div>
-        <div class="flex-1">
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.performance') }}</p>
-          <div class="flex items-baseline gap-2">
-            <p class="text-xl font-bold text-gray-900 dark:text-white">{{ formatTokens(stats?.rpm || 0) }}</p>
-            <span class="text-xs text-gray-500 dark:text-gray-400">RPM</span>
-          </div>
-          <div class="flex items-baseline gap-2">
-            <p class="text-sm font-semibold text-violet-600 dark:text-violet-400">{{ formatTokens(stats?.tpm || 0) }}</p>
-            <span class="text-xs text-gray-500 dark:text-gray-400">TPM</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Avg Response Time -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-rose-100 p-2 dark:bg-rose-900/30">
-          <Icon name="clock" size="md" class="text-rose-600 dark:text-rose-400" :stroke-width="2" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.avgResponse') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ formatDuration(stats?.average_duration_ms || 0) }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.averageTime') }}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Row 3: Per-platform breakdown -->
-  <div v-if="!isSimple && platformCards.length > 0" class="card p-4">
-    <div class="mb-3 flex items-center justify-between">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('dashboard.platformBreakdown') }}</h3>
-      <span class="text-xs text-gray-500 dark:text-gray-400">
-        {{ t('dashboard.platformCount', { count: platformCount }) }}
-      </span>
-    </div>
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div
-        v-for="item in platformCards"
-        :key="item.platform"
-        data-testid="platform-card"
-        :data-platform="item.platform"
-        :class="[
-          'rounded-lg border p-3',
-          item.isOther
-            ? 'border-dashed border-gray-300 bg-gray-50 dark:border-dark-500 dark:bg-dark-700/30'
-            : 'border-gray-200 dark:border-dark-600'
-        ]"
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ item.isOther ? t('dashboard.platformOther') : platformLabel(item.platform) }}
-          </span>
-          <span class="font-mono text-sm text-purple-600 dark:text-purple-400" :title="t('dashboard.actual')">
-            ${{ formatCost(item.total_actual_cost) }}
-          </span>
-        </div>
-        <div class="mt-2 space-y-1 text-xs">
-          <div class="flex items-center justify-between">
-            <span class="text-gray-500 dark:text-gray-400">{{ t('dashboard.todayCost') }}</span>
-            <span class="font-mono text-gray-900 dark:text-white">${{ formatCost(item.today_actual_cost) }}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-gray-500 dark:text-gray-400">{{ t('dashboard.requests') }}</span>
-            <span class="font-mono text-gray-700 dark:text-gray-300">
-              {{ item.total_requests > 0 ? formatNumber(item.total_requests) : '-' }}
-            </span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-gray-500 dark:text-gray-400">{{ t('dashboard.tokens') }}</span>
-            <span class="font-mono text-gray-700 dark:text-gray-300">
-              {{ item.total_tokens > 0 ? formatTokens(item.total_tokens) : '-' }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Quota 区：仅当 quota 配置存在、非 __other__ 且至少有一个窗口配了 limit 时显示 -->
-        <div v-if="hasAnyLimit(item.quota) && !item.isOther" class="mt-3 space-y-1.5 border-t border-gray-200 pt-2 dark:border-dark-700">
-          <p class="text-[10px] uppercase tracking-wide text-gray-400">
-            {{ t('dashboard.platformQuota.title') }}
-          </p>
-          <template v-for="w in (['daily', 'weekly', 'monthly'] as const)" :key="w">
-            <div v-if="quotaVal(item.quota, `${w}_limit_usd`) != null" class="space-y-0.5">
-              <!-- limit=0：完全禁用 -->
-              <template v-if="(quotaVal(item.quota, `${w}_limit_usd`) as number) === 0">
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-gray-600 dark:text-gray-300">{{ t(`dashboard.platformQuota.${w}`) }}</span>
-                  <span class="font-mono text-red-500">{{ t('dashboard.platformQuota.disabled') }}</span>
-                </div>
-                <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
-                  <div class="h-full w-full rounded-full bg-red-500" />
-                </div>
-              </template>
-              <!-- limit>0：正常用量进度条 -->
-              <template v-else>
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-gray-600 dark:text-gray-300">{{ t(`dashboard.platformQuota.${w}`) }}</span>
-                  <span class="font-mono text-gray-700 dark:text-gray-200">
-                    ${{ formatUsd((quotaVal(item.quota, `${w}_usage_usd`) as number) ?? 0) }} / ${{ formatUsd(quotaVal(item.quota, `${w}_limit_usd`) as number) }}
-                  </span>
-                </div>
-                <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
-                  <div
-                    class="h-full rounded-full transition-all"
-                    :class="quotaBarClass(calcPercent((quotaVal(item.quota, `${w}_usage_usd`) as number) ?? 0, quotaVal(item.quota, `${w}_limit_usd`) as number))"
-                    :style="{ width: calcPercent((quotaVal(item.quota, `${w}_usage_usd`) as number) ?? 0, quotaVal(item.quota, `${w}_limit_usd`) as number) + '%' }"
-                  />
-                </div>
-                <p v-if="quotaVal(item.quota, `${w}_window_resets_at`)" class="text-[10px] text-gray-400">
-                  {{ t('dashboard.platformQuota.resetsAt', { time: formatResetTime(quotaVal(item.quota, `${w}_window_resets_at`) as string) }) }}
-                </p>
-              </template>
+      <!-- Stitched Sky-Blue Wallet Balance Banner -->
+      <div v-if="!isSimple" class="wallet-banner group relative overflow-visible rounded-[22px] p-3">
+        <div class="wallet-stitch flex flex-wrap items-center justify-between gap-4 rounded-[16px] px-4 py-3.5 sm:px-6 sm:py-4">
+          <div class="flex items-center gap-4 sm:gap-6">
+            <JournalBannerSticker name="wallet" size="lg" />
+            <div>
+              <p class="text-xs font-bold tracking-wide text-[#24435c] dark:text-[#b6defa] sm:text-sm">
+                {{ t('dashboard.accountBalance') }}
+              </p>
+              <p class="mt-0.5 text-3xl font-black tracking-tight tabular-nums text-[#201c18] dark:text-[#ffffff] sm:text-4xl">
+                ${{ formatBalance(balance) }}
+              </p>
             </div>
-          </template>
+          </div>
+          <CraftSparks variant="sticker" size="md" class="hidden shrink-0 sm:inline-block" />
         </div>
       </div>
-    </div>
+
+      <dl class="account-summary card px-4 sm:px-6">
+        <div>
+          <dt>{{ t('dashboard.todayRequests') }}</dt>
+          <dd>
+            <strong>{{ formatNumber(stats?.today_requests || 0) }}</strong>
+            <p>{{ t('common.total') }} · {{ formatNumber(stats?.total_requests || 0) }}</p>
+          </dd>
+        </div>
+        <div>
+          <dt>{{ t('dashboard.todayCost') }}</dt>
+          <dd>
+            <strong :title="t('dashboard.actual')">${{ formatCost(stats?.today_actual_cost || 0) }}</strong>
+            <span :title="t('dashboard.standard')"> / ${{ formatCost(stats?.today_cost || 0) }}</span>
+            <p data-testid="cumulative-cost" class="flex flex-wrap justify-end gap-x-1">
+              <span>{{ t('common.total') }} ·</span>
+              <span>{{ t('dashboard.actual') }} ${{ formatCost(stats?.total_actual_cost || 0) }}</span>
+              <span>{{ t('dashboard.standard') }} ${{ formatCost(stats?.total_cost || 0) }}</span>
+            </p>
+          </dd>
+        </div>
+        <div>
+          <dt>{{ t('dashboard.apiKeys') }}</dt>
+          <dd>
+            <strong>{{ formatNumber(stats?.total_api_keys || 0) }}</strong>
+            <p>{{ stats?.active_api_keys || 0 }} {{ t('common.active') }}</p>
+          </dd>
+        </div>
+      </dl>
+
+      <slot name="actions" />
+
+      <!-- Row 2: Unified 4-Column Token & Performance Strip -->
+      <div class="card overflow-hidden !rounded-[18px]">
+        <div class="grid grid-cols-2 divide-y divide-[#efe2cc] dark:divide-[rgba(255,236,204,0.09)] lg:grid-cols-4 lg:divide-x lg:divide-y-0">
+          <!-- Today Tokens -->
+          <div class="flex items-center gap-3 px-4 py-3.5">
+            <CraftIcon name="layers" size="md" />
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-semibold text-[#756758] dark:text-[#9aa4b8]">{{ t('dashboard.todayTokens') }}</p>
+              <p class="truncate text-lg font-black tabular-nums text-[#27221d] dark:text-[#f5ede0]">
+                {{ formatTokens(stats?.today_tokens || 0) }}
+              </p>
+              <p class="truncate text-[11px] tabular-nums text-[#857563] dark:text-[#8690a6]">
+                {{ t('dashboard.input') }} {{ formatTokens(stats?.today_input_tokens || 0) }} · {{ t('dashboard.output') }} {{ formatTokens(stats?.today_output_tokens || 0) }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Total Tokens -->
+          <div class="flex items-center gap-3 px-4 py-3.5">
+            <CraftIcon name="bars" size="md" />
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-semibold text-[#756758] dark:text-[#9aa4b8]">{{ t('dashboard.totalTokens') }}</p>
+              <p class="truncate text-lg font-black tabular-nums text-[#27221d] dark:text-[#f5ede0]">
+                {{ formatTokens(stats?.total_tokens || 0) }}
+              </p>
+              <p class="truncate text-[11px] tabular-nums text-[#857563] dark:text-[#8690a6]">
+                {{ t('dashboard.cache') }} {{ formatTokens((stats?.total_cache_creation_tokens || 0) + (stats?.total_cache_read_tokens || 0)) }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Performance (RPM/TPM) -->
+          <div class="flex items-center gap-3 px-4 py-3.5">
+            <CraftIcon name="bolt" size="md" />
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-semibold text-[#756758] dark:text-[#9aa4b8]">{{ t('dashboard.performance') }}</p>
+              <p class="truncate text-lg font-black tabular-nums text-[#27221d] dark:text-[#f5ede0]">
+                {{ formatTokens(stats?.rpm || 0) }} <span class="text-xs font-bold text-[#756758] dark:text-[#9aa4b8]">RPM</span>
+              </p>
+              <p class="truncate text-[11px] font-semibold tabular-nums text-[#2a8bd4] dark:text-[#6ec4fc]">
+                {{ formatTokens(stats?.tpm || 0) }} TPM
+              </p>
+            </div>
+          </div>
+
+          <!-- Avg Response Time -->
+          <div class="flex items-center gap-3 px-4 py-3.5">
+            <CraftIcon name="clock" size="md" />
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-semibold text-[#756758] dark:text-[#9aa4b8]">{{ t('dashboard.avgResponse') }}</p>
+              <p class="truncate text-lg font-black tabular-nums text-[#27221d] dark:text-[#f5ede0]">
+                {{ formatDuration(stats?.average_duration_ms || 0) }}
+              </p>
+              <p class="truncate text-[11px] text-[#857563] dark:text-[#8690a6]">
+                {{ t('dashboard.averageTime') }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== Platform Usage Section ==================== -->
+    <section
+      v-if="(section === 'all' || section === 'platforms') && !isSimple && platformCards.length > 0"
+      class="space-y-3"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5">
+          <h3 class="text-lg font-black tracking-tight text-[#27221d] dark:text-[#f5ede0] sm:text-xl">
+            {{ t('dashboard.platformUsage') }}
+          </h3>
+          <CraftSparks variant="right" size="sm" />
+        </div>
+        <span class="badge badge-gray px-3 py-1 text-xs font-bold">
+          {{ t('dashboard.platformCount', { count: platformCount }) }}
+        </span>
+      </div>
+
+      <div class="space-y-2.5">
+        <div
+          v-for="item in platformCards"
+          :key="item.platform"
+          data-testid="platform-card"
+          :data-platform="item.platform"
+          :class="[
+            'card px-4 py-3.5 !rounded-[18px]',
+            item.isOther ? '!border-dashed bg-[#faf2e2]/70 dark:bg-[#191e2b]' : ''
+          ]"
+        >
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <!-- Left: Icon + Platform Name + Compact Today Metrics -->
+            <div class="flex min-w-0 items-center gap-3 md:w-[32%]">
+              <CraftIcon :name="platformIcon(item.platform)" size="md" />
+              <div class="min-w-0">
+                <p class="truncate text-sm font-extrabold text-[#27221d] dark:text-[#f5ede0]">
+                  {{ item.isOther ? t('dashboard.platformOther') : platformLabel(item.platform) }}
+                </p>
+                <p class="truncate text-xs tabular-nums text-[#756758] dark:text-[#9aa4b8]">
+                  {{ t('dashboard.todayCost') }} ${{ formatCost(item.today_actual_cost) }} ·
+                  {{ item.total_tokens > 0 ? formatTokens(item.total_tokens) : '-' }} {{ t('dashboard.tokens') }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Middle: Candy Progress Track -->
+            <div class="flex-1">
+              <div class="h-3.5 w-full overflow-hidden rounded-full bg-[#efe5d2] p-0.5 dark:bg-[#283044]">
+                <div
+                  class="h-full rounded-full transition-all duration-500"
+                  :class="platformBarTone(item)"
+                  :style="{ width: `${platformBarPercent(item)}%` }"
+                />
+              </div>
+            </div>
+
+            <!-- Right: Actual Cost + Requests -->
+            <div class="flex items-center justify-between gap-4 text-xs tabular-nums md:w-[24%] md:justify-end">
+              <span class="text-[#756758] dark:text-[#9aa4b8]">
+                {{ t('dashboard.requests') }} {{ item.total_requests > 0 ? formatNumber(item.total_requests) : '-' }}
+              </span>
+              <span class="text-sm font-black text-[#27221d] dark:text-[#f5ede0]" :title="t('dashboard.actual')">
+                ${{ formatCost(item.total_actual_cost) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Quota Window Breakdown (preserved cleanly when quota is configured) -->
+          <div
+            v-if="hasAnyLimit(item.quota) && !item.isOther"
+            class="mt-3 grid grid-cols-1 gap-2.5 border-t border-[#efe2cc] pt-3 dark:border-[rgba(255,236,204,0.09)] sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]"
+          >
+            <p class="col-span-full text-[11px] font-bold uppercase tracking-wider text-[#756758] dark:text-[#9aa4b8]">
+              {{ t('dashboard.platformQuota.title') }}
+            </p>
+            <template v-for="w in (['daily', 'weekly', 'monthly'] as const)" :key="w">
+              <div v-if="quotaVal(item.quota, `${w}_limit_usd`) != null" class="space-y-1">
+                <template v-if="(quotaVal(item.quota, `${w}_limit_usd`) as number) === 0">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="font-medium text-[#6e5d4b] dark:text-[#c7d0e0]">{{ t(`dashboard.platformQuota.${w}`) }}</span>
+                    <span class="font-mono font-bold text-red-500">{{ t('dashboard.platformQuota.disabled') }}</span>
+                  </div>
+                  <div class="h-1.5 w-full overflow-hidden rounded-full bg-[#efe5d2] dark:bg-[#283044]">
+                    <div class="h-full w-full rounded-full bg-red-500" />
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="font-medium text-[#6e5d4b] dark:text-[#c7d0e0]">{{ t(`dashboard.platformQuota.${w}`) }}</span>
+                    <span class="font-mono text-[#27221d] dark:text-[#f5ede0]">
+                      ${{ formatUsd((quotaVal(item.quota, `${w}_usage_usd`) as number) ?? 0) }} / ${{ formatUsd(quotaVal(item.quota, `${w}_limit_usd`) as number) }}
+                    </span>
+                  </div>
+                  <div class="h-1.5 w-full overflow-hidden rounded-full bg-[#efe5d2] dark:bg-[#283044]">
+                    <div
+                      class="h-full rounded-full transition-all"
+                      :class="quotaBarClass(calcPercent((quotaVal(item.quota, `${w}_usage_usd`) as number) ?? 0, quotaVal(item.quota, `${w}_limit_usd`) as number))"
+                      :style="{ width: calcPercent((quotaVal(item.quota, `${w}_usage_usd`) as number) ?? 0, quotaVal(item.quota, `${w}_limit_usd`) as number) + '%' }"
+                    />
+                  </div>
+                  <p v-if="quotaVal(item.quota, `${w}_window_resets_at`)" class="text-[10px] text-[#857563] dark:text-[#8c96ab]">
+                    {{ t('dashboard.platformQuota.resetsAt', { time: formatResetTime(quotaVal(item.quota, `${w}_window_resets_at`) as string) }) }}
+                  </p>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Icon from '@/components/icons/Icon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import JournalBannerSticker from '@/components/craft/JournalBannerSticker.vue'
 import type { PlatformDashboardStats, UserDashboardStats as UserStatsType } from '@/api/usage'
 import type { PlatformQuotaItem } from '@/types'
 
@@ -241,12 +250,18 @@ interface FusedPlatformCard {
   quota?: PlatformQuotaItem
 }
 
-const props = defineProps<{
-  stats: UserStatsType
-  balance: number
-  isSimple: boolean
-  platformQuotas?: PlatformQuotaItem[] | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    stats: UserStatsType
+    balance: number
+    isSimple: boolean
+    platformQuotas?: PlatformQuotaItem[] | null
+    section?: 'overview' | 'platforms' | 'all'
+  }>(),
+  {
+    section: 'all',
+  }
+)
 const { t } = useI18n()
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -264,23 +279,19 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 const platformLabel = (p: string) => PLATFORM_LABELS[p] ?? p
 
-// 处理"各平台之和 < 总值"的差值：后端按平台聚合时过滤了无法归属平台的行
-// （group 与 account 都缺 platform）。这里把差值作为"其他"卡片显式展示，
-// 避免 Row 1 总值与 Row 3 平台拆分加总对不上、用户困惑。
+const platformIcon = (p: string): string => {
+  if (p === 'openai' || p === 'anthropic' || p === 'gemini') return p
+  return 'generic'
+}
+
 const OTHER_THRESHOLD = 0.0001
 const platformCards = computed<FusedPlatformCard[]>(() => {
-  // 建立 by_platform Map
   const byPlat = new Map<string, PlatformDashboardStats>()
   for (const item of props.stats?.by_platform ?? []) byPlat.set(item.platform, item)
 
-  // 建立 quota Map。三档全空的记录不产生卡片，挂到卡片上也不渲染配额区。
   const byQuota = new Map<string, PlatformQuotaItem>()
   for (const q of props.platformQuotas ?? []) byQuota.set(q.platform, q)
 
-  // 卡片集合 = 有用量的平台 ∪ 至少配置了一档限额的平台。
-  // 三档全空的限额记录等价于不限额，不单独产生卡片。
-  // 后端 by_platform / quota 接口均不会返回 platform='__other__'，
-  // 无需显式排除；__other__ 由下方差值补差逻辑单独追加。
   const platforms = new Set<string>(byPlat.keys())
   for (const [platform, q] of byQuota) {
     if (hasAnyLimit(q)) platforms.add(platform)
@@ -301,7 +312,6 @@ const platformCards = computed<FusedPlatformCard[]>(() => {
     })
   }
 
-  // 排序：按 PLATFORM_ORDER，未知平台按名称排序
   cards.sort((a, b) => {
     const ai = PLATFORM_ORDER.indexOf(a.platform)
     const bi = PLATFORM_ORDER.indexOf(b.platform)
@@ -311,7 +321,6 @@ const platformCards = computed<FusedPlatformCard[]>(() => {
     return ai - bi
   })
 
-  // __other__ 补差逻辑：只对 by_platform 有 usage 数据的总和计算
   const total = props.stats?.total_actual_cost ?? 0
   const today = props.stats?.today_actual_cost ?? 0
   const sumTotal = cards.reduce((s, c) => s + c.total_actual_cost, 0)
@@ -333,10 +342,36 @@ const platformCards = computed<FusedPlatformCard[]>(() => {
   return cards
 })
 
-// 标题右侧的平台计数 = 实际渲染的平台卡片数，不含"其他"差额卡。
 const platformCount = computed(() => platformCards.value.filter((c) => !c.isOther).length)
 
-// Quota helpers
+const maxPlatformCost = computed(() =>
+  Math.max(0.0001, ...platformCards.value.map((c) => c.total_actual_cost))
+)
+
+function platformBarPercent(item: FusedPlatformCard): number {
+  if (hasAnyLimit(item.quota) && !item.isOther) {
+    const windows = (['daily', 'weekly', 'monthly'] as const)
+      .map((w) => {
+        const limit = quotaVal(item.quota, `${w}_limit_usd`) as number | null | undefined
+        const usage = (quotaVal(item.quota, `${w}_usage_usd`) as number | null | undefined) ?? 0
+        if (limit == null) return null
+        if (limit === 0) return 100
+        return calcPercent(usage, limit)
+      })
+      .filter((v): v is number => v !== null)
+    if (windows.length) return Math.max(...windows, 4)
+  }
+  const share = Math.round((item.total_actual_cost / maxPlatformCost.value) * 100)
+  return item.total_actual_cost > 0 ? Math.max(8, Math.min(100, share)) : 0
+}
+
+function platformBarTone(item: FusedPlatformCard): string {
+  if (item.platform === 'openai') return 'bg-gradient-to-r from-[#5cb9fa] to-[#3b9df8]'
+  if (item.platform === 'anthropic') return 'bg-gradient-to-r from-[#ffb68d] to-[#fa9364]'
+  if (item.platform === 'gemini') return 'bg-gradient-to-r from-[#67d8c2] to-[#3cb89f]'
+  if (item.platform === 'antigravity' || item.platform === 'grok') return 'bg-gradient-to-r from-[#fcd365] to-[#f4b63d]'
+  return 'bg-gradient-to-r from-[#b4a7f6] to-[#8c7ae6]'
+}
 
 type QuotaWindow = 'daily' | 'weekly' | 'monthly'
 type QuotaField = `${QuotaWindow}_limit_usd` | `${QuotaWindow}_usage_usd` | `${QuotaWindow}_window_resets_at`
@@ -358,11 +393,9 @@ function calcPercent(usage: number, limit: number): number {
 function quotaBarClass(p: number): string {
   if (p >= 95) return 'bg-red-500'
   if (p >= 75) return 'bg-amber-500'
-  return 'bg-green-500'
+  return 'bg-emerald-500'
 }
 
-// 与 formatBalance 一致使用 Intl.NumberFormat 做半偶舍入，避免 toFixed 在不同 JS 引擎
-// 下偶发截断而非四舍五入（与后端展示精度不一致）。
 const usdFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -388,7 +421,7 @@ function formatResetTime(iso: string | null | undefined): string {
 const formatBalance = (b: number) =>
   new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(b)
 
 const formatNumber = (n: number) => n.toLocaleString()
@@ -398,5 +431,64 @@ const formatTokens = (t: number) => {
   if (t >= 1000) return `${(t / 1000).toFixed(1)}K`
   return t.toString()
 }
-const formatDuration = (ms: number) => ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms.toFixed(0)}ms`
+const formatDuration = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms.toFixed(0)}ms`)
 </script>
+
+<style scoped>
+.wallet-banner {
+  background:
+    radial-gradient(circle at 82% 28%, rgba(255, 255, 255, 0.34) 0%, transparent 48%),
+    #94d4fc url('/sticker/paper.webp') repeat;
+  background-size: 100% 100%, 155px;
+  border: 1px solid #80c4ef;
+  box-shadow: 0 6px 18px rgba(72, 134, 178, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.dark .wallet-banner {
+  background:
+    radial-gradient(circle at 82% 28%, rgba(110, 196, 252, 0.16) 0%, transparent 50%),
+    linear-gradient(135deg, #21405e 0%, #1a334c 100%);
+  border-color: rgba(110, 196, 252, 0.3);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+
+.wallet-stitch {
+  border: 1.5px dashed rgba(255, 255, 255, 0.78);
+}
+
+.dark .wallet-stitch {
+  border-color: rgba(138, 209, 255, 0.32);
+}
+
+.account-summary > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding-block: 0.65rem;
+}
+
+.account-summary > div + div {
+  border-top: 1px solid var(--craft-border);
+}
+
+.account-summary dt {
+  color: var(--craft-ink);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.account-summary dd {
+  color: var(--craft-ink-soft);
+  text-align: end;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.account-summary strong {
+  color: var(--craft-ink);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+</style>

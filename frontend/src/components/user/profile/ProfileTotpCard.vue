@@ -1,12 +1,17 @@
 <template>
-  <div class="card">
-    <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
-      <h2 class="text-lg font-medium text-gray-900 dark:text-white">
-        {{ t('profile.totp.title') }}
-      </h2>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        {{ t('profile.totp.description') }}
-      </p>
+  <div class="card overflow-hidden">
+    <div class="journal-card-band flex items-start gap-3 px-6 py-4">
+      <span class="journal-icon-well journal-icon-well--sm mt-0.5 shrink-0">
+        <CraftIcon name="shield" size="xs" />
+      </span>
+      <div>
+        <h2 class="journal-section-title text-lg font-extrabold text-[#221d17] dark:text-white">
+          {{ t('profile.totp.title') }}
+        </h2>
+        <p class="mt-0.5 text-sm text-[#6f6252] dark:text-gray-400">
+          {{ t('profile.totp.description') }}
+        </p>
+      </div>
     </div>
     <div class="px-6 py-6">
       <!-- Loading state -->
@@ -103,6 +108,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
 import { totpAPI } from '@/api'
 import type { TotpStatus } from '@/types'
 import TotpSetupModal from './TotpSetupModal.vue'

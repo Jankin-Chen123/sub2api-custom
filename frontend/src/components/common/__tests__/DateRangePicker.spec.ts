@@ -6,6 +6,7 @@ import DateRangePicker from '../DateRangePicker.vue'
 
 const messages: Record<string, string> = {
   'dates.today': 'Today',
+  'dates.yesterdayAndToday': 'Yesterday and today',
   'dates.yesterday': 'Yesterday',
   'dates.last24Hours': 'Last 24 Hours',
   'dates.last7Days': 'Last 7 Days',
@@ -34,9 +35,10 @@ const formatLocalDate = (date: Date): string => {
 }
 
 describe('DateRangePicker', () => {
-  it('uses last 24 hours as the default recognized preset', () => {
+  it('labels yesterday and today as calendar days for date-only reports', () => {
     const now = new Date()
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
 
     const wrapper = mount(DateRangePicker, {
       props: {
@@ -50,7 +52,7 @@ describe('DateRangePicker', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('Last 24 Hours')
+    expect(wrapper.text()).toContain('Yesterday and today')
   })
 
   it('emits range updates with last24Hours preset when applied', async () => {
@@ -60,7 +62,8 @@ describe('DateRangePicker', () => {
     const wrapper = mount(DateRangePicker, {
       props: {
         startDate: today,
-        endDate: today
+        endDate: today,
+        appliedPeriod: 'dates'
       },
       global: {
         stubs: {

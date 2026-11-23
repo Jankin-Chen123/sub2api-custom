@@ -1,0 +1,940 @@
+/* Handcrafted Journal / Sticker Craft global theme */
+
+:root {
+  --craft-desk: #f5ecdc;
+  --craft-paper: #fdf7eb;
+  --craft-paper-texture: url('/sticker/cream.webp');
+  --craft-surface: #fffdf8;
+  --craft-surface-muted: #faf2e2;
+  --craft-surface-warm: #fff4de;
+  --craft-surface-header: #f7ead2;
+  --craft-surface-hover: #f7edda;
+  --craft-ink: #27221d;
+  --craft-ink-soft: #4c4237;
+  --craft-muted: #756758;
+  --craft-border: #e6d7be;
+  --craft-border-strong: #d5c09e;
+  --craft-sky: #92d4fb;
+  --craft-sky-deep: #2a8bd4;
+  --craft-sky-soft: #e6f5fe;
+  --craft-sky-pill: #d9f1fe;
+  --craft-peach: #ff9466;
+  --craft-peach-soft: #ffe8db;
+  --craft-gold: #ffd45e;
+  --craft-emerald: #1f9d68;
+  --craft-shadow-sm: 0 2px 6px rgba(104, 78, 43, 0.08);
+  --craft-shadow-card: 0 4px 14px rgba(104, 78, 43, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --craft-shadow-press: 0 2px 0 rgba(56, 42, 26, 0.16);
+  --craft-ring-hole: #bfa586;
+  --craft-ring-hole-bg: #e7d8be;
+  --craft-ring-grad: linear-gradient(180deg, #f3be7a 0%, #ffe6b3 34%, #d38b47 72%, #a8642d 100%);
+  --craft-ring-border: #b37138;
+  --craft-active-bg: linear-gradient(180deg, #b8e5fe 0%, #92d4fb 100%);
+  --craft-active-ring: rgba(255, 255, 255, 0.7);
+  --craft-active-shadow: 0 3px 8px rgba(42, 139, 212, 0.18);
+  --craft-spine-shadow: rgba(122, 92, 54, 0.11);
+
+  /* CraftIcon adaptive tokens (Light) */
+  --craft-icon-ink: #27221d;
+  --craft-icon-paper: #fffaf0;
+  --craft-icon-sky: #95d5fc;
+  --craft-icon-sky-soft: #e4f4ff;
+  --craft-icon-sky-deep: #2f95e0;
+  --craft-icon-peach: #ffad87;
+  --craft-icon-peach-soft: #ffe7da;
+  --craft-icon-peach-tint: #fff0e6;
+  --craft-icon-gold: #ffdc6b;
+  --craft-icon-gold-light: #fff0a6;
+  --craft-icon-gold-deep: #f5b942;
+}
+
+.dark {
+  --craft-desk: #0f1219;
+  --craft-paper: #161a24;
+  --craft-paper-texture: none;
+  --craft-surface: #1d2230;
+  --craft-surface-muted: #242a3b;
+  --craft-surface-warm: #232838;
+  --craft-surface-header: #262c3d;
+  --craft-surface-hover: #283044;
+  --craft-ink: #f5ede0;
+  --craft-ink-soft: #d8cfc0;
+  --craft-muted: #9aa4b8;
+  --craft-border: rgba(255, 236, 204, 0.11);
+  --craft-border-strong: rgba(255, 236, 204, 0.2);
+  --craft-sky: #2c5b86;
+  --craft-sky-deep: #6ec4fc;
+  --craft-sky-soft: rgba(110, 196, 252, 0.15);
+  --craft-sky-pill: rgba(110, 196, 252, 0.2);
+  --craft-peach: #ff9a6e;
+  --craft-peach-soft: rgba(255, 154, 110, 0.18);
+  --craft-gold: #f0c050;
+  --craft-emerald: #34d399;
+  --craft-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.28);
+  --craft-shadow-card: 0 6px 18px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 245, 224, 0.05);
+  --craft-shadow-press: 0 2px 0 rgba(0, 0, 0, 0.45);
+  --craft-ring-hole: #090b10;
+  --craft-ring-hole-bg: #0c0f16;
+  --craft-ring-grad: linear-gradient(180deg, #b88a54 0%, #dfc08d 34%, #8d6134 74%, #5e3e1e 100%);
+  --craft-ring-border: #6d4b26;
+  --craft-active-bg: linear-gradient(180deg, #2b5984 0%, #22476b 100%);
+  --craft-active-ring: rgba(154, 214, 255, 0.24);
+  --craft-active-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  --craft-spine-shadow: rgba(0, 0, 0, 0.42);
+
+  /* CraftIcon adaptive tokens (Dark) */
+  --craft-icon-ink: #efe6d6;
+  --craft-icon-paper: #283042;
+  --craft-icon-sky: #3d7fb5;
+  --craft-icon-sky-soft: #223952;
+  --craft-icon-sky-deep: #6ec4fc;
+  --craft-icon-peach: #d97a54;
+  --craft-icon-peach-soft: #432b24;
+  --craft-icon-peach-tint: #392724;
+  --craft-icon-gold: #c99a3b;
+  --craft-icon-gold-light: #7c6028;
+  --craft-icon-gold-deep: #9c7225;
+}
+
+.journal-app {
+  background-color: var(--craft-desk);
+  background-image: var(--craft-paper-texture);
+  color: var(--craft-ink);
+  font-family: 'PingFang SC', 'Hiragino Maru Gothic ProN', 'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, sans-serif;
+}
+
+.journal-standalone {
+  background-color: var(--craft-paper);
+  background-image: var(--craft-paper-texture);
+  color: var(--craft-ink);
+  font-family: 'PingFang SC', 'Hiragino Maru Gothic ProN', 'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, sans-serif;
+}
+
+/* ==================== Sidebar & Spine ==================== */
+.journal-app .sidebar,
+.dark .journal-app .sidebar {
+  background-color: var(--craft-paper);
+  background-image: var(--craft-paper-texture);
+  border-color: var(--craft-border);
+  box-shadow: inset -6px 0 14px -10px var(--craft-spine-shadow);
+}
+
+@media (min-width: 1024px) {
+  .journal-app .sidebar {
+    border-top-right-radius: 18px;
+    border-bottom-right-radius: 18px;
+  }
+}
+
+.journal-app .sidebar-header,
+.dark .journal-app .sidebar-header {
+  border-color: var(--craft-border);
+}
+
+.journal-app .sidebar-logo {
+  box-shadow: var(--craft-shadow-sm);
+  border: 1px solid var(--craft-border);
+  background-color: var(--craft-surface);
+}
+
+.journal-app .sidebar-brand-title,
+.dark .journal-app .sidebar-brand-title {
+  color: var(--craft-ink);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.journal-app .sidebar-link,
+.dark .journal-app .sidebar-link {
+  color: var(--craft-ink-soft);
+  border-radius: 14px;
+  font-weight: 600;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.journal-app .sidebar-link:hover,
+.dark .journal-app .sidebar-link:hover {
+  background-color: var(--craft-surface-hover);
+  color: var(--craft-ink);
+}
+
+.journal-app .sidebar-link-active,
+.dark .journal-app .sidebar-link-active {
+  background: var(--craft-active-bg);
+  color: var(--craft-ink);
+  font-weight: 750;
+  box-shadow: inset 0 0 0 1.5px var(--craft-active-ring), var(--craft-active-shadow);
+}
+
+.journal-app .sidebar-link-active:hover,
+.dark .journal-app .sidebar-link-active:hover {
+  background: var(--craft-active-bg);
+  transform: none;
+}
+
+.journal-app .sidebar-section-title,
+.dark .journal-app .sidebar-section-title {
+  color: var(--craft-muted);
+}
+
+/* ==================== Header, Topbar & Main Notebook Sheet ==================== */
+.journal-app .journal-header,
+.dark .journal-app .journal-header,
+.journal-topbar,
+.dark .journal-topbar {
+  background-color: var(--craft-paper);
+  background-image: var(--craft-paper-texture);
+  border-bottom: 1px solid var(--craft-border);
+  box-shadow: 0 2px 10px rgba(104, 78, 43, 0.05);
+  backdrop-filter: blur(10px);
+}
+
+.dark .journal-topbar {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.journal-app .journal-page-sheet {
+  position: relative;
+  min-height: calc(100vh - 64px);
+  background-color: var(--craft-paper);
+  background-image: var(--craft-paper-texture);
+}
+
+@media (min-width: 1024px) {
+  .journal-app .journal-page-sheet {
+    border-left: 1px solid var(--craft-border);
+    border-top-left-radius: 18px;
+    box-shadow: inset 8px 0 18px -12px var(--craft-spine-shadow);
+  }
+
+  .journal-app .journal-page-sheet--with-rings {
+    padding-left: clamp(28px, 3vw, 42px);
+  }
+}
+
+/* Delicate Punched-Hole Notebook Binder Rings */
+.journal-binder-rings {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .journal-binder-rings {
+    position: absolute;
+    top: 28px;
+    left: -15px;
+    z-index: 42;
+    display: grid;
+    gap: 88px;
+    pointer-events: none;
+  }
+
+  .journal-ring-unit {
+    position: relative;
+    width: 30px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .journal-hole-l,
+  .journal-hole-r {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: var(--craft-ring-hole-bg);
+    border: 1px solid var(--craft-border-strong);
+    box-shadow: inset 0 1.5px 2px var(--craft-ring-hole);
+    flex: none;
+  }
+
+  .journal-ring-arc {
+    position: absolute;
+    left: 3.5px;
+    right: 3.5px;
+    top: 3px;
+    height: 7.5px;
+    border-radius: 999px;
+    background: var(--craft-ring-grad);
+    border: 1px solid var(--craft-ring-border);
+    box-shadow: 0 2px 3px rgba(68, 45, 20, 0.22);
+  }
+}
+
+/* Theme toggle / header action pill */
+.journal-theme-pill {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--craft-border-strong);
+  background-color: var(--craft-surface);
+  color: var(--craft-ink);
+  box-shadow: var(--craft-shadow-sm);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+.journal-theme-pill:hover {
+  background-color: var(--craft-surface-hover);
+  transform: translateY(-1px);
+}
+
+.journal-theme-pill:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* ==================== Signature Handcrafted Helpers ==================== */
+.journal-banner-sky {
+  background:
+    radial-gradient(circle at 82% 28%, rgba(255, 255, 255, 0.34) 0%, transparent 48%),
+    #94d4fc url('/sticker/paper.webp') repeat;
+  background-size: 100% 100%, 155px;
+  border: 1px solid #80c4ef;
+  box-shadow: 0 6px 18px rgba(72, 134, 178, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.dark .journal-banner-sky {
+  background:
+    radial-gradient(circle at 82% 28%, rgba(110, 196, 252, 0.16) 0%, transparent 50%),
+    linear-gradient(135deg, #21405e 0%, #1a334c 100%);
+  border-color: rgba(110, 196, 252, 0.3);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+
+.journal-banner-stitch {
+  border: 1.5px dashed rgba(255, 255, 255, 0.78);
+}
+
+.dark .journal-banner-stitch {
+  border-color: rgba(138, 209, 255, 0.32);
+}
+
+.journal-banner-sticker {
+  filter: drop-shadow(0 5px 8px rgba(36, 68, 96, 0.24));
+  transition: transform 0.26s cubic-bezier(0.22, 1.3, 0.36, 1);
+}
+
+.journal-banner-sky:hover .journal-banner-sticker,
+.journal-banner-apricot:hover .journal-banner-sticker,
+.journal-banner-peach:hover .journal-banner-sticker {
+  transform: rotate(-4deg) scale(1.05);
+}
+
+.journal-banner-apricot {
+  background:
+    radial-gradient(circle at 86% 24%, rgba(255, 255, 255, 0.45) 0%, transparent 50%),
+    #ffedc9 url('/sticker/paper.webp') repeat;
+  background-size: 100% 100%, 155px;
+  border: 1px solid #e6c68f;
+  box-shadow: 0 6px 18px rgba(132, 98, 52, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.dark .journal-banner-apricot {
+  background:
+    radial-gradient(circle at 86% 24%, rgba(240, 192, 80, 0.14) 0%, transparent 52%),
+    linear-gradient(135deg, #2d251b 0%, #231e18 100%);
+  border-color: rgba(240, 192, 80, 0.24);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+
+.journal-banner-peach {
+  background:
+    radial-gradient(circle at 84% 26%, rgba(255, 255, 255, 0.42) 0%, transparent 50%),
+    #ffdfce url('/sticker/paper.webp') repeat;
+  background-size: 100% 100%, 155px;
+  border: 1px solid #ebb294;
+  box-shadow: 0 6px 18px rgba(154, 86, 56, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.dark .journal-banner-peach {
+  background:
+    radial-gradient(circle at 84% 26%, rgba(255, 154, 110, 0.16) 0%, transparent 52%),
+    linear-gradient(135deg, #33221c 0%, #251b1a 100%);
+  border-color: rgba(255, 154, 110, 0.24);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+
+.journal-toolbar-card {
+  background-color: var(--craft-surface);
+  border: 1px solid var(--craft-border);
+  border-radius: 18px;
+  padding: 0.75rem 1rem;
+  box-shadow: var(--craft-shadow-sm);
+}
+
+.journal-section-title {
+  color: var(--craft-ink);
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.journal-card-band {
+  background-color: var(--craft-surface-header);
+  border-bottom: 1.5px dashed var(--craft-border-strong);
+}
+
+.journal-kpi-warm {
+  background-color: var(--craft-surface-warm);
+  border: 1px solid #ead8b8;
+  box-shadow: 0 4px 12px rgba(132, 98, 52, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.dark .journal-kpi-warm {
+  background-color: var(--craft-surface-warm);
+  border-color: rgba(255, 236, 204, 0.12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 245, 224, 0.04);
+}
+
+.journal-kpi-warm:hover {
+  transform: translateY(-2px);
+  border-color: var(--craft-border-strong);
+}
+
+.journal-icon-well {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(255, 253, 246, 0.88);
+  border: 1px solid rgba(214, 192, 158, 0.5);
+  flex: none;
+}
+
+.dark .journal-icon-well {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 236, 204, 0.12);
+}
+
+.journal-icon-well--sm {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(255, 253, 246, 0.88);
+  border: 1px solid rgba(214, 192, 158, 0.45);
+  flex: none;
+}
+
+.dark .journal-icon-well--sm {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 236, 204, 0.12);
+}
+
+.journal-icon-well svg.craft-icon {
+  width: 30px;
+  height: 30px;
+  transform: scale(1.1);
+}
+
+.journal-icon-well--sm svg.craft-icon {
+  width: 24px;
+  height: 24px;
+  transform: scale(1.08);
+}
+
+.journal-callout-sky {
+  background: linear-gradient(135deg, #eef8ff 0%, #fffdf8 100%);
+  border: 1px solid #bde0f7;
+}
+
+.dark .journal-callout-sky {
+  background: linear-gradient(135deg, rgba(44, 91, 134, 0.28) 0%, #1d2230 100%);
+  border-color: rgba(110, 196, 252, 0.24);
+}
+
+.journal-callout-warm {
+  background: linear-gradient(135deg, #fff5e3 0%, #fffdf8 100%);
+  border: 1px solid var(--craft-border-strong);
+}
+
+.dark .journal-callout-warm {
+  background: linear-gradient(135deg, rgba(168, 114, 58, 0.18) 0%, #1d2230 100%);
+  border-color: var(--craft-border-strong);
+}
+
+.qr-quiet-zone {
+  background-color: #ffffff;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+/* ==================== Teleported Overlays (Modals, Dialogs, Dropdowns, Toasts) ==================== */
+.modal-overlay,
+.dialog-overlay {
+  background-color: rgba(39, 34, 29, 0.42);
+  backdrop-filter: blur(5px);
+}
+
+.dark .modal-overlay,
+.dark .dialog-overlay {
+  background-color: rgba(9, 11, 16, 0.68);
+}
+
+.modal-content,
+.dark .modal-content,
+.dialog-container,
+.dark .dialog-container {
+  background-color: var(--craft-surface);
+  border: 1px solid var(--craft-border-strong);
+  border-radius: 22px;
+  color: var(--craft-ink);
+  box-shadow: 0 22px 54px rgba(68, 45, 20, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  font-family: 'PingFang SC', 'Hiragino Maru Gothic ProN', 'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, sans-serif;
+}
+
+.dark .modal-content,
+.dark .dialog-container {
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 245, 224, 0.05);
+}
+
+.modal-header,
+.dark .modal-header,
+.dialog-header,
+.dark .dialog-header {
+  background-color: var(--craft-surface-muted);
+  border-bottom: 1px solid var(--craft-border);
+  border-top-left-radius: 21px;
+  border-top-right-radius: 21px;
+}
+
+.modal-title,
+.dark .modal-title {
+  color: var(--craft-ink);
+  font-weight: 800;
+}
+
+.modal-footer,
+.dark .modal-footer,
+.dialog-footer,
+.dark .dialog-footer {
+  background-color: var(--craft-surface-muted);
+  border-top: 1px solid var(--craft-border);
+  border-bottom-left-radius: 21px;
+  border-bottom-right-radius: 21px;
+}
+
+.dropdown,
+.dark .dropdown {
+  background-color: var(--craft-surface);
+  border: 1px solid var(--craft-border-strong);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(72, 52, 26, 0.14);
+}
+
+.dark .dropdown {
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.48);
+}
+
+.dropdown-item,
+.dark .dropdown-item {
+  color: var(--craft-ink-soft);
+  border-radius: 10px;
+  margin: 0 4px;
+}
+
+.dropdown-item:hover,
+.dark .dropdown-item:hover {
+  background-color: var(--craft-surface-hover);
+  color: var(--craft-ink);
+}
+
+.toast,
+.dark .toast,
+.journal-toast-card,
+.dark .journal-toast-card {
+  background-color: var(--craft-surface);
+  border-top: 1px solid var(--craft-border);
+  border-right: 1px solid var(--craft-border);
+  border-bottom: 1px solid var(--craft-border);
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(72, 52, 26, 0.16);
+}
+
+.dark .toast,
+.dark .journal-toast-card {
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+}
+
+/* ==================== Shared Cards, Buttons, Inputs & Tables ==================== */
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .card,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .card,
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .stat-card,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .stat-card,
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table-scroll-container,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table-scroll-container {
+  background-color: var(--craft-surface);
+  border-color: var(--craft-border);
+  border-radius: 20px;
+  box-shadow: var(--craft-shadow-card);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .card-header,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .card-header {
+  border-bottom-color: var(--craft-border);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .card-footer,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .card-footer {
+  border-top-color: var(--craft-border);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .card-hover:hover,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .card-hover:hover {
+  border-color: var(--craft-border-strong);
+  box-shadow: 0 8px 22px rgba(104, 78, 43, 0.12);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .stat-label,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .stat-label {
+  color: var(--craft-muted);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .stat-value,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .stat-value {
+  color: var(--craft-ink);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .page-title,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .page-title {
+  color: var(--craft-ink);
+  font-weight: 850;
+  letter-spacing: -0.01em;
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .page-description,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .page-description {
+  color: var(--craft-muted);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-primary,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-primary {
+  background-image: linear-gradient(180deg, #40a7ef 0%, #2682c8 100%);
+  color: #ffffff;
+  border: 1px solid rgba(25, 102, 165, 0.35);
+  box-shadow: 0 3px 0 rgba(21, 90, 146, 0.25), 0 6px 14px rgba(42, 139, 212, 0.22);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-primary:hover:not(:disabled),
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-primary:hover:not(:disabled) {
+  background-image: linear-gradient(180deg, #52b2f5 0%, #2d8fd8 100%);
+  transform: translateY(-1px);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-secondary,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-secondary {
+  background-color: var(--craft-surface);
+  color: var(--craft-ink);
+  border-color: var(--craft-border-strong);
+  box-shadow: var(--craft-shadow-press);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-secondary:hover:not(:disabled),
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-secondary:hover:not(:disabled) {
+  background-color: var(--craft-surface-hover);
+  border-color: var(--craft-border-strong);
+  transform: translateY(-1px);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-ghost,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-ghost {
+  color: var(--craft-ink-soft);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-ghost:hover:not(:disabled),
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-ghost:hover:not(:disabled) {
+  background-color: var(--craft-surface-hover);
+  color: var(--craft-ink);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-danger,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-danger {
+  background-image: linear-gradient(180deg, #f3655b 0%, #dc3d34 100%);
+  color: #ffffff;
+  border: 1px solid rgba(173, 38, 30, 0.35);
+  box-shadow: 0 3px 0 rgba(153, 30, 24, 0.26), 0 6px 14px rgba(220, 61, 52, 0.2);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-danger:hover:not(:disabled),
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn-danger:hover:not(:disabled) {
+  background-image: linear-gradient(180deg, #f7766d 0%, #e4483f 100%);
+  transform: translateY(-1px);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input {
+  background-color: var(--craft-surface);
+  border-color: var(--craft-border-strong);
+  color: var(--craft-ink);
+  border-radius: 14px;
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input::placeholder,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input::placeholder {
+  color: var(--craft-muted);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input:disabled,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input:disabled {
+  background-color: var(--craft-surface-muted);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input:focus,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input:focus {
+  border-color: var(--craft-sky-deep);
+  box-shadow: 0 0 0 3px var(--craft-sky-soft);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input-label,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input-label {
+  color: var(--craft-ink-soft);
+  font-weight: 600;
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input-hint,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .input-hint {
+  color: var(--craft-muted);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table-container,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table-container {
+  border-color: var(--craft-border);
+  border-radius: 16px;
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table th,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table th,
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table-scroll-container thead,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table-scroll-container thead,
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table-scroll-container th,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table-scroll-container th {
+  background-color: var(--craft-surface-header);
+  color: var(--craft-ink);
+  border-color: var(--craft-border);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table td,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table td,
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table-scroll-container td,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table-scroll-container td {
+  border-color: var(--craft-border);
+  color: var(--craft-ink-soft);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table tbody tr:hover,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .table tbody tr:hover {
+  background-color: var(--craft-surface-hover);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .tabs,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .tabs {
+  background-color: var(--craft-surface-muted);
+  border: 1px solid var(--craft-border);
+  border-radius: 14px;
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .tab,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .tab {
+  color: var(--craft-muted);
+  border-radius: 10px;
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .tab:hover,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .tab:hover {
+  color: var(--craft-ink);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .tab-active,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .tab-active {
+  background-color: var(--craft-surface);
+  color: var(--craft-ink);
+  box-shadow: var(--craft-shadow-sm);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .badge-gray,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .badge-gray {
+  background-color: var(--craft-surface-muted);
+  color: var(--craft-muted);
+  border: 1px solid var(--craft-border);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .badge-primary,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .badge-primary {
+  background-color: var(--craft-sky-soft);
+  color: var(--craft-sky-deep);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .code,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .code {
+  background-color: var(--craft-surface-muted);
+  color: var(--craft-sky-deep);
+  border: 1px solid var(--craft-border);
+  border-radius: 8px;
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .divider,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .divider {
+  background-color: var(--craft-border);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .progress,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .progress {
+  background-color: var(--craft-surface-header);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .skeleton,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .skeleton {
+  background-color: var(--craft-surface-header);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .empty-state-title,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .empty-state-title {
+  color: var(--craft-ink);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .empty-state-description,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .empty-state-description {
+  color: var(--craft-muted);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .empty-state-icon,
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .empty-state-icon {
+  color: var(--craft-muted);
+}
+
+:is(.journal-app, .journal-standalone) .glass {
+  background-color: rgba(253, 247, 235, 0.88);
+  border-color: var(--craft-border);
+}
+
+.dark :is(.journal-app, .journal-standalone) .glass {
+  background-color: rgba(22, 26, 36, 0.88);
+  border-color: var(--craft-border);
+}
+
+/* ==================== Scoped Warm Neutral Harmonization ==================== */
+/* Light warm paper & ink harmonization inside journal contexts */
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.bg-white, .bg-white\/95, .bg-white\/90, .bg-white\/85, .bg-white\/80) {
+  background-color: var(--craft-surface);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.bg-gray-50, .bg-gray-50\/80, .bg-gray-50\/70, .bg-gray-50\/60, .bg-gray-50\/50, .bg-slate-50) {
+  background-color: var(--craft-surface-muted);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.bg-gray-100, .bg-slate-100) {
+  background-color: var(--craft-surface-header);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.hover\:bg-gray-50, .hover\:bg-gray-100):hover {
+  background-color: var(--craft-surface-hover);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.border-gray-100, .border-gray-200, .border-gray-200\/60, .border-gray-200\/50, .border-slate-200) {
+  border-color: var(--craft-border);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .border-gray-300 {
+  border-color: var(--craft-border-strong);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.divide-gray-100, .divide-gray-200) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--craft-border);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.text-gray-900, .text-gray-950) {
+  color: var(--craft-ink);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.text-gray-700, .text-gray-600) {
+  color: var(--craft-ink-soft);
+}
+
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.text-gray-500, .text-gray-400) {
+  color: var(--craft-muted);
+}
+
+/* Dark warm ink & slate-free surface harmonization */
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.dark\:bg-dark-950, .dark\:bg-slate-950) {
+  background-color: var(--craft-paper);
+}
+
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.dark\:bg-dark-800, .dark\:bg-dark-800\/95, .dark\:bg-dark-800\/80, .dark\:bg-dark-800\/70, .dark\:bg-dark-800\/60, .dark\:bg-dark-800\/50, .dark\:bg-slate-900) {
+  background-color: var(--craft-surface);
+}
+
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.dark\:bg-dark-900, .dark\:bg-dark-900\/90, .dark\:bg-dark-900\/70, .dark\:bg-dark-900\/60, .dark\:bg-dark-900\/50, .dark\:bg-dark-900\/40, .dark\:bg-dark-900\/30) {
+  background-color: #181d29;
+}
+
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .dark\:bg-dark-700 {
+  background-color: var(--craft-surface-header);
+}
+
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.dark\:hover\:bg-dark-800, .dark\:hover\:bg-dark-700, .dark\:hover\:bg-dark-600):hover {
+  background-color: var(--craft-surface-hover);
+}
+
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.dark\:border-dark-800, .dark\:border-dark-800\/50, .dark\:border-dark-700, .dark\:border-dark-700\/60, .dark\:border-dark-700\/50, .dark\:border-slate-700) {
+  border-color: var(--craft-border);
+}
+
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.dark\:border-dark-600, .dark\:border-dark-500) {
+  border-color: var(--craft-border-strong);
+}
+
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.dark\:divide-dark-700, .dark\:divide-dark-800) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--craft-border);
+}
+
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.dark\:text-white, .dark\:text-gray-100) {
+  color: var(--craft-ink);
+}
+
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.dark\:text-gray-200, .dark\:text-gray-300, .dark\:text-dark-200, .dark\:text-dark-300) {
+  color: var(--craft-ink-soft);
+}
+
+.dark :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) :is(.dark\:text-gray-400, .dark\:text-gray-500, .dark\:text-dark-400, .dark\:text-dark-500) {
+  color: var(--craft-muted);
+}
+
+/* Preserve crisp white switch thumbs & scannable QR quiet zones */
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) [role='switch'] > span.bg-white,
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .switch-thumb,
+:is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .qr-quiet-zone {
+  background-color: #ffffff;
+}
+
+/* Warm soft scrollbars inside journal views */
+:is(.journal-app, .journal-standalone) ::-webkit-scrollbar-thumb {
+  background-color: rgba(168, 144, 110, 0.28);
+}
+
+:is(.journal-app, .journal-standalone) *:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(168, 144, 110, 0.48);
+}
+
+.dark :is(.journal-app, .journal-standalone) ::-webkit-scrollbar-thumb {
+  background-color: rgba(245, 237, 224, 0.16);
+}
+
+.dark :is(.journal-app, .journal-standalone) *:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(245, 237, 224, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journal-app .sidebar-link,
+  .journal-theme-pill,
+  .journal-banner-sticker,
+  .journal-kpi-warm,
+  :is(.journal-app, .journal-standalone, .modal-content, .dialog-container) .btn {
+    transition: none;
+  }
+}

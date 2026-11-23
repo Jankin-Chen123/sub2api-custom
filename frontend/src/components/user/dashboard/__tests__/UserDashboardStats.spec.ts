@@ -81,6 +81,18 @@ function cardPlatforms(w: VueWrapper): string[] {
   return w.findAll('[data-testid="platform-card"]').map((c) => c.attributes('data-platform') ?? '')
 }
 
+it('在同一累计费用行显示实际与标准金额', () => {
+  const wrapper = mountStats(makeStats({
+    today_actual_cost: 1,
+    today_cost: 2,
+    total_actual_cost: 8,
+    total_cost: 10,
+  }))
+  const total = wrapper.get('[data-testid="cumulative-cost"]').text()
+  expect(total).toContain('dashboard.actual $8.0000')
+  expect(total).toContain('dashboard.standard $10.0000')
+})
+
 describe('UserDashboardStats 按平台拆分', () => {
   it('只有用量的平台才产生卡片；三档全空的限额记录不产生卡片', () => {
     const w = mountStats(

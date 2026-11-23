@@ -1,34 +1,34 @@
 <template>
   <div
-    class="relative flex min-h-screen items-center justify-center overflow-hidden bg-gray-50 px-4 dark:bg-dark-950"
+    class="journal-standalone relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8"
   >
-    <!-- Background Decoration -->
+    <!-- Watercolor Paper Ambient Decoration -->
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
       <div
-        class="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-primary-400/10 blur-3xl"
+        class="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#92d4fb]/25 blur-3xl dark:bg-[#2c5b86]/25"
       ></div>
       <div
-        class="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary-500/10 blur-3xl"
+        class="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-[#ff9466]/20 blur-3xl dark:bg-[#ff9a6e]/12"
       ></div>
     </div>
 
-    <div class="relative z-10 w-full max-w-md text-center">
+    <div class="card relative z-10 w-full max-w-md p-8 text-center sm:p-10">
       <!-- 404 Display -->
-      <div class="mb-8">
+      <div class="mb-7">
         <div class="relative inline-block">
-          <span class="text-[12rem] font-bold leading-none text-gray-100 dark:text-dark-800"
+          <span class="text-[8.5rem] font-black leading-none text-[#efe4d0] dark:text-[#262c3d] sm:text-[10rem]"
             >404</span
           >
           <div class="absolute inset-0 flex items-center justify-center">
             <div
-              class="flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/30"
+              class="flex h-20 w-20 items-center justify-center rounded-2xl border border-[#2574b3]/30 bg-gradient-to-b from-[#40a7ef] to-[#2682c8] shadow-lg shadow-[#2682c8]/25"
             >
               <svg
-                class="h-12 w-12 text-white"
+                class="h-10 w-10 text-white"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
-                stroke-width="1.5"
+                stroke-width="1.8"
               >
                 <path
                   stroke-linecap="round"
@@ -42,11 +42,11 @@
       </div>
 
       <!-- Text Content -->
-      <div class="mb-8">
-        <h1 class="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
+      <div class="mb-7">
+        <h1 class="mb-2.5 text-2xl font-black text-[var(--craft-ink)]">
           {{ t('errors.pageNotFound') }}
         </h1>
-        <p class="text-gray-500 dark:text-dark-400">
+        <p class="text-sm text-[var(--craft-muted)]">
           The page you are looking for doesn't exist or has been moved.
         </p>
       </div>
@@ -54,24 +54,23 @@
       <!-- Action Buttons -->
       <div class="flex flex-col justify-center gap-3 sm:flex-row">
         <button @click="goBack" class="btn btn-secondary">
-          <Icon name="arrowLeft" size="md" class="mr-2" />
-          Go Back
+          <Icon name="arrowLeft" size="md" class="mr-1.5" />
+          {{ t('common.back') }}
         </button>
         <router-link to="/dashboard" class="btn btn-primary">
-          <Icon name="home" size="md" class="mr-2" />
-          Go to Dashboard
+          <Icon name="home" size="md" class="mr-1.5" />
+          {{ t('nav.dashboard') }}
         </router-link>
       </div>
 
-      <!-- Help Link -->
-      <p class="mt-8 text-sm text-gray-400 dark:text-dark-500">
-        Need help?
-        <a
-          href="#"
-          class="text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+      <!-- Home Link -->
+      <p class="mt-7 text-sm text-[var(--craft-muted)]">
+        <router-link
+          to="/home"
+          class="font-medium text-[var(--craft-sky-deep)] transition-colors hover:underline"
         >
-          Contact support
-        </a>
+          {{ t('auth.backHome') }}
+        </router-link>
       </p>
     </div>
   </div>

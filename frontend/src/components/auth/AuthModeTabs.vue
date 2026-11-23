@@ -48,8 +48,9 @@ const authRouteMotion = getAuthRouteMotion()
   width: max-content;
   max-width: 100%;
   padding: 4px;
-  border-radius: 13px;
-  background: #edf5f6;
+  border-radius: 15px;
+  border: 1px solid #eadbc3;
+  background: #f5ebd8;
 }
 
 .auth-mode-tabs::before {
@@ -59,9 +60,9 @@ const authRouteMotion = getAuthRouteMotion()
   top: 4px;
   bottom: 4px;
   left: 4px;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 3px 10px rgba(53, 115, 119, 0.1);
+  border-radius: 11px;
+  background: #fffdf8;
+  box-shadow: 0 3px 8px rgba(96, 69, 36, 0.11);
   content: '';
   transform: translate3d(0, 0, 0);
 }
@@ -71,11 +72,11 @@ const authRouteMotion = getAuthRouteMotion()
 }
 
 .auth-mode-tabs--register.auth-mode-tabs--motion-forward::before {
-  animation: auth-tab-indicator-forward 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: auth-tab-indicator-forward 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .auth-mode-tabs--login.auth-mode-tabs--motion-backward::before {
-  animation: auth-tab-indicator-backward 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: auth-tab-indicator-backward 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .auth-mode-tab {
@@ -85,23 +86,23 @@ const authRouteMotion = getAuthRouteMotion()
   min-height: 34px;
   align-items: center;
   justify-content: center;
-  padding: 8px 17px;
-  border-radius: 10px;
-  color: #789095;
-  font-size: 12px;
+  padding: 8px 18px;
+  border-radius: 11px;
+  color: #7a6b5a;
+  font-size: 12.5px;
   font-weight: 750;
   text-decoration: none;
-  transition: color 220ms ease, background-color 220ms ease, box-shadow 220ms ease,
-    transform 220ms ease;
+  transition: color 200ms ease, transform 200ms ease;
 }
 
 .auth-mode-tab:hover {
-  color: #087f79;
+  color: #27221d;
   transform: translateY(-1px);
 }
 
 .auth-mode-tab--active {
-  color: #087f79;
+  color: #27221d;
+  font-weight: 850;
 }
 
 @keyframes auth-tab-indicator-forward {

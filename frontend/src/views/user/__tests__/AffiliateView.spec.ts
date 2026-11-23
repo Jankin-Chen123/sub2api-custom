@@ -173,6 +173,11 @@ describe('AffiliateView newcomer campaign progress', () => {
     expect(campaign.find('.bg-primary-500').attributes('style')).toContain('width: 60%')
     expect(wrapper.text()).toContain('http://localhost/register?aff=campaign')
     expect(fetchCampaignStatus).toHaveBeenCalledWith(true)
+
+    const transferPanel = wrapper.get('[data-test="affiliate-transfer-panel"]')
+    expect(
+      Boolean(transferPanel.element.compareDocumentPosition(campaign.element) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true)
   })
 
   it('does not invent campaign progress when the campaign endpoint has no state', async () => {

@@ -1,9 +1,6 @@
 <template>
   <div>
-    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-      {{ t('payment.paymentMethod') }}
-    </label>
-    <div
+    <div role="group" :aria-label="t('payment.paymentMethod')"
       data-testid="payment-method-grid"
       class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
     >
@@ -13,13 +10,14 @@
         type="button"
         :title="methodLabel(method)"
         :disabled="!method.available"
+        :aria-pressed="selected === method.type"
         :class="[
-          'relative flex h-[60px] min-w-0 flex-col items-center justify-center rounded-lg border px-3 transition-all',
+          'relative flex h-[64px] min-w-0 flex-col items-center justify-center rounded-[16px] border-2 px-3 shadow-[0_2px_0_rgba(104,78,43,0.08)] transition-all',
           !method.available
-            ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50'
+            ? 'cursor-not-allowed border-[var(--craft-border)] bg-[var(--craft-surface-muted)] opacity-50 shadow-none'
             : selected === method.type
               ? methodSelectedClass(method.type)
-              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
+              : 'border-[var(--craft-border-strong)] bg-[var(--craft-surface)] text-[var(--craft-ink)] hover:-translate-y-0.5 hover:border-[var(--craft-sky-deep)] hover:bg-[var(--craft-surface-hover)]',
         ]"
         @click="method.available && emit('select', method.type)"
       >

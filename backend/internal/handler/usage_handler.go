@@ -182,6 +182,8 @@ func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) 
 	if requireRange {
 		if startPtr == nil {
 			switch c.DefaultQuery("period", "") {
+			case "24h":
+				startTime = now.Add(-24 * time.Hour)
 			case "today":
 				startTime = timezone.StartOfDayInUserLocation(now, userTZ)
 			case "week":
@@ -485,7 +487,7 @@ func (h *UsageHandler) DashboardTrend(c *gin.Context) {
 	response.Success(c, gin.H{
 		"trend":       trend,
 		"start_date":  parsed.StartTime.Format("2006-01-02"),
-		"end_date":    parsed.EndTime.Add(-24 * time.Hour).Format("2006-01-02"),
+		"end_date":    parsed.EndTime.Add(-time.Nanosecond).Format("2006-01-02"),
 		"granularity": granularity,
 	})
 }
@@ -513,7 +515,7 @@ func (h *UsageHandler) DashboardModels(c *gin.Context) {
 	response.Success(c, gin.H{
 		"models":     userModelStatsFromUsageStats(stats),
 		"start_date": parsed.StartTime.Format("2006-01-02"),
-		"end_date":   parsed.EndTime.Add(-24 * time.Hour).Format("2006-01-02"),
+		"end_date":   parsed.EndTime.Add(-time.Nanosecond).Format("2006-01-02"),
 	})
 }
 
@@ -545,7 +547,7 @@ func (h *UsageHandler) DashboardSnapshotV2(c *gin.Context) {
 	resp := gin.H{
 		"generated_at": time.Now().UTC().Format(time.RFC3339),
 		"start_date":   parsed.StartTime.Format("2006-01-02"),
-		"end_date":     parsed.EndTime.Add(-24 * time.Hour).Format("2006-01-02"),
+		"end_date":     parsed.EndTime.Add(-time.Nanosecond).Format("2006-01-02"),
 		"granularity":  granularity,
 	}
 

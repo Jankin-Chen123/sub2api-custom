@@ -1,32 +1,22 @@
 <template>
-  <div class="empty-state">
+  <div class="empty-state rounded-[20px] border-[1.5px] border-dashed border-[var(--craft-border-strong)] bg-[var(--craft-surface-muted)]/60 px-6 py-12">
     <!-- Icon -->
     <div
-      class="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-gray-100 dark:bg-dark-800"
+      class="mb-4 flex h-16 w-16 -rotate-3 items-center justify-center rounded-2xl border border-[var(--craft-border-strong)] bg-[var(--craft-surface-warm)] shadow-sm dark:bg-[#232838]"
     >
       <slot name="icon">
-        <component v-if="icon" :is="icon" class="empty-state-icon h-10 w-10" aria-hidden="true" />
-        <svg
-          v-else
-          class="empty-state-icon h-10 w-10"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          stroke-width="1.5"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-          />
-        </svg>
+        <component v-if="icon" :is="icon" class="empty-state-icon h-9 w-9" aria-hidden="true" />
+        <CraftIcon v-else name="inbox" size="lg" />
       </slot>
     </div>
 
     <!-- Title -->
-    <h3 class="empty-state-title">
-      {{ displayTitle }}
-    </h3>
+    <div class="mb-1 flex items-center justify-center gap-1">
+      <h3 class="empty-state-title !mb-0 font-black">
+        {{ displayTitle }}
+      </h3>
+      <CraftSparks variant="right" size="sm" />
+    </div>
 
     <!-- Description -->
     <p class="empty-state-description">
@@ -56,6 +46,8 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Component } from 'vue'
 import Icon from '@/components/icons/Icon.vue'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
 
 const { t } = useI18n()
 

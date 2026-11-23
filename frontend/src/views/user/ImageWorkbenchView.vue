@@ -1,13 +1,17 @@
 <template>
   <AppLayout>
     <div class="-mx-4 -mt-2 -mb-4 flex h-[calc(100dvh-4.5rem-1px)] max-w-[1560px] min-h-0 flex-col gap-3 overflow-hidden px-4 pb-4 pt-0 md:-mx-6 md:-mt-4 md:-mb-6 md:h-[calc(100dvh-4.5rem-1px)] lg:-mx-8 lg:-mt-6 lg:-mb-8 lg:h-[calc(100dvh-4.5rem-1px)] lg:px-4">
-      <section class="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-dark-700 dark:bg-dark-800 sm:p-4">
+      <section class="journal-banner-apricot overflow-visible rounded-[22px] p-2">
+        <div class="journal-banner-stitch rounded-[16px] p-3 sm:p-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex min-w-0 items-center gap-2.5">
-            <img src="/brand-icon.png" :alt="t('imageWorkbench.header.brandAlt')" class="h-10 w-10 shrink-0 rounded-lg object-cover shadow-sm" />
+          <div class="flex min-w-0 items-center gap-3">
+            <JournalBannerSticker name="palette" size="sm" />
             <div class="min-w-0">
-              <h1 class="truncate text-xl font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.title') }}</h1>
-              <p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.header.subtitle') }}</p>
+              <div class="flex items-center gap-1.5">
+                <h1 class="truncate text-xl font-black tracking-tight text-[#27221d] dark:text-white">{{ t('imageWorkbench.title') }}</h1>
+                <CraftSparks variant="right" size="sm" />
+              </div>
+              <p class="truncate text-xs font-medium text-[#5c5042] dark:text-gray-400">{{ t('imageWorkbench.header.subtitle') }}</p>
             </div>
           </div>
           <div class="flex shrink-0 items-center gap-2">
@@ -21,21 +25,21 @@
         </div>
 
         <dl class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <div class="rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-2 dark:border-dark-700 dark:bg-dark-900/50">
-            <dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.header.model') }}</dt>
-            <dd class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ headerModel }}</dd>
+          <div class="journal-kpi-warm rounded-xl px-3 py-2">
+            <dt class="text-xs font-semibold text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.header.model') }}</dt>
+            <dd class="mt-0.5 truncate text-sm font-bold text-[#221d17] dark:text-white">{{ headerModel }}</dd>
           </div>
-          <div class="rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-2 dark:border-dark-700 dark:bg-dark-900/50">
-            <dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.header.canvas') }}</dt>
-            <dd class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ headerCanvasSize }}</dd>
+          <div class="journal-kpi-warm rounded-xl px-3 py-2">
+            <dt class="text-xs font-semibold text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.header.canvas') }}</dt>
+            <dd class="mt-0.5 truncate text-sm font-bold text-[#221d17] dark:text-white">{{ headerCanvasSize }}</dd>
           </div>
-          <div class="rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-2 dark:border-dark-700 dark:bg-dark-900/50">
-            <dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.header.queue') }}</dt>
-            <dd class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ queueSummary }}</dd>
+          <div class="journal-kpi-warm rounded-xl px-3 py-2">
+            <dt class="text-xs font-semibold text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.header.queue') }}</dt>
+            <dd class="mt-0.5 truncate text-sm font-bold text-[#221d17] dark:text-white">{{ queueSummary }}</dd>
           </div>
-          <div class="rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-2 dark:border-dark-700 dark:bg-dark-900/50">
-            <dt class="text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.header.interface') }}</dt>
-            <dd class="mt-0.5 flex items-center gap-1.5 truncate text-sm font-semibold" :class="interfaceConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-900 dark:text-white'">
+          <div class="journal-kpi-warm rounded-xl px-3 py-2">
+            <dt class="text-xs font-semibold text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.header.interface') }}</dt>
+            <dd class="mt-0.5 flex items-center gap-1.5 truncate text-sm font-bold" :class="interfaceConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#221d17] dark:text-white'">
               <span class="h-2 w-2 shrink-0 rounded-full" :class="interfaceConnected ? 'bg-emerald-500' : 'bg-gray-400'" />
               {{ interfaceStatus }}
             </dd>
@@ -54,12 +58,18 @@
             </div>
           </div>
         </div>
+        </div>
       </section>
 
       <div class="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-1">
-        <form class="image-workbench-compact flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-dark-700 dark:bg-dark-800 sm:p-4" @submit.prevent="submitJob">
-          <div class="-mx-3 -mt-3 flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-3 pb-2 pt-3 dark:border-dark-700 dark:bg-dark-800 sm:-mx-4 sm:-mt-4 sm:px-4 sm:pt-4">
-            <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.form.settingsTitle') }}</h2>
+        <form class="card image-workbench-compact flex min-h-0 flex-col overflow-hidden p-3 sm:p-4" @submit.prevent="submitJob">
+          <div class="journal-card-band -mx-3 -mt-3 flex shrink-0 items-center justify-between px-3 py-2.5 sm:-mx-4 sm:-mt-4 sm:px-4 sm:py-3">
+            <div class="flex items-center gap-2">
+              <span class="journal-icon-well journal-icon-well--sm">
+                <CraftIcon name="palette" size="xs" />
+              </span>
+              <h2 class="journal-section-title text-base font-extrabold text-[#221d17] dark:text-white">{{ t('imageWorkbench.form.settingsTitle') }}</h2>
+            </div>
             <button class="btn btn-secondary btn-sm" type="button" @click="resetForm">{{ t('imageWorkbench.form.reset') }}</button>
           </div>
 
@@ -99,8 +109,8 @@
                 v-for="ratio in availableAspectRatios"
                 :key="ratio || 'auto'"
                 :data-testid="ratio ? `image-ratio-${ratio.replace(':', '-')}` : 'image-ratio-unspecified'"
-                class="rounded-md border px-2 py-1.5 text-xs font-semibold transition"
-                :class="form.aspectRatio === ratio ? 'border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-300' : 'border-gray-200 bg-white text-gray-500 hover:border-blue-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300'"
+                class="rounded-lg border px-2 py-1.5 text-xs font-bold transition"
+                :class="form.aspectRatio === ratio ? 'border-[#e39c64] bg-[#fff1de] text-[#8a4515] shadow-[0_2px_0_rgba(227,156,100,0.35)] dark:border-primary-500 dark:bg-primary-950/40 dark:text-primary-200' : 'border-[#e3d2b6] bg-[#fffdf8] text-[#6f6252] hover:border-[#d8b482] hover:bg-[#fff8ec] dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300'"
                 type="button"
                 @click="selectAspectRatio(ratio)"
               >
@@ -110,19 +120,19 @@
 
             <div class="mt-3 grid grid-cols-2 gap-2">
               <div>
-                <div class="flex items-center justify-between text-xs font-semibold text-gray-700 dark:text-gray-300">
+                <div class="flex items-center justify-between text-xs font-semibold text-[#5a4e3e] dark:text-gray-300">
                   <label>{{ t('imageWorkbench.form.width') }}</label>
-                  <span class="text-blue-600 dark:text-blue-400">{{ form.width }}px</span>
+                  <span class="font-bold text-[#c26328] dark:text-primary-400">{{ form.width }}px</span>
                 </div>
-                <input v-model.number="form.width" class="mt-1.5 w-full accent-blue-500" type="range" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
+                <input v-model.number="form.width" class="mt-1.5 w-full accent-[#e5894b]" type="range" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
                 <input v-model.number="form.width" class="input mt-1.5" type="number" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
               </div>
               <div>
-                <div class="flex items-center justify-between text-xs font-semibold text-gray-700 dark:text-gray-300">
+                <div class="flex items-center justify-between text-xs font-semibold text-[#5a4e3e] dark:text-gray-300">
                   <label>{{ t('imageWorkbench.form.height') }}</label>
-                  <span class="text-blue-600 dark:text-blue-400">{{ form.height }}px</span>
+                  <span class="font-bold text-[#c26328] dark:text-primary-400">{{ form.height }}px</span>
                 </div>
-                <input v-model.number="form.height" class="mt-1.5 w-full accent-blue-500" type="range" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
+                <input v-model.number="form.height" class="mt-1.5 w-full accent-[#e5894b]" type="range" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
                 <input v-model.number="form.height" class="input mt-1.5" type="number" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
               </div>
             </div>
@@ -149,8 +159,8 @@
           <div>
             <label class="input-label">{{ t('imageWorkbench.form.referenceTitle') }}</label>
             <div
-              class="cursor-pointer rounded-lg border border-dashed px-3 py-2.5 transition"
-              :class="isReferenceDragOver ? 'border-blue-500 bg-blue-100 dark:border-blue-400 dark:bg-blue-950/40' : 'border-blue-300 bg-blue-50/80 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/20'"
+              class="cursor-pointer rounded-xl border-2 border-dashed px-3 py-2.5 transition"
+              :class="isReferenceDragOver ? 'border-[#e39c64] bg-[#fff1de] dark:border-primary-400 dark:bg-primary-950/40' : 'border-[#7dbde8] bg-[#eef8ff]/80 hover:bg-[#e3f3ff] dark:border-sky-700 dark:bg-sky-950/20'"
               @click="referenceInputRef?.click()"
               @dragenter.prevent="isReferenceDragOver = true"
               @dragover.prevent="isReferenceDragOver = true"
@@ -158,8 +168,8 @@
               @drop.prevent="onReferenceDrop"
             >
               <input ref="referenceInputRef" class="hidden" type="file" accept="image/*" multiple @change="onReferenceFiles" />
-              <p class="text-xs font-semibold text-blue-600 dark:text-blue-300">{{ t('imageWorkbench.form.dropReference') }}</p>
-              <p class="mt-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.form.dropReferenceHint') }}</p>
+              <p class="text-xs font-bold text-[#256b9c] dark:text-blue-300">{{ t('imageWorkbench.form.dropReference') }}</p>
+              <p class="mt-1 text-[11px] font-medium text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.form.dropReferenceHint') }}</p>
             </div>
             <div class="mt-2 flex gap-2">
               <input v-model.trim="referenceUrlInput" class="input min-w-0 flex-1" :placeholder="t('imageWorkbench.form.pasteReferenceUrl')" @keydown.enter.prevent="importReferenceUrl" />
@@ -167,15 +177,16 @@
             </div>
             <button class="btn btn-secondary mt-2 w-full" type="button" :disabled="referenceCount === 0" @click="clearReferences">{{ t('imageWorkbench.form.clearReferences') }}</button>
             <div v-if="referenceCount > 0" class="mt-2 flex flex-wrap gap-2">
-              <span v-for="file in referenceFiles" :key="file.name + file.lastModified" class="max-w-full truncate rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300">{{ file.name }}</span>
-              <span v-for="url in referenceUrlList" :key="url" class="max-w-full truncate rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300">{{ url }}</span>
-              <span v-if="referenceDataURLs.length && !referenceFiles.length" class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+              <span v-for="file in referenceFiles" :key="file.name + file.lastModified" class="max-w-full truncate rounded-full border border-[#e3d2b6] bg-[#fffaf0] px-2.5 py-1 text-xs font-medium text-[#5a4e3e] dark:border-dark-600 dark:bg-dark-700 dark:text-gray-300">{{ file.name }}</span>
+              <span v-for="url in referenceUrlList" :key="url" class="max-w-full truncate rounded-full border border-[#e3d2b6] bg-[#fffaf0] px-2.5 py-1 text-xs font-medium text-[#5a4e3e] dark:border-dark-600 dark:bg-dark-700 dark:text-gray-300">{{ url }}</span>
+              <span v-if="referenceDataURLs.length && !referenceFiles.length" class="rounded-full border border-[#7dbde8] bg-[#eef8ff] px-2.5 py-1 text-xs font-semibold text-[#256b9c] dark:border-sky-800 dark:bg-blue-950/40 dark:text-blue-300">
                 {{ t('imageWorkbench.editor.currentImageReference') }}
               </span>
             </div>
           </div>
 
-          <div class="rounded-lg border border-gray-200 bg-gray-50 p-2 text-xs text-gray-600 dark:border-dark-700 dark:bg-dark-900/50 dark:text-gray-300">
+          <div class="flex items-center gap-2 rounded-xl border border-dashed border-[#dcc6a4] bg-[#fffaf0]/90 px-3 py-2 text-xs font-semibold text-[#5a4e3e] dark:border-dark-700 dark:bg-dark-900/50 dark:text-gray-300">
+            <CraftIcon name="receipt" size="xs" />
             <span v-if="loadingEstimate">{{ t('imageWorkbench.form.loadingEstimate') }}</span>
             <span v-else-if="costEstimate">{{ t('imageWorkbench.form.estimatedCost', { cost: formatCost(costEstimate.estimated_cost) }) }}</span>
             <span v-else>{{ t('imageWorkbench.form.estimateUnavailable') }}</span>
@@ -188,11 +199,19 @@
         </form>
 
         <section class="min-h-0 min-w-0 space-y-3 overflow-y-auto overscroll-contain pr-1">
-          <div class="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-dark-700 dark:bg-dark-800">
-            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.preview.title') }}</h2>
-                <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.preview.subtitle') }}</p>
+          <div class="card overflow-hidden p-0">
+            <div class="journal-card-band flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+              <div class="flex items-center gap-2.5">
+                <span class="journal-icon-well journal-icon-well--sm">
+                  <CraftIcon name="sparkles" size="xs" />
+                </span>
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <h2 class="journal-section-title text-base font-extrabold text-[#221d17] dark:text-white">{{ t('imageWorkbench.preview.title') }}</h2>
+                    <CraftSparks variant="right" size="sm" />
+                  </div>
+                  <p class="mt-0.5 text-[11px] font-medium text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.preview.subtitle') }}</p>
+                </div>
               </div>
               <div class="flex flex-wrap gap-2">
                 <button class="btn btn-secondary btn-sm" type="button" :disabled="dimensionValidation.code !== null" @click="createBlankCanvas">
@@ -207,52 +226,59 @@
               </div>
             </div>
 
+            <div class="p-3">
             <div class="grid min-h-[420px] gap-3 lg:grid-cols-[minmax(0,1fr)_250px]">
-              <div class="flex min-h-[420px] items-center justify-center rounded-xl border border-gray-200 bg-[linear-gradient(135deg,#f8fafc_25%,#eef2f7_25%,#eef2f7_50%,#f8fafc_50%,#f8fafc_75%,#eef2f7_75%)] bg-[length:28px_28px] p-3 dark:border-dark-700 dark:bg-dark-900">
-                <div v-if="blankCanvasOpen || !currentPreviewURL" class="relative max-h-[420px] max-w-full overflow-hidden rounded-xl bg-white shadow-sm transition-[width,aspect-ratio] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width,aspect-ratio] dark:bg-dark-800" :style="activeCanvasStyle" data-testid="preview-canvas">
-                  <div class="flex h-full min-h-24 items-center justify-center px-6 text-center text-gray-400 dark:text-gray-500">
+              <div class="flex min-h-[420px] items-center justify-center rounded-xl border border-[#e3d2b6] bg-[linear-gradient(135deg,#fdf7eb_25%,#f5ecdc_25%,#f5ecdc_50%,#fdf7eb_50%,#fdf7eb_75%,#f5ecdc_75%)] bg-[length:28px_28px] p-3 dark:border-dark-700 dark:bg-none dark:bg-[#161a24]">
+                <div v-if="blankCanvasOpen || !currentPreviewURL" class="relative max-h-[420px] max-w-full overflow-hidden rounded-2xl border border-[#e8dac0] bg-[#fffdf8] shadow-[0_6px_0_rgba(143,108,65,0.1)] transition-[width,aspect-ratio] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width,aspect-ratio] dark:border-dark-700 dark:bg-dark-800" :style="activeCanvasStyle" data-testid="preview-canvas">
+                  <div class="flex h-full min-h-24 items-center justify-center px-6 pb-12 pt-5 text-center text-[#6f6252] dark:text-gray-400">
                     <div>
-                      <p class="text-lg font-medium text-gray-600 dark:text-gray-300">{{ activeCanvasTitle }}</p>
-                      <p class="mt-1 text-sm">{{ activeCanvasHint }}</p>
+                      <div class="journal-icon-well mx-auto mb-3 -rotate-3">
+                        <CraftIcon name="palette" size="lg" />
+                      </div>
+                      <p class="text-lg font-extrabold text-[#221d17] dark:text-gray-200">{{ activeCanvasTitle }}</p>
+                      <p class="mt-1 text-sm text-[#6f6252] dark:text-gray-400">{{ activeCanvasHint }}</p>
                     </div>
                   </div>
-                  <div class="absolute inset-x-3 bottom-3 flex items-center justify-between rounded-lg bg-gray-500/80 px-3 py-2 text-xs text-white">
+                  <div class="absolute inset-x-3 bottom-3 flex items-center justify-between rounded-lg bg-[#3a3027]/85 px-3 py-2 text-xs font-semibold text-[#fffaf0]">
                     <span>{{ activeCanvasStatus }}</span>
                     <span>{{ activeCanvasSize }}</span>
                   </div>
                 </div>
-                <div v-else class="relative flex max-h-[420px] max-w-full items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm dark:bg-dark-800">
+                <div v-else class="relative flex max-h-[420px] max-w-full items-center justify-center overflow-hidden rounded-2xl border border-[#e8dac0] bg-[#fffdf8] shadow-[0_6px_0_rgba(143,108,65,0.1)] dark:border-dark-700 dark:bg-dark-800">
                   <img :src="currentPreviewURL" :alt="currentJob ? jobDisplayName(currentJob) : 'generated image'" class="max-h-[420px] max-w-full object-contain" />
-                  <div class="absolute inset-x-3 bottom-3 flex items-center justify-between rounded-lg bg-black/65 px-3 py-2 text-xs text-white">
+                  <div class="absolute inset-x-3 bottom-3 flex items-center justify-between rounded-lg bg-[#3a3027]/85 px-3 py-2 text-xs font-semibold text-[#fffaf0]">
                     <span>{{ currentJob?.status === 'completed' ? t('imageWorkbench.preview.ready') : statusText(currentJob?.status || 'in_progress') }}</span>
                     <span>{{ currentJob?.actual_size || currentJob?.requested_size || '—' }}</span>
                   </div>
                 </div>
               </div>
 
-              <aside class="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-900/60">
+              <aside class="rounded-xl border border-[#e3d2b6] bg-[#fffaf0]/85 p-3 dark:border-dark-700 dark:bg-dark-900/60">
                 <div class="mb-3 flex items-center justify-between">
-                  <h3 class="font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.preview.batchTitle') }}</h3>
-                  <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">{{ jobs.length }}</span>
+                  <h3 class="font-extrabold text-[#221d17] dark:text-white">{{ t('imageWorkbench.preview.batchTitle') }}</h3>
+                  <span class="rounded-full bg-[#ffe6d1] px-2.5 py-0.5 text-xs font-extrabold text-[#b45309] dark:bg-primary-950/50 dark:text-primary-300">{{ jobs.length }}</span>
                 </div>
-                <div v-if="loadingJobs && jobs.length === 0" class="py-8 text-center text-sm text-gray-400">{{ t('common.loading') }}</div>
-                <div v-else-if="jobs.length === 0" class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-400 dark:border-dark-600 dark:bg-dark-800">
-                  {{ t('imageWorkbench.jobs.empty') }}
+                <div v-if="loadingJobs && jobs.length === 0" class="py-8 text-center text-sm text-[#7b6b57] dark:text-gray-400">{{ t('common.loading') }}</div>
+                <div v-else-if="jobs.length === 0" class="rounded-2xl border-2 border-dashed border-[#dcc6a4] bg-[#fffdf8] p-5 text-center text-sm font-semibold text-[#6f6252] dark:border-dark-600 dark:bg-dark-800 dark:text-gray-400">
+                  <div class="journal-icon-well journal-icon-well--sm mx-auto mb-2.5 -rotate-3">
+                    <CraftIcon name="inbox" size="md" />
+                  </div>
+                  <p>{{ t('imageWorkbench.jobs.empty') }}</p>
                 </div>
                 <div v-else class="max-h-[420px] space-y-2 overflow-y-auto pr-1">
                   <article
                     v-for="job in jobs"
                     :key="job.id"
-                    class="overflow-hidden rounded-lg border transition"
-                    :class="job.id === selectedJobId ? 'border-blue-400 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30' : 'border-gray-200 bg-white hover:border-blue-300 dark:border-dark-700 dark:bg-dark-800'"
+                    class="overflow-hidden rounded-xl border transition"
+                    :class="job.id === selectedJobId ? 'border-[#e39c64] bg-[#fff4e3] shadow-[0_2px_0_rgba(227,156,100,0.2)] dark:border-primary-500 dark:bg-primary-950/30' : 'border-[#e5d5ba] bg-[#fffdf8] hover:border-[#d8b482] dark:border-dark-700 dark:bg-dark-800'"
                   >
                     <button class="block w-full p-3 text-left" type="button" @click="selectJob(job)">
                       <div class="flex items-start justify-between gap-2">
-                        <span class="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{{ jobDisplayName(job) }}</span>
+                        <span class="truncate text-xs font-bold text-[#221d17] dark:text-gray-200">{{ jobDisplayName(job) }}</span>
                         <span :class="statusClass(job.status)" class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium">{{ statusText(job.status) }}</span>
                       </div>
-                      <p class="mt-2 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{{ job.actual_size || job.requested_size || job.id }}</p>
-                      <p class="mt-2 text-[10px] text-gray-400">{{ formatDate(job.created_at) }}</p>
+                      <p class="mt-2 line-clamp-2 text-xs text-[#6f6252] dark:text-gray-400">{{ job.actual_size || job.requested_size || job.id }}</p>
+                      <p class="mt-2 text-[10px] text-[#8a7a65] dark:text-gray-400">{{ formatDate(job.created_at) }}</p>
                       <div class="mt-2 flex items-end justify-between gap-2">
                         <p class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
                           {{ t('imageWorkbench.preview.syncWait', { time: formatJobWaitTime(job) }) }}
@@ -263,7 +289,7 @@
                         </div>
                       </div>
                     </button>
-                    <div class="flex justify-end border-t border-gray-100 px-3 py-2 dark:border-dark-700">
+                    <div class="flex justify-end border-t border-dashed border-[#efe2cb] px-3 py-2 dark:border-dark-700">
                       <button
                         class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50 dark:disabled:border-dark-700 dark:disabled:bg-dark-900 dark:disabled:text-gray-600"
                         type="button"
@@ -282,25 +308,41 @@
                 </div>
               </aside>
             </div>
+            </div>
           </div>
 
-          <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
-            <div class="mb-3 flex items-center justify-between">
-              <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.library.title') }}</h2>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.library.subtitle') }}</p>
+          <div class="card overflow-hidden p-0">
+            <div class="journal-card-band flex items-center justify-between px-5 py-3.5">
+              <div class="flex items-center gap-2.5">
+                <span class="journal-icon-well journal-icon-well--sm">
+                  <CraftIcon name="layers" size="xs" />
+                </span>
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <h2 class="journal-section-title text-lg font-extrabold text-[#221d17] dark:text-white">{{ t('imageWorkbench.library.title') }}</h2>
+                    <CraftSparks variant="right" size="sm" />
+                  </div>
+                  <p class="mt-0.5 text-xs font-medium text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.library.subtitle') }}</p>
+                </div>
               </div>
-              <span class="text-sm text-gray-400">{{ completedJobs.length }}</span>
+              <span class="rounded-full bg-[#ffe6d1] px-2.5 py-0.5 text-xs font-extrabold text-[#b45309] dark:bg-primary-950/50 dark:text-primary-300">{{ completedJobs.length }}</span>
             </div>
-            <div v-if="completedJobs.length === 0" class="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-400 dark:border-dark-600">
-              {{ t('imageWorkbench.library.empty') }}
+            <div class="p-4">
+            <div v-if="completedJobs.length === 0" class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#dcc6a4] bg-[#fffaf0]/80 p-8 text-center dark:border-dark-600 dark:bg-dark-800/40">
+              <div class="relative mb-3 inline-flex">
+                <div class="journal-icon-well -rotate-3">
+                  <CraftIcon name="palette" size="lg" />
+                </div>
+                <CraftSparks variant="right" size="sm" class="ml-1 self-start" />
+              </div>
+              <p class="text-sm font-bold text-[#4e4336] dark:text-gray-400">{{ t('imageWorkbench.library.empty') }}</p>
             </div>
             <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <article v-for="job in completedJobs" :key="job.id" class="group overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-900">
+              <article v-for="job in completedJobs" :key="job.id" class="group overflow-hidden rounded-2xl border border-[#e3d2b6] bg-[#fffdf8] shadow-[0_4px_0_rgba(143,108,65,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_7px_0_rgba(143,108,65,0.12)] dark:border-dark-700 dark:bg-dark-900">
                 <button class="block w-full text-left" type="button" :aria-label="t('imageWorkbench.actions.previewArtwork', { name: jobDisplayName(job) })" @click="previewArtwork(job)">
-                  <div class="aspect-square overflow-hidden bg-gray-100 dark:bg-dark-800">
+                  <div class="aspect-square overflow-hidden bg-[#f9f1e1] dark:bg-dark-800">
                     <img v-if="previewURLs[job.id]" :src="previewURLs[job.id]" :alt="jobDisplayName(job)" class="h-full w-full object-cover transition group-hover:scale-105" />
-                    <span v-else class="flex h-full items-center justify-center text-xs text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</span>
+                    <span v-else class="flex h-full items-center justify-center text-xs text-[#7b6b57] dark:text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</span>
                   </div>
                 </button>
                 <div class="p-3">
@@ -312,15 +354,15 @@
                     </div>
                   </form>
                   <template v-else>
-                    <button class="block w-full truncate text-left text-xs font-semibold text-gray-800 hover:text-blue-600 dark:text-gray-200 dark:hover:text-blue-300" type="button" @click="previewArtwork(job)">{{ jobDisplayName(job) }}</button>
+                    <button class="block w-full truncate text-left text-xs font-bold text-[#221d17] hover:text-[#c26328] dark:text-gray-200 dark:hover:text-blue-300" type="button" @click="previewArtwork(job)">{{ jobDisplayName(job) }}</button>
                     <div class="mt-2 flex items-end justify-between gap-2">
-                      <p class="min-w-0 truncate text-[10px] text-gray-400">{{ job.actual_size || job.requested_size }}</p>
+                      <p class="min-w-0 truncate text-[10px] text-[#8a7a65] dark:text-gray-400">{{ job.actual_size || job.requested_size }}</p>
                       <div class="flex shrink-0 items-center gap-1 text-[10px] font-semibold" :data-testid="`library-metadata-${job.id}`">
                         <span class="rounded-full bg-violet-50 px-2 py-0.5 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300">{{ t('imageWorkbench.metadata.resolution', { value: jobResolution(job) }) }}</span>
                         <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{{ t('imageWorkbench.metadata.quality', { value: jobQuality(job) }) }}</span>
                       </div>
                     </div>
-                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-200 pt-3 dark:border-dark-700">
+                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-dashed border-[#e8dac0] pt-3 dark:border-dark-700">
                       <button class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70" type="button" :data-testid="`rename-work-${job.id}`" @click="startRename(job)">
                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" d="m16.86 4.49 1.69-1.69a1.88 1.88 0 1 1 2.65 2.65L10.58 16.07a4.5 4.5 0 0 1-1.9 1.13l-2.68.8.8-2.68a4.5 4.5 0 0 1 1.13-1.9L16.86 4.5Zm0 0L19.5 7.13M18 14v4.75A2.25 2.25 0 0 1 15.75 21h-10.5A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
@@ -338,43 +380,44 @@
                 </div>
               </article>
             </div>
+            </div>
           </div>
         </section>
       </div>
     </div>
 
-    <div v-if="previewingJob" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" data-testid="artwork-preview" @click.self="closeArtworkPreview">
-      <section class="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-dark-800" role="dialog" aria-modal="true" :aria-label="jobDisplayName(previewingJob)">
-        <header class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-dark-700 sm:px-5">
+    <div v-if="previewingJob" class="fixed inset-0 z-50 flex items-center justify-center bg-[#231d17]/75 p-4 backdrop-blur-sm" data-testid="artwork-preview" @click.self="closeArtworkPreview">
+      <section class="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[#e3d2b6] bg-[#fffdf8] shadow-2xl dark:border-dark-700 dark:bg-dark-800" role="dialog" aria-modal="true" :aria-label="jobDisplayName(previewingJob)">
+        <header class="journal-card-band flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
           <div class="min-w-0">
-            <h2 class="truncate text-lg font-semibold text-gray-900 dark:text-white">{{ jobDisplayName(previewingJob) }}</h2>
-            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ previewingJob.actual_size || previewingJob.requested_size }}</p>
+            <h2 class="truncate text-lg font-extrabold text-[#221d17] dark:text-white">{{ jobDisplayName(previewingJob) }}</h2>
+            <p class="mt-0.5 text-xs font-medium text-[#6f6252] dark:text-gray-400">{{ previewingJob.actual_size || previewingJob.requested_size }}</p>
           </div>
           <div class="flex shrink-0 items-center gap-2">
             <button class="btn btn-secondary btn-sm" type="button" @click="downloadResult(previewingJob)">{{ t('imageWorkbench.actions.downloadCurrent') }}</button>
             <button class="btn btn-secondary btn-sm" type="button" :aria-label="t('imageWorkbench.actions.closePreview')" @click="closeArtworkPreview">×</button>
           </div>
         </header>
-        <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[linear-gradient(135deg,#f8fafc_25%,#eef2f7_25%,#eef2f7_50%,#f8fafc_50%,#f8fafc_75%,#eef2f7_75%)] bg-[length:28px_28px] p-4 dark:bg-dark-900 sm:p-6">
+        <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[linear-gradient(135deg,#fdf7eb_25%,#f5ecdc_25%,#f5ecdc_50%,#fdf7eb_50%,#fdf7eb_75%,#f5ecdc_75%)] bg-[length:28px_28px] p-4 dark:bg-dark-900 sm:p-6">
           <img v-if="previewURLs[previewingJob.id]" :src="previewURLs[previewingJob.id]" :alt="jobDisplayName(previewingJob)" class="max-h-[78vh] max-w-full rounded-xl object-contain shadow-lg" />
-          <p v-else class="text-sm text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</p>
+          <p v-else class="text-sm text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</p>
         </div>
       </section>
     </div>
 
-    <div v-if="editor.open" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" @keydown.esc="closeEditor">
-      <section class="flex max-h-[94vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-dark-800">
-        <header class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-dark-700">
+    <div v-if="editor.open" class="fixed inset-0 z-50 flex items-center justify-center bg-[#231d17]/75 p-4" @keydown.esc="closeEditor">
+      <section class="flex max-h-[94vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-2xl border border-[#e3d2b6] bg-[#fffdf8] shadow-2xl dark:border-dark-700 dark:bg-dark-800">
+        <header class="journal-card-band flex items-center justify-between px-5 py-4">
           <div>
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('imageWorkbench.editor.title') }}</h2>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.editor.subtitle') }}</p>
+            <h2 class="text-xl font-extrabold text-[#221d17] dark:text-white">{{ t('imageWorkbench.editor.title') }}</h2>
+            <p class="mt-1 text-xs font-medium text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.editor.subtitle') }}</p>
           </div>
           <button class="btn btn-secondary btn-sm" aria-label="Close" @click="closeEditor">×</button>
         </header>
 
         <div class="grid min-h-0 flex-1 gap-4 overflow-auto p-4 lg:grid-cols-[minmax(0,1fr)_380px]">
-          <div class="flex min-h-[420px] items-center justify-center rounded-xl bg-gray-100 p-4 dark:bg-dark-900">
-            <div class="relative w-full max-w-[900px] overflow-hidden rounded-lg bg-white shadow-sm dark:bg-dark-800" :style="editorStageStyle">
+          <div class="flex min-h-[420px] items-center justify-center rounded-xl border border-[#e3d2b6] bg-[#f8efe0] p-4 dark:border-dark-700 dark:bg-dark-900">
+            <div class="relative w-full max-w-[900px] overflow-hidden rounded-lg bg-[#fffdf8] shadow-sm dark:bg-dark-800" :style="editorStageStyle">
               <img ref="editorImageRef" :src="editor.originalDataURL" alt="editing image" class="absolute inset-0 h-full w-full object-contain" @load="setupEditorCanvas" />
               <canvas
                 ref="editorCanvasRef"
@@ -388,13 +431,13 @@
             </div>
           </div>
 
-          <aside class="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-900/60">
+          <aside class="flex flex-col rounded-xl border border-[#e3d2b6] bg-[#fffaf0]/90 p-4 dark:border-dark-700 dark:bg-dark-900/60">
             <div class="grid grid-cols-2 gap-2">
-              <button class="btn btn-primary" :class="{ 'ring-2 ring-blue-300': editor.mode === 'brush' }" @click="editor.mode = 'brush'">{{ t('imageWorkbench.editor.brush') }}</button>
+              <button class="btn btn-primary" :class="{ 'ring-2 ring-amber-300': editor.mode === 'brush' }" @click="editor.mode = 'brush'">{{ t('imageWorkbench.editor.brush') }}</button>
               <button class="btn btn-secondary" @click="clearEditorMarks">{{ t('imageWorkbench.editor.clear') }}</button>
             </div>
-            <label class="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('imageWorkbench.editor.brushSize') }} · {{ editor.brushSize }}px</label>
-            <input v-model.number="editor.brushSize" class="mt-2 w-full accent-blue-500" type="range" min="8" max="160" step="4" />
+            <label class="mt-4 text-sm font-medium text-[#4e4336] dark:text-gray-300">{{ t('imageWorkbench.editor.brushSize') }} · {{ editor.brushSize }}px</label>
+            <input v-model.number="editor.brushSize" class="mt-2 w-full accent-[#e5894b]" type="range" min="8" max="160" step="4" />
             <label class="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('imageWorkbench.editor.prompt') }}</label>
             <textarea v-model="editor.prompt" class="input mt-2 min-h-44 resize-y bg-white dark:bg-dark-800" :placeholder="t('imageWorkbench.editor.promptPlaceholder')" maxlength="12000" />
             <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ t('imageWorkbench.editor.hint') }}</p>
@@ -416,6 +459,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
+import JournalBannerSticker from '@/components/craft/JournalBannerSticker.vue'
 import { imageWorkbenchAPI, keysAPI } from '@/api'
 import type { ImageWorkbenchCostEstimate, ImageWorkbenchJob, ImageWorkbenchModel, ImageWorkbenchQuality, ImageWorkbenchStatus } from '@/api'
 import type { ApiKey } from '@/types'

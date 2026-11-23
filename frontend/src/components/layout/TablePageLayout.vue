@@ -60,7 +60,9 @@ onUnmounted(() => {
 
 /* 表格滚动容器 - 增强版表体滚动方案 */
 .table-scroll-container {
-  @apply flex flex-col overflow-hidden h-full bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-dark-700 shadow-sm;
+  @apply flex flex-col overflow-hidden h-full rounded-[20px] shadow-sm;
+  background-color: var(--craft-surface, #fffdf8);
+  border: 1px solid var(--craft-border, #e6d7be);
 }
 
 .table-scroll-container :deep(.table-wrapper) {
@@ -76,7 +78,8 @@ onUnmounted(() => {
 }
 
 .table-scroll-container :deep(thead) {
-  @apply bg-gray-50/80 dark:bg-dark-800/80 backdrop-blur-sm;
+  background-color: var(--craft-surface-header, #f7ead2);
+  @apply backdrop-blur-sm;
 }
 
 .table-scroll-container :deep(tbody) {
@@ -84,11 +87,15 @@ onUnmounted(() => {
 }
 
 .table-scroll-container :deep(th) {
-  @apply px-5 py-4 text-left text-sm font-medium text-gray-600 dark:text-dark-300 border-b border-gray-200 dark:border-dark-700;
+  @apply px-5 py-4 text-left text-sm font-medium;
+  color: var(--craft-ink, #27221d);
+  border-bottom: 1px solid var(--craft-border, #e6d7be);
 }
 
 .table-scroll-container :deep(td) {
-  @apply px-5 py-4 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-dark-800;
+  @apply px-5 py-4 text-sm;
+  color: var(--craft-ink-soft, #4c4237);
+  border-bottom: 1px solid var(--craft-border, #e6d7be);
 }
 
 /* 移动端：恢复正常滚动 */

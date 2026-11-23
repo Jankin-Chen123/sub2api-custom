@@ -15,17 +15,18 @@
     </template>
 
     <template v-else-if="!data || data.length === 0">
-      <div class="rounded-lg border border-gray-200 bg-white p-12 text-center dark:border-dark-700 dark:bg-dark-900">
+      <div class="rounded-2xl border-[1.5px] border-dashed border-[var(--craft-border-strong)] bg-[var(--craft-surface-muted)]/60 p-10 text-center">
         <slot name="empty">
           <div class="flex flex-col items-center">
-            <Icon
-              name="inbox"
-              size="xl"
-              class="mb-4 h-12 w-12 text-gray-400 dark:text-dark-500"
-            />
-            <p class="text-lg font-medium text-gray-900 dark:text-gray-100">
-              {{ t('empty.noData') }}
-            </p>
+            <div class="mb-4 flex h-16 w-16 -rotate-3 items-center justify-center rounded-2xl border border-[var(--craft-border-strong)] bg-[var(--craft-surface-warm)] shadow-sm dark:bg-[#232838]">
+              <CraftIcon name="inbox" size="lg" />
+            </div>
+            <div class="flex items-center gap-1">
+              <p class="text-base font-extrabold text-[var(--craft-ink)]">
+                {{ t('empty.noData') }}
+              </p>
+              <CraftSparks variant="right" size="sm" />
+            </div>
           </div>
         </slot>
       </div>
@@ -183,18 +184,19 @@
         <tr v-else-if="!data || data.length === 0">
           <td
             :colspan="tableColumnCount"
-            :class="['py-12 text-center text-gray-500 dark:text-dark-400', getAdaptivePaddingClass()]"
+            :class="['py-12 text-center text-[var(--craft-muted)]', getAdaptivePaddingClass()]"
           >
             <slot name="empty">
-              <div class="flex flex-col items-center">
-                <Icon
-                  name="inbox"
-                  size="xl"
-                  class="mb-4 h-12 w-12 text-gray-400 dark:text-dark-500"
-                />
-                <p class="text-lg font-medium text-gray-900 dark:text-gray-100">
-                  {{ t('empty.noData') }}
-                </p>
+              <div class="mx-auto flex max-w-sm flex-col items-center rounded-2xl border-[1.5px] border-dashed border-[var(--craft-border-strong)] bg-[var(--craft-surface-muted)]/60 px-6 py-8">
+                <div class="mb-3 flex h-14 w-14 -rotate-3 items-center justify-center rounded-2xl border border-[var(--craft-border-strong)] bg-[var(--craft-surface-warm)] shadow-sm dark:bg-[#232838]">
+                  <CraftIcon name="inbox" size="lg" />
+                </div>
+                <div class="flex items-center gap-1">
+                  <p class="text-base font-extrabold text-[var(--craft-ink)]">
+                    {{ t('empty.noData') }}
+                  </p>
+                  <CraftSparks variant="right" size="sm" />
+                </div>
               </div>
             </slot>
           </td>
@@ -267,7 +269,8 @@ import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useVirtualizer, observeElementRect as observeElementRectDefault } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
 import type { Column } from './types'
-import Icon from '@/components/icons/Icon.vue'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
 
 const { t } = useI18n()
 
@@ -1025,20 +1028,20 @@ defineExpose({
 
 /* 表体 sticky 列背景 */
 tbody .sticky-col {
-  background-color: white;
+  background-color: var(--craft-surface, #fffdf8);
 }
 
 .dark tbody .sticky-col {
-  background-color: rgb(17 24 39);
+  background-color: var(--craft-surface, #1d2230);
 }
 
 /* hover 状态保持 */
 tbody tr:hover .sticky-col {
-  background-color: rgb(249 250 251);
+  background-color: var(--craft-surface-hover, #f7edda);
 }
 
 .dark tbody tr:hover .sticky-col {
-  background-color: rgb(31 41 55);
+  background-color: var(--craft-surface-hover, #283044);
 }
 
 /* 阴影只在可滚动时显示 */

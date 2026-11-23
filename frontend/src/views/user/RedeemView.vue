@@ -1,21 +1,84 @@
 <template>
   <AppLayout>
     <div class="mx-auto max-w-6xl space-y-6">
-      <!-- Current Balance Card -->
-      <div class="card overflow-hidden">
-        <div class="bg-gradient-to-br from-primary-500 to-primary-600 px-6 py-8 text-center">
-          <div
-            class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm"
+      <!-- Current Balance Card (Handcrafted Stitched Wallet Banner) -->
+      <div class="journal-banner-sky group relative overflow-visible rounded-[22px] p-2.5 sm:p-3">
+        <!-- Handcrafted Watercolor Clouds & Confetti Accent -->
+        <div
+          class="redeem-banner-decor pointer-events-none absolute inset-0 overflow-hidden rounded-[22px]"
+          aria-hidden="true"
+        >
+          <span class="redeem-cloud redeem-cloud--top" />
+          <span class="redeem-cloud redeem-cloud--bottom" />
+          <svg
+            class="redeem-confetti hidden sm:block"
+            viewBox="0 0 120 72"
+            fill="none"
           >
-            <Icon name="creditCard" size="xl" class="text-white" />
+            <circle cx="20" cy="24" r="4" fill="#ffffff" fill-opacity="0.72" />
+            <circle cx="58" cy="14" r="3" fill="#ffe27a" fill-opacity="0.92" />
+            <circle cx="88" cy="48" r="3.5" fill="#ffd1b3" fill-opacity="0.92" />
+            <path
+              d="M42 46L44.2 50.8L49 53L44.2 55.2L42 60L39.8 55.2L35 53L39.8 50.8L42 46Z"
+              fill="#ffe27a"
+              fill-opacity="0.88"
+            />
+          </svg>
+        </div>
+
+        <div class="journal-banner-stitch relative flex flex-col gap-4 rounded-[16px] px-4 py-4 sm:px-6 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
+          <div class="flex min-w-0 items-center gap-3.5 sm:gap-4">
+            <JournalBannerSticker name="gift" size="lg" />
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <h1 class="truncate text-xl font-black tracking-tight text-[#124a78] dark:text-[#eef7ff] sm:text-2xl">
+                  {{ t('redeem.title') }}
+                </h1>
+                <CraftSparks variant="right" size="sm" />
+              </div>
+              <p class="mt-0.5 line-clamp-2 text-xs font-semibold text-[#265f8c] dark:text-[#b2dcfa] sm:text-sm">
+                {{ t('redeem.description') }}
+              </p>
+            </div>
           </div>
-          <p class="text-sm font-medium text-primary-100">{{ t('redeem.currentBalance') }}</p>
-          <p class="mt-2 text-4xl font-bold text-white">
-            ${{ user?.balance?.toFixed(2) || '0.00' }}
-          </p>
-          <p class="mt-2 text-sm text-primary-100">
-            {{ t('redeem.concurrency') }}: {{ user?.concurrency || 0 }} {{ t('redeem.requests') }}
-          </p>
+
+          <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:flex lg:shrink-0 lg:items-stretch lg:gap-3">
+            <div
+              data-testid="redeem-balance-ticket"
+              class="redeem-stat-ticket flex items-center gap-3 rounded-[16px] px-4 py-2.5 lg:min-w-[186px]"
+            >
+              <span class="redeem-stat-well redeem-stat-well--balance flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+                <CraftIcon name="wallet" size="sm" />
+              </span>
+              <div class="min-w-0">
+                <p class="text-[11px] font-bold tracking-wide text-[#7c6a56] dark:text-[#9fc8e8]">
+                  {{ t('redeem.currentBalance') }}
+                </p>
+                <p class="mt-0.5 flex items-baseline gap-0.5 font-black tracking-tight tabular-nums text-[#147a57] dark:text-emerald-300">
+                  <span class="text-base font-extrabold text-[#2b9a72] dark:text-emerald-400">$</span>
+                  <span class="text-2xl leading-none">{{ user?.balance?.toFixed(2) || '0.00' }}</span>
+                </p>
+              </div>
+            </div>
+
+            <div
+              data-testid="redeem-concurrency-ticket"
+              class="redeem-stat-ticket flex items-center gap-3 rounded-[16px] px-4 py-2.5 lg:min-w-[164px]"
+            >
+              <span class="redeem-stat-well redeem-stat-well--concurrency flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+                <CraftIcon name="bolt" size="sm" />
+              </span>
+              <div class="min-w-0">
+                <p class="text-[11px] font-bold tracking-wide text-[#7c6a56] dark:text-[#9fc8e8]">
+                  {{ t('redeem.concurrency') }}
+                </p>
+                <p class="mt-0.5 flex items-baseline gap-1 tracking-tight tabular-nums">
+                  <span class="text-2xl font-black leading-none text-[#1d6fb3] dark:text-[#7cc7f9]">{{ user?.concurrency || 0 }}</span>
+                  <span class="text-xs font-bold text-[#607a91] dark:text-[#9fc8e8]">{{ t('redeem.requests') }}</span>
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -240,22 +303,18 @@
       </div>
 
       <!-- Information Card -->
-      <div
-        class="card border-primary-200 bg-primary-50 dark:border-primary-800/50 dark:bg-primary-900/20"
-      >
+      <div class="card journal-callout-sky">
         <div class="p-6">
           <div class="flex items-start gap-4">
-            <div
-              class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary-100 dark:bg-primary-900/30"
-            >
-              <Icon name="infoCircle" size="md" class="text-primary-600 dark:text-primary-400" />
+            <div class="journal-icon-well--sm text-[var(--craft-sky-deep)]">
+              <Icon name="infoCircle" size="md" />
             </div>
             <div class="flex-1">
-              <h3 class="text-sm font-semibold text-primary-800 dark:text-primary-300">
+              <h3 class="text-sm font-bold text-[var(--craft-ink)]">
                 {{ t('redeem.aboutCodes') }}
               </h3>
               <ul
-                class="mt-2 list-inside list-disc space-y-1 text-sm text-primary-700 dark:text-primary-400"
+                class="mt-2 list-inside list-disc space-y-1 text-sm text-[var(--craft-ink-soft)]"
               >
                 <li>{{ t('redeem.codeRule1') }}</li>
                 <li>{{ t('redeem.codeRule2') }}</li>
@@ -263,7 +322,7 @@
                   {{ t('redeem.codeRule3') }}
                   <span
                     v-if="contactInfo"
-                    class="ml-1.5 inline-flex items-center rounded-md bg-primary-200/50 px-2 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-800/40 dark:text-primary-200"
+                    class="ml-1.5 inline-flex items-center rounded-md border border-[var(--craft-border)] bg-[var(--craft-surface)] px-2 py-0.5 text-xs font-medium text-[var(--craft-sky-deep)]"
                   >
                     {{ contactInfo }}
                   </span>
@@ -296,6 +355,9 @@ import {
 import type { PaymentOrder } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
+import JournalBannerSticker from '@/components/craft/JournalBannerSticker.vue'
 import DailyCheckinWheel from '@/components/user/checkin/DailyCheckinWheel.vue'
 import { formatDateTime } from '@/utils/format'
 
@@ -468,6 +530,103 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.redeem-cloud {
+  position: absolute;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.28);
+  filter: blur(1px);
+}
+
+.redeem-cloud--top {
+  right: 32%;
+  top: -36px;
+  height: 112px;
+  width: 112px;
+}
+
+.redeem-cloud--bottom {
+  right: 43%;
+  bottom: -44px;
+  height: 96px;
+  width: 96px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+:global(.dark) .redeem-cloud {
+  background: rgba(124, 199, 249, 0.08);
+}
+
+:global(.dark) .redeem-cloud--bottom {
+  background: rgba(124, 199, 249, 0.05);
+}
+
+.redeem-confetti {
+  position: absolute;
+  left: 44%;
+  top: 50%;
+  height: 72px;
+  width: 120px;
+  transform: translate(-50%, -50%);
+  opacity: 0.9;
+}
+
+.redeem-stat-ticket {
+  background: rgba(255, 253, 248, 0.96);
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 3px 0 rgba(34, 102, 154, 0.16),
+    0 8px 18px rgba(34, 102, 154, 0.12);
+  transition:
+    transform 200ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 200ms ease;
+}
+
+:global(.dark) .redeem-stat-ticket {
+  background: rgba(20, 38, 56, 0.88);
+  border-color: rgba(124, 199, 249, 0.26);
+  box-shadow:
+    0 3px 0 rgba(7, 15, 26, 0.45),
+    0 8px 18px rgba(0, 0, 0, 0.24);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .redeem-stat-ticket:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.redeem-stat-well--balance {
+  background: #e6f7ef;
+  border: 1px solid #bee7d4;
+}
+
+:global(.dark) .redeem-stat-well--balance {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.redeem-stat-well--concurrency {
+  background: #fff3dc;
+  border: 1px solid #f0d39d;
+}
+
+:global(.dark) .redeem-stat-well--concurrency {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.redeem-stat-well svg.craft-icon {
+  width: 26px;
+  height: 26px;
+  transform: scale(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .redeem-stat-ticket {
+    transition: none;
+  }
+}
+
 .fade-enter-active,
 .fade-leave-active {
   transition: all 0.3s ease;

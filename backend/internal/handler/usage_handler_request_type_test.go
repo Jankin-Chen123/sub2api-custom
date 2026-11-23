@@ -24,6 +24,8 @@ type userUsageRepoCapture struct {
 	groupFilters usagestats.UsageLogFilters
 	listRows     []service.UsageLog
 	stats        *usagestats.UsageStats
+	modelStart   time.Time
+	modelEnd     time.Time
 	modelStats   []usagestats.ModelStat
 	groupStats   []usagestats.GroupStat
 }
@@ -62,6 +64,7 @@ func (s *userUsageRepoCapture) GetUsageTrendWithFilters(ctx context.Context, sta
 }
 
 func (s *userUsageRepoCapture) GetModelStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, requestType *int16, stream *bool, billingType *int8) ([]usagestats.ModelStat, error) {
+	s.modelStart, s.modelEnd = startTime, endTime
 	return s.modelStats, nil
 }
 
@@ -92,6 +95,19 @@ func newUserUsageRequestTypeTestRouter(repo *userUsageRepoCapture) *gin.Engine {
 	router.GET("/usage/dashboard/models", handler.DashboardModels)
 	router.GET("/usage/dashboard/snapshot-v2", handler.DashboardSnapshotV2)
 	return router
+}
+
+func TestUserUsageDashboardRolling24Hours(t *testing.T) {
+	repo := &userUsageRepoCapture{}
+	router := newUserUsageRequestTypeTestRouter(repo)
+	rec := httptest.NewRecorder()
+	before := time.Now()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/usage/dashboard/models?period=24h&timezone=Asia%2FShanghai", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, 24*time.Hour, repo.modelEnd.Sub(repo.modelStart))
+	require.False(t, repo.modelEnd.Before(before))
+	require.False(t, repo.modelEnd.After(time.Now()))
+	require.Contains(t, rec.Body.String(), `"end_date":"`+repo.modelEnd.Add(-time.Nanosecond).Format("2006-01-02")+`"`)
 }
 
 func TestUserUsageListRequestTypePriority(t *testing.T) {

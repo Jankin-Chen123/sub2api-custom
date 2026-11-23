@@ -1,13 +1,18 @@
 <template>
-  <div class="card">
-    <div class="flex items-start justify-between border-b border-gray-100 px-6 py-4 dark:border-dark-700">
-      <div>
-        <h2 class="text-lg font-medium text-gray-900 dark:text-white">
-          {{ t('profile.passkey.title') }}
-        </h2>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {{ t('profile.passkey.description') }}
-        </p>
+  <div class="card overflow-hidden">
+    <div class="journal-card-band flex items-start justify-between gap-4 px-6 py-4">
+      <div class="flex items-start gap-3">
+        <span class="journal-icon-well journal-icon-well--sm mt-0.5 shrink-0">
+          <CraftIcon name="passkey" size="xs" />
+        </span>
+        <div>
+          <h2 class="journal-section-title text-lg font-extrabold text-[#221d17] dark:text-white">
+            {{ t('profile.passkey.title') }}
+          </h2>
+          <p class="mt-0.5 text-sm text-[#6f6252] dark:text-gray-400">
+            {{ t('profile.passkey.description') }}
+          </p>
+        </div>
       </div>
       <button
         v-if="enabled && supported && !showAddForm"
@@ -179,6 +184,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
 import { passkeyAPI, type PasskeyCredentialSummary } from '@/api'
 import { Icon } from '@/components/icons'
 import { useAppStore } from '@/stores/app'

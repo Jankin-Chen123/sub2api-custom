@@ -1,8 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-dark-950">
-    <!-- Background Decoration -->
-    <div class="pointer-events-none fixed inset-0 bg-mesh-gradient"></div>
-
+  <div class="journal-app min-h-screen">
     <!-- Sidebar -->
     <AppSidebar />
 
@@ -15,7 +12,17 @@
       <AppHeader />
 
       <!-- Main Content -->
-      <main class="p-4 md:p-6 lg:p-8">
+      <main
+        class="journal-page-sheet relative p-4 md:p-6 lg:p-8"
+        :class="{ 'journal-page-sheet--with-rings': !sidebarCollapsed }"
+      >
+        <div v-if="!sidebarCollapsed" class="journal-binder-rings" aria-hidden="true">
+          <span v-for="ring in 5" :key="ring" class="journal-ring-unit">
+            <span class="journal-hole-l" />
+            <span class="journal-ring-arc" />
+            <span class="journal-hole-r" />
+          </span>
+        </div>
         <slot />
       </main>
     </div>

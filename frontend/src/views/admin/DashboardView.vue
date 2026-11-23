@@ -1,6 +1,13 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
+      <JournalPageHeader
+        icon="admin"
+        variant="sky"
+        :title="t('admin.dashboard.title')"
+        :description="t('admin.dashboard.description')"
+      />
+
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <LoadingSpinner />
@@ -10,10 +17,10 @@
         <!-- Row 1: Core Stats -->
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <!-- Total API Keys -->
-          <div class="card p-4">
+          <div class="journal-kpi-warm rounded-[18px] p-4">
             <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30">
-                <Icon name="key" size="md" class="text-blue-600 dark:text-blue-400" :stroke-width="2" />
+              <div class="journal-icon-well journal-icon-well--sm">
+                <CraftIcon name="key" size="sm" />
               </div>
               <div>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -30,10 +37,10 @@
           </div>
 
           <!-- Service Accounts -->
-          <div class="card p-4">
+          <div class="journal-kpi-warm rounded-[18px] p-4">
             <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/30">
-                <Icon name="server" size="md" class="text-purple-600 dark:text-purple-400" :stroke-width="2" />
+              <div class="journal-icon-well journal-icon-well--sm">
+                <CraftIcon name="server" size="sm" />
               </div>
               <div>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -55,10 +62,10 @@
           </div>
 
           <!-- Today Requests -->
-          <div class="card p-4">
+          <div class="journal-kpi-warm rounded-[18px] p-4">
             <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
-                <Icon name="chart" size="md" class="text-green-600 dark:text-green-400" :stroke-width="2" />
+              <div class="journal-icon-well journal-icon-well--sm">
+                <CraftIcon name="calendar" size="sm" />
               </div>
               <div>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -75,10 +82,10 @@
           </div>
 
           <!-- New Users Today -->
-          <div class="card p-4">
+          <div class="journal-kpi-warm rounded-[18px] p-4">
             <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-900/30">
-                <Icon name="userPlus" size="md" class="text-emerald-600 dark:text-emerald-400" :stroke-width="2" />
+              <div class="journal-icon-well journal-icon-well--sm">
+                <CraftIcon name="users" size="sm" />
               </div>
               <div>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -98,10 +105,10 @@
         <!-- Row 2: Token Stats -->
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <!-- Today Tokens -->
-          <div class="card p-4">
+          <div class="journal-kpi-warm rounded-[18px] p-4">
             <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/30">
-                <Icon name="cube" size="md" class="text-amber-600 dark:text-amber-400" :stroke-width="2" />
+              <div class="journal-icon-well journal-icon-well--sm">
+                <CraftIcon name="layers" size="sm" />
               </div>
               <div>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -134,10 +141,10 @@
           </div>
 
           <!-- Total Tokens -->
-          <div class="card p-4">
+          <div class="journal-kpi-warm rounded-[18px] p-4">
             <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-indigo-100 p-2 dark:bg-indigo-900/30">
-                <Icon name="database" size="md" class="text-indigo-600 dark:text-indigo-400" :stroke-width="2" />
+              <div class="journal-icon-well journal-icon-well--sm">
+                <CraftIcon name="bars" size="sm" />
               </div>
               <div>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -170,10 +177,10 @@
           </div>
 
           <!-- Performance (RPM/TPM) -->
-          <div class="card p-4">
+          <div class="journal-kpi-warm rounded-[18px] p-4">
             <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-violet-100 p-2 dark:bg-violet-900/30">
-                <Icon name="bolt" size="md" class="text-violet-600 dark:text-violet-400" :stroke-width="2" />
+              <div class="journal-icon-well journal-icon-well--sm">
+                <CraftIcon name="bolt" size="sm" />
               </div>
               <div class="flex-1">
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -196,10 +203,10 @@
           </div>
 
           <!-- Avg Response Time -->
-          <div class="card p-4">
+          <div class="journal-kpi-warm rounded-[18px] p-4">
             <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-rose-100 p-2 dark:bg-rose-900/30">
-                <Icon name="clock" size="md" class="text-rose-600 dark:text-rose-400" :stroke-width="2" />
+              <div class="journal-icon-well journal-icon-well--sm">
+                <CraftIcon name="clock" size="sm" />
               </div>
               <div>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -363,6 +370,8 @@ import type {
   UserSpendingRankingItem
 } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import JournalPageHeader from '@/components/craft/JournalPageHeader.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import Icon from '@/components/icons/Icon.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'

@@ -1,8 +1,18 @@
 <template>
   <AppLayout>
     <TablePageLayout>
+      <template #actions>
+        <JournalPageHeader
+          icon="channels"
+          variant="sky"
+          compact
+          :title="t('availableChannels.title')"
+          :description="t('availableChannels.description')"
+        />
+      </template>
+
       <template #filters>
-        <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+        <div class="journal-toolbar-card flex flex-col justify-between gap-4 p-3 lg:flex-row lg:items-center">
           <div class="flex flex-1 flex-wrap items-center gap-3">
             <div class="relative w-full sm:w-80">
               <Icon
@@ -53,6 +63,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
+import JournalPageHeader from '@/components/craft/JournalPageHeader.vue'
 import Icon from '@/components/icons/Icon.vue'
 import AvailableChannelsTable from '@/components/channels/AvailableChannelsTable.vue'
 import userChannelsAPI, { type UserAvailableChannel } from '@/api/channels'

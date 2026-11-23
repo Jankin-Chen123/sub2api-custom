@@ -1,22 +1,28 @@
 <template>
   <div class="space-y-5">
     <!-- 页头(独立形态下展示标题;后台形态 AppHeader 已有页面标题) -->
-    <div v-if="!embedded">
-      <h1 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">{{ t('modelPlaza.title') }}</h1>
-      <p class="mt-1.5 text-sm text-gray-500 dark:text-dark-400">{{ t('modelPlaza.description') }}</p>
+    <div v-if="!embedded" class="flex items-center gap-3.5">
+      <JournalBannerSticker name="sparkles" size="sm" />
+      <div class="min-w-0">
+        <div class="flex items-center gap-1.5">
+          <h1 class="text-2xl font-black tracking-tight text-[var(--craft-ink)] sm:text-3xl">{{ t('modelPlaza.title') }}</h1>
+          <CraftSparks variant="right" size="sm" />
+        </div>
+        <p class="mt-1 text-sm text-[var(--craft-muted)]">{{ t('modelPlaza.description') }}</p>
+      </div>
     </div>
 
     <!-- 全局价格说明(管理员配置,Markdown) -->
     <div
       v-if="descriptionHtml"
-      class="plaza-description rounded-2xl border border-gray-100 bg-white px-5 py-4 text-sm shadow-card dark:border-dark-700/50 dark:bg-dark-800/50"
+      class="card plaza-description px-5 py-4 text-sm"
       v-html="descriptionHtml"
     ></div>
 
     <!-- 未登录提示 -->
     <p
       v-if="!isAuthenticated"
-      class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-dark-500"
+      class="flex items-center gap-1.5 text-xs text-[var(--craft-muted)]"
     >
       <Icon name="infoCircle" size="xs" class="h-3.5 w-3.5" />
       {{ t('modelPlaza.anonymousHint') }}
@@ -24,7 +30,7 @@
 
     <!-- 加载/错误/空 -->
     <div v-if="loading" class="flex min-h-[240px] items-center justify-center">
-      <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary-600/25 border-t-primary-600 dark:border-primary-400/25 dark:border-t-primary-400"></div>
+      <div class="h-8 w-8 animate-spin rounded-full border-2 border-[var(--craft-sky-deep)]/25 border-t-[var(--craft-sky-deep)]"></div>
     </div>
     <div
       v-else-if="error"
@@ -54,7 +60,7 @@
       </div>
       <div
         v-else
-        class="rounded-2xl border border-dashed border-gray-300 px-5 py-12 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-dark-400"
+        class="rounded-2xl border border-dashed border-[var(--craft-border-strong)] bg-[var(--craft-surface-muted)] px-5 py-12 text-center text-sm text-[var(--craft-muted)]"
       >
         {{ searchActive ? t('modelPlaza.noSearchResult') : t('modelPlaza.empty') }}
       </div>
@@ -68,6 +74,8 @@ import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import Icon from '@/components/icons/Icon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
+import JournalBannerSticker from '@/components/craft/JournalBannerSticker.vue'
 import PlazaFilterBar from './PlazaFilterBar.vue'
 import PlazaGroupSection from './PlazaGroupSection.vue'
 import type { ModelPlazaGroup, ModelPlazaResponse } from '@/api/modelPlaza'

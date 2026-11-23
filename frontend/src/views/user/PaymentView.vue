@@ -27,21 +27,41 @@
         <!-- Recharge content -->
         <template v-else>
           <!-- Online Recharge -->
-            <!-- Recharge Account Card -->
-            <div class="card p-5">
-              <p class="text-xs font-medium text-gray-400 dark:text-gray-500">{{ t('payment.rechargeAccount') }}</p>
-              <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
-              <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
+            <!-- Recharge Account Card (Stitched Cotton Wallet Banner) -->
+            <div class="journal-banner-sky group relative overflow-visible rounded-[22px] p-3">
+              <div class="journal-banner-stitch relative flex items-center gap-3 rounded-[16px] px-3 py-4 sm:gap-5 sm:pl-6 sm:pr-20">
+                <JournalBannerSticker name="recharge" size="lg" />
+                <div class="min-w-0">
+                  <p class="text-xs font-bold tracking-wide text-[#24435c] dark:text-[#b6defa]">
+                    {{ t('payment.currentBalance') }}
+                  </p>
+                  <p class="break-all text-3xl font-black tracking-tight tabular-nums text-[#201c18] dark:text-white sm:text-4xl">
+                    ${{ user?.balance?.toFixed(2) || '0.00' }}
+                  </p>
+                  <p class="mt-1 text-xs leading-relaxed text-[#24435c] dark:text-[#b6defa]">
+                    {{ t('payment.rechargeAccount') }}
+                    <span class="break-all font-semibold">{{ user?.username || '' }}</span>
+                  </p>
+                </div>
+                <span class="pointer-events-none absolute right-5 top-4 hidden sm:block" aria-hidden="true">
+                  <CraftSparks variant="sticker" size="md" />
+                </span>
+              </div>
             </div>
-            <div v-if="campaignFirstRechargeVisible" class="rounded-xl border border-primary-200 bg-primary-50 p-4 dark:border-primary-900/40 dark:bg-primary-900/20" data-test="campaign-recharge-prompt">
-              <p class="text-sm font-semibold text-primary-800 dark:text-primary-200">{{ t('campaign.firstRechargeTitle') }}</p>
-              <p class="mt-1 text-xs text-primary-700 dark:text-primary-300">{{ t('payment.rechargeBonus.firstRechargeDescription', { amount: '$' + (campaignStatus?.first_recharge.reward_amount ?? 0).toFixed(2) }) }}</p>
+            <div v-if="campaignFirstRechargeVisible" class="card journal-callout-sky p-4" data-test="campaign-recharge-prompt">
+              <p class="text-sm font-bold text-[var(--craft-ink)]">{{ t('campaign.firstRechargeTitle') }}</p>
+              <p class="mt-1 text-xs text-[var(--craft-ink-soft)]">{{ t('payment.rechargeBonus.firstRechargeDescription', { amount: '$' + (campaignStatus?.first_recharge.reward_amount ?? 0).toFixed(2) }) }}</p>
             </div>
             <div v-if="checkout.balance_disabled || enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
             </div>
             <template v-else>
-            <div class="card p-6">
+            <div class="card overflow-hidden">
+              <div class="journal-card-band flex items-center gap-2.5 px-6 py-3.5">
+                <CraftIcon name="coins" size="sm" />
+                <h2 class="text-sm font-extrabold text-[var(--craft-ink)]">{{ t('payment.quickAmounts') }}</h2>
+              </div>
+              <div class="p-6">
               <!-- 充值赠送活动文案（后台 Markdown 配置，空则不渲染） -->
               <div
                 v-if="renderedBonusNotice"
@@ -63,15 +83,27 @@
                 :currency="selectedCurrency"
               />
               <p v-if="amountError" class="mt-2 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
+              </div>
             </div>
-            <div v-if="enabledMethods.length >= 1" class="card p-6">
+            <div v-if="enabledMethods.length >= 1" class="card overflow-hidden">
+              <div class="journal-card-band flex items-center gap-2.5 px-6 py-3.5">
+                <CraftIcon name="wallet" size="sm" />
+                <h2 class="text-sm font-extrabold text-[var(--craft-ink)]">{{ t('payment.paymentMethod') }}</h2>
+              </div>
+              <div class="p-6">
               <PaymentMethodSelector
                 :methods="methodOptions"
                 :selected="selectedMethod"
                 @select="selectedMethod = $event"
               />
+              </div>
             </div>
-            <div v-if="validAmount > 0" class="card p-6" data-testid="recharge-settlement">
+            <div v-if="validAmount > 0" class="card overflow-hidden" data-testid="recharge-settlement">
+              <div class="journal-card-band flex items-center gap-2.5 px-6 py-3.5">
+                <CraftIcon name="receipt" size="sm" />
+                <span class="text-sm font-extrabold text-[var(--craft-ink)]">{{ t('payment.creditedBalance') }}</span>
+              </div>
+              <div class="p-6">
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.paymentAmount') }}</span>
@@ -104,6 +136,7 @@
                 <p v-if="balanceRechargeMultiplier !== 1" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
                   {{ t('payment.rechargeRatePreview', { currency: selectedCurrency, usd: formatBalanceRechargeMultiplier(balanceRechargeMultiplier) }) }}
                 </p>
+              </div>
               </div>
             </div>
             <button :class="['btn w-full py-3 text-base font-medium', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
@@ -155,6 +188,9 @@ import type { CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types
 import { formatBalanceRechargeMultiplier, formatRechargeBonusNumber, normalizeRechargeBonusMode, normalizeRechargeBonusTiers } from '@/utils/rechargeBonus'
 import { quoteRechargeSettlement } from '@/utils/rechargeSettlement'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
+import JournalBannerSticker from '@/components/craft/JournalBannerSticker.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
 import { METHOD_ORDER, getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'

@@ -1,24 +1,24 @@
 <template>
-  <div class="min-h-screen bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-white">
-    <header class="border-b border-gray-200 bg-white/95 dark:border-dark-800 dark:bg-dark-900/95">
+  <div class="journal-standalone min-h-screen text-[var(--craft-ink)]">
+    <header class="journal-topbar sticky top-0 z-20">
       <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <RouterLink to="/home" class="flex min-w-0 items-center gap-3">
           <template v-if="settings">
-            <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700">
+            <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--craft-border)] bg-[var(--craft-surface)] shadow-sm">
               <img :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
             </span>
-            <span class="truncate text-base font-semibold text-gray-950 dark:text-white">
+            <span class="truncate text-base font-bold text-[var(--craft-ink)]">
               {{ siteName }}
             </span>
           </template>
           <template v-else>
-            <span class="h-10 w-10 flex-shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-dark-700" aria-hidden="true"></span>
-            <span class="h-5 w-28 animate-pulse rounded bg-gray-200 dark:bg-dark-700" aria-hidden="true"></span>
+            <span class="skeleton h-10 w-10 flex-shrink-0 rounded-xl" aria-hidden="true"></span>
+            <span class="skeleton h-5 w-28 rounded" aria-hidden="true"></span>
           </template>
         </RouterLink>
         <RouterLink
           to="/login"
-          class="inline-flex flex-shrink-0 items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-primary-600/20 transition hover:bg-primary-700"
+          class="btn btn-primary flex-shrink-0 rounded-full px-4 py-2 text-sm font-semibold"
         >
           {{ t('home.login') }}
         </RouterLink>
@@ -27,12 +27,12 @@
 
     <main class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
       <div v-if="loading" class="flex min-h-[320px] items-center justify-center">
-        <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600"></div>
+        <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-[var(--craft-sky-deep)]"></div>
       </div>
 
       <section
         v-else-if="loadError"
-        class="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+        class="card border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
       >
         <h1 class="text-lg font-semibold">{{ t('legal.loadFailed') }}</h1>
         <p class="mt-2 text-sm">{{ t('legal.retryLater') }}</p>
@@ -40,33 +40,33 @@
 
       <section
         v-else-if="!currentDocument"
-        class="rounded-lg border border-gray-200 bg-white p-6 dark:border-dark-700 dark:bg-dark-900"
+        class="card p-6"
       >
         <div class="flex items-start gap-3">
-          <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-600 dark:bg-dark-800 dark:text-dark-300">
+          <span class="journal-icon-well--sm text-[var(--craft-muted)]">
             <Icon name="document" size="sm" />
           </span>
           <div>
-            <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('legal.notFound') }}</h1>
-            <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-dark-300">
+            <h1 class="text-lg font-semibold text-[var(--craft-ink)]">{{ t('legal.notFound') }}</h1>
+            <p class="mt-2 text-sm leading-6 text-[var(--craft-ink-soft)]">
               {{ t('legal.notFoundDescription') }}
             </p>
           </div>
         </div>
       </section>
 
-      <article v-else>
-        <div class="mb-8 border-b border-gray-200 pb-6 dark:border-dark-700">
+      <article v-else class="card p-6 sm:p-10">
+        <div class="mb-8 border-b border-[var(--craft-border)] pb-6">
           <div class="flex items-start gap-4">
-            <span class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
+            <span class="journal-icon-well text-[var(--craft-sky-deep)]">
               <Icon :name="documentIcon" size="md" />
             </span>
             <div class="min-w-0">
-              <p class="text-sm font-medium text-primary-700 dark:text-primary-300">{{ documentTypeLabel }}</p>
-              <h1 class="mt-2 break-words text-2xl font-bold tracking-normal text-gray-950 dark:text-white sm:text-3xl">
+              <p class="text-sm font-semibold text-[var(--craft-sky-deep)]">{{ documentTypeLabel }}</p>
+              <h1 class="mt-2 break-words text-2xl font-bold tracking-normal text-[var(--craft-ink)] sm:text-3xl">
                 {{ currentDocument.title }}
               </h1>
-              <p v-if="updatedAt" class="mt-3 text-sm text-gray-500 dark:text-dark-400">
+              <p v-if="updatedAt" class="mt-3 text-sm text-[var(--craft-muted)]">
                 {{ t('legal.updatedAt', { date: updatedAt }) }}
               </p>
             </div>
@@ -80,7 +80,7 @@
         ></div>
         <div
           v-else
-          class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-14 text-center text-sm text-gray-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-400"
+          class="rounded-2xl border border-dashed border-[var(--craft-border-strong)] bg-[var(--craft-surface-muted)] px-6 py-14 text-center text-sm text-[var(--craft-muted)]"
         >
           {{ t('legal.empty') }}
         </div>
@@ -190,7 +190,8 @@ onMounted(async () => {
 }
 
 .legal-document-content :deep(h1) {
-  @apply mb-4 mt-8 border-b border-gray-200 pb-3 text-3xl font-bold dark:border-dark-700;
+  @apply mb-4 mt-8 pb-3 text-3xl font-bold;
+  border-bottom: 1px solid var(--craft-border, #e6d7be);
 }
 
 .legal-document-content :deep(h2) {
@@ -206,11 +207,13 @@ onMounted(async () => {
 }
 
 .legal-document-content :deep(p) {
-  @apply mb-4 text-gray-700 dark:text-dark-200;
+  @apply mb-4;
+  color: var(--craft-ink-soft, #4c4237);
 }
 
 .legal-document-content :deep(a) {
-  @apply text-primary-600 underline underline-offset-4 hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200;
+  color: var(--craft-sky-deep, #2a8bd4);
+  @apply underline underline-offset-4;
 }
 
 .legal-document-content :deep(ul) {
@@ -222,23 +225,28 @@ onMounted(async () => {
 }
 
 .legal-document-content :deep(li) {
-  @apply mb-1 text-gray-700 dark:text-dark-200;
+  @apply mb-1;
+  color: var(--craft-ink-soft, #4c4237);
 }
 
 .legal-document-content :deep(blockquote) {
-  @apply my-5 border-l-4 border-gray-300 pl-4 text-gray-600 dark:border-dark-600 dark:text-dark-300;
+  @apply my-5 border-l-4 pl-4;
+  border-color: var(--craft-border-strong, #d5c09e);
+  color: var(--craft-muted, #756758);
 }
 
 .legal-document-content :deep(code) {
-  @apply rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm dark:bg-dark-800;
+  @apply rounded-md px-1.5 py-0.5 font-mono text-sm;
+  background-color: var(--craft-surface-muted, #faf2e2);
+  border: 1px solid var(--craft-border, #e6d7be);
 }
 
 .legal-document-content :deep(pre) {
-  @apply my-5 overflow-x-auto rounded-lg bg-gray-950 p-4 text-gray-100;
+  @apply my-5 overflow-x-auto rounded-xl bg-[#221e1a] p-4 text-[#f5ede0];
 }
 
 .legal-document-content :deep(pre code) {
-  @apply bg-transparent p-0 text-inherit;
+  @apply border-0 bg-transparent p-0 text-inherit;
 }
 
 .legal-document-content :deep(table) {
@@ -246,18 +254,22 @@ onMounted(async () => {
 }
 
 .legal-document-content :deep(th) {
-  @apply border border-gray-300 bg-gray-50 px-3 py-2 text-left font-semibold dark:border-dark-600 dark:bg-dark-800;
+  @apply px-3 py-2 text-left font-semibold;
+  border: 1px solid var(--craft-border-strong, #d5c09e);
+  background-color: var(--craft-surface-header, #f7ead2);
 }
 
 .legal-document-content :deep(td) {
-  @apply border border-gray-300 px-3 py-2 dark:border-dark-600;
+  @apply px-3 py-2;
+  border: 1px solid var(--craft-border, #e6d7be);
 }
 
 .legal-document-content :deep(img) {
-  @apply my-5 h-auto max-w-full rounded-lg;
+  @apply my-5 h-auto max-w-full rounded-xl;
 }
 
 .legal-document-content :deep(hr) {
-  @apply my-7 border-gray-200 dark:border-dark-700;
+  @apply my-7;
+  border-color: var(--craft-border, #e6d7be);
 }
 </style>

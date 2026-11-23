@@ -1,29 +1,44 @@
 <template>
-  <div class="space-y-6">
-    <section
-      data-testid="profile-overview-hero"
-      class="card overflow-hidden border border-primary-100/80 bg-gradient-to-br from-primary-50 via-white to-amber-50/70 dark:border-primary-900/40 dark:from-primary-950/40 dark:via-dark-900 dark:to-dark-950"
-    >
-      <div class="px-6 py-6 md:px-8">
-        <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-          <div
-            class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-primary-500 to-primary-600 text-2xl font-bold text-white shadow-lg shadow-primary-500/20"
-          >
-            <img
-              v-if="avatarUrl"
-              :src="avatarUrl"
-              :alt="displayName"
-              class="h-full w-full object-cover"
+  <section data-testid="profile-overview-hero" class="journal-banner-sky rounded-[22px] p-2.5 sm:p-3">
+    <div class="journal-banner-stitch space-y-5 rounded-[16px] p-4 sm:p-6">
+      <ProfileAvatarCard :user="user" embedded>
+        <template #summary="{ previewUrl, editing, toggleEditor }">
+          <div class="flex items-start gap-3 sm:gap-5">
+            <button
+              type="button"
+              class="relative shrink-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-4"
+              :disabled="!user || editingName"
+              :aria-label="t('profile.changeAvatar')"
+              :title="t('profile.changeAvatar')"
+              :aria-expanded="editing"
+              @click="toggleEditor"
             >
-            <span v-else>{{ avatarInitial }}</span>
-          </div>
-
-          <div class="min-w-0 flex-1 space-y-5">
-            <div class="space-y-3">
-              <div class="flex flex-wrap items-center gap-2">
-                <h2 class="truncate text-2xl font-semibold text-gray-900 dark:text-white">
-                  {{ displayName }}
-                </h2>
+              <img :src="previewUrl" alt="" class="h-16 w-16 rounded-2xl bg-white object-cover shadow-md ring-2 ring-white/80 sm:h-20 sm:w-20" />
+              <span class="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full border border-[var(--craft-border)] bg-[var(--craft-paper)] text-[var(--craft-ink)]">
+                <Icon name="edit" size="xs" />
+              </span>
+            </button>
+            <div class="min-w-0 flex-1 space-y-2">
+              <ProfileEditForm
+                v-if="editingName"
+                :initial-username="user?.username || ''"
+                embedded
+                @done="finishNameEdit"
+              />
+              <div v-else class="flex flex-wrap items-center gap-2">
+                <h2 class="min-w-0 break-all text-2xl font-black tracking-tight text-[var(--craft-ink)]">{{ displayName }}</h2>
+                <button
+                  ref="nameButton"
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  :disabled="!user || editing"
+                  :aria-label="t('profile.editUsername')"
+                  :title="t('profile.editUsername')"
+                  @click="editingName = true"
+                >
+                  <Icon name="edit" size="sm" />
+                </button>
+                <CraftSparks variant="right" size="sm" />
                 <span :class="['badge', user?.role === 'admin' ? 'badge-primary' : 'badge-gray']">
                   {{ user?.role === 'admin' ? t('profile.administrator') : t('profile.user') }}
                 </span>
@@ -37,177 +52,95 @@
                   }}
                 </span>
               </div>
-
-              <div class="space-y-1">
-                <p class="truncate text-sm text-gray-600 dark:text-gray-300">
-                  {{ primaryEmailDisplay }}
-                </p>
-                <div
-                  v-if="sourceHints.length"
-                  class="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400"
+              <p class="break-all text-sm font-medium text-[#4a4236] dark:text-gray-300">
+                {{ primaryEmailDisplay }}
+              </p>
+              <div
+                v-if="sourceHints.length"
+                class="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400"
+              >
+                <span
+                  v-for="hint in sourceHints"
+                  :key="hint.key"
+                  class="inline-flex items-center gap-1 rounded-full bg-white/85 px-3 py-1 ring-1 ring-[#d6c2a2] dark:bg-dark-900/70 dark:ring-primary-900/40"
                 >
-                  <span
-                    v-for="hint in sourceHints"
-                    :key="hint.key"
-                    class="inline-flex items-center gap-1 rounded-full bg-white/80 px-3 py-1 ring-1 ring-primary-100 dark:bg-dark-900/70 dark:ring-primary-900/40"
-                  >
-                    <Icon name="link" size="sm" />
-                    {{ hint.text }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-3">
-              <div
-                data-testid="profile-overview-metric-balance"
-                class="rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white/70 dark:bg-dark-900/60 dark:ring-dark-700"
-              >
-                <p class="text-xs font-medium uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">
-                  {{ t('profile.accountBalance') }}
-                </p>
-                <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                  {{ formatCurrency(user?.balance || 0) }}
-                </p>
-              </div>
-              <div
-                data-testid="profile-overview-metric-concurrency"
-                class="rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white/70 dark:bg-dark-900/60 dark:ring-dark-700"
-              >
-                <p class="text-xs font-medium uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">
-                  {{ t('profile.concurrencyLimit') }}
-                </p>
-                <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                  {{ user?.concurrency || 0 }}
-                </p>
-              </div>
-              <div
-                data-testid="profile-overview-metric-member-since"
-                class="rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white/70 dark:bg-dark-900/60 dark:ring-dark-700"
-              >
-                <p class="text-xs font-medium uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">
-                  {{ t('profile.memberSince') }}
-                </p>
-                <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                  {{ memberSinceLabel }}
-                </p>
+                  <Icon name="link" size="sm" />
+                  {{ hint.text }}
+                </span>
               </div>
             </div>
           </div>
+        </template>
+      </ProfileAvatarCard>
+
+      <div class="grid gap-3 sm:grid-cols-3">
+        <div
+          data-testid="profile-overview-metric-balance"
+          class="journal-kpi-warm rounded-2xl px-4 py-3"
+        >
+          <p class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--craft-muted)]">
+            <CraftIcon name="wallet" size="xs" />
+            <span>{{ t('profile.accountBalance') }}</span>
+          </p>
+          <p class="mt-1.5 text-lg font-black text-[var(--craft-ink)]">
+            {{ formatCurrency(user?.balance || 0) }}
+          </p>
+        </div>
+        <div
+          data-testid="profile-overview-metric-concurrency"
+          class="journal-kpi-warm rounded-2xl px-4 py-3"
+        >
+          <p class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--craft-muted)]">
+            <CraftIcon name="bolt" size="xs" />
+            <span>{{ t('profile.concurrencyLimit') }}</span>
+          </p>
+          <p class="mt-1.5 text-lg font-black text-[var(--craft-ink)]">
+            {{ user?.concurrency || 0 }}
+          </p>
+        </div>
+        <div
+          data-testid="profile-overview-metric-member-since"
+          class="journal-kpi-warm rounded-2xl px-4 py-3"
+        >
+          <p class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] text-[var(--craft-muted)]">
+            <CraftIcon name="calendar" size="xs" />
+            <span>{{ t('profile.memberSince') }}</span>
+          </p>
+          <p class="mt-1.5 text-lg font-black text-[var(--craft-ink)]">
+            {{ memberSinceLabel }}
+          </p>
         </div>
       </div>
-    </section>
-
-    <div class="space-y-6">
-      <div data-testid="profile-main-column" class="space-y-6">
-        <section
-          data-testid="profile-basics-panel"
-          class="card border border-gray-100 bg-white/90 p-6 dark:border-dark-700 dark:bg-dark-900/50"
-        >
-          <div class="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t('profile.basicsTitle') }}
-              </h3>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t('profile.basicsDescription') }}
-              </p>
-            </div>
-          </div>
-
-          <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2">
-            <div class="rounded-3xl border border-gray-100 bg-gray-50/80 p-5 dark:border-dark-700 dark:bg-dark-900/30">
-              <ProfileAvatarCard
-                :user="user"
-                embedded
-              />
-            </div>
-
-            <div class="rounded-3xl border border-gray-100 bg-gray-50/80 p-5 dark:border-dark-700 dark:bg-dark-900/30">
-              <ProfileEditForm
-                :initial-username="user?.username || ''"
-                embedded
-              />
-            </div>
-          </div>
-        </section>
-
-        <section
-          data-testid="profile-auth-bindings-panel"
-          class="card border border-gray-100 bg-white/90 p-6 dark:border-dark-700 dark:bg-dark-900/50"
-        >
-          <ProfileIdentityBindingsSection
-            :user="user"
-            :linuxdo-enabled="linuxdoEnabled"
-            :dingtalk-enabled="dingtalkEnabled"
-            :oidc-enabled="oidcEnabled"
-            :oidc-provider-name="oidcProviderName"
-            :wechat-enabled="wechatEnabled"
-            :wechat-open-enabled="wechatOpenEnabled"
-            :wechat-mp-enabled="wechatMpEnabled"
-            embedded
-            compact
-          />
-        </section>
-      </div>
-
-      <div data-testid="profile-side-column" class="space-y-6">
-        <section
-          v-if="sourceHints.length"
-          class="card border border-gray-100 bg-white/90 p-6 dark:border-dark-700 dark:bg-dark-900/50"
-        >
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-            {{ t('profile.linkedProfileSources') }}
-          </h3>
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {{ t('profile.linkedProfileSourcesDescription') }}
-          </p>
-
-          <div class="mt-5 grid gap-3">
-            <div
-              v-for="hint in sourceHints"
-              :key="hint.key"
-              class="flex items-start gap-3 rounded-2xl border border-gray-100 bg-gray-50/80 px-4 py-3 text-sm text-gray-600 dark:border-dark-700 dark:bg-dark-900/30 dark:text-gray-300"
-            >
-              <Icon name="link" size="sm" class="mt-0.5 text-gray-400 dark:text-gray-500" />
-              <span>{{ hint.text }}</span>
-            </div>
-          </div>
-        </section>
-      </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import CraftIcon from '@/components/craft/CraftIcon.vue'
+import CraftSparks from '@/components/craft/CraftSparks.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProfileAvatarCard from '@/components/user/profile/ProfileAvatarCard.vue'
 import ProfileEditForm from '@/components/user/profile/ProfileEditForm.vue'
-import ProfileIdentityBindingsSection from '@/components/user/profile/ProfileIdentityBindingsSection.vue'
 import type { User, UserAuthBindingStatus, UserAuthProvider, UserProfileSourceContext } from '@/types'
 
 const props = withDefaults(defineProps<{
   user: User | null
-  linuxdoEnabled?: boolean
-  dingtalkEnabled?: boolean
-  oidcEnabled?: boolean
   oidcProviderName?: string
-  wechatEnabled?: boolean
-  wechatOpenEnabled?: boolean
-  wechatMpEnabled?: boolean
 }>(), {
-  linuxdoEnabled: false,
-  dingtalkEnabled: false,
-  oidcEnabled: false,
   oidcProviderName: 'OIDC',
-  wechatEnabled: false,
-  wechatOpenEnabled: undefined,
-  wechatMpEnabled: undefined,
 })
 
 const { t } = useI18n()
+const editingName = ref(false)
+const nameButton = ref<HTMLButtonElement>()
+
+async function finishNameEdit() {
+  editingName.value = false
+  await nextTick()
+  nameButton.value?.focus()
+}
 
 function normalizeBindingStatus(binding: boolean | UserAuthBindingStatus | undefined): boolean | null {
   if (typeof binding === 'boolean') {
@@ -232,7 +165,6 @@ function isEmailBound(user: User | null | undefined): boolean {
   return normalized ?? false
 }
 
-const avatarUrl = computed(() => props.user?.avatar_url?.trim() || '')
 const displayName = computed(() => props.user?.username?.trim() || props.user?.email?.trim() || t('profile.user'))
 const primaryEmailDisplay = computed(() => {
   const email = props.user?.email?.trim() || ''
@@ -244,7 +176,6 @@ const primaryEmailDisplay = computed(() => {
   }
   return email
 })
-const avatarInitial = computed(() => displayName.value.charAt(0).toUpperCase() || 'U')
 const memberSinceLabel = computed(() => {
   const raw = props.user?.created_at?.trim()
   if (!raw) {
