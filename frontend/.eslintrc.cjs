@@ -33,4 +33,13 @@ module.exports = {
     "vue/multi-word-component-names": "off",
     "vue/no-use-v-if-with-v-for": "off",
   },
+  overrides: [
+    {
+      files: ["src/features/**/*.ts", "src/features/**/*.vue"],
+      excludedFiles: ["**/*.spec.ts"],
+      rules: {
+        "@typescript-eslint/no-explicit-any": "error",
+      },
+    },
+  ],
 };

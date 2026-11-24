@@ -284,6 +284,24 @@ const closeSuccess = () => {
   successResult.value = null
 }
 
+interface ApiErrorLike {
+  response?: { data?: { detail?: unknown } }
+  message?: unknown
+}
+
+const extractApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (typeof error === 'object' && error !== null) {
+    const apiError = error as ApiErrorLike
+    if (typeof apiError.response?.data?.detail === 'string' && apiError.response.data.detail) {
+      return apiError.response.data.detail
+    }
+    if (typeof apiError.message === 'string' && apiError.message) {
+      return apiError.message
+    }
+  }
+  return fallback
+}
+
 const startDraw = async () => {
   if (!status.value?.can_checkin || spinning.value) return
   spinning.value = true
@@ -320,8 +338,8 @@ const startDraw = async () => {
     }
     await authStore.refreshUser()
     emit('rewardAdded')
-  } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || error.message || t('redeem.checkin.failed'))
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t('redeem.checkin.failed')))
     await loadStatus()
   } finally {
     spinning.value = false

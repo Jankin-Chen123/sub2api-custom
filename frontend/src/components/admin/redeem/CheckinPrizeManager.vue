@@ -149,6 +149,24 @@ const rowsValid = computed(() => prizes.value.length >= 2 && prizes.value.every(
 ))
 const canSave = computed(() => !loading.value && !saving.value && probabilityValid.value && rowsValid.value && streakBonusValid.value)
 
+interface ApiErrorLike {
+  response?: { data?: { detail?: unknown } }
+  message?: unknown
+}
+
+const extractApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (typeof error === 'object' && error !== null) {
+    const apiError = error as ApiErrorLike
+    if (typeof apiError.response?.data?.detail === 'string' && apiError.response.data.detail) {
+      return apiError.response.data.detail
+    }
+    if (typeof apiError.message === 'string' && apiError.message) {
+      return apiError.message
+    }
+  }
+  return fallback
+}
+
 const loadPrizes = async () => {
   loading.value = true
   try {
@@ -159,8 +177,8 @@ const loadPrizes = async () => {
     prizes.value = loadedPrizes.map((prize) => ({ ...prize }))
     streakBonusAmount.value = config.streak_bonus_amount
     streakTarget.value = config.streak_target
-  } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || error.message || t('admin.redeem.checkin.loadFailed'))
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.redeem.checkin.loadFailed')))
   } finally {
     loading.value = false
   }
@@ -200,8 +218,8 @@ const savePrizes = async () => {
     streakBonusAmount.value = updatedConfig.streak_bonus_amount
     streakTarget.value = updatedConfig.streak_target
     appStore.showSuccess(t('admin.redeem.checkin.saveSuccess'))
-  } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || error.message || t('admin.redeem.checkin.saveFailed'))
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.redeem.checkin.saveFailed')))
   } finally {
     saving.value = false
   }
