@@ -422,6 +422,14 @@ export default {
     fee: '手续费',
     actualPay: '实付金额',
     createOrder: '确认支付',
+    channelUnavailable: {
+      status: '{method}暂不可用',
+      title: '换一种充值方式',
+      shop: '去气球小铺买兑换码',
+      shopHint: '选购「中转站额度」，回本站兑换',
+      switchTo: '换用{method}',
+      continuePayment: '继续支付 {amount}',
+    },
     methods: {
       easypay: '易支付',
       alipay: '支付宝',

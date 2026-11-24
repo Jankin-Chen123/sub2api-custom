@@ -398,6 +398,14 @@ export default {
     fee: 'Fee',
     actualPay: 'Actual Payment',
     createOrder: 'Confirm Payment',
+    channelUnavailable: {
+      status: '{method} is temporarily unavailable',
+      title: 'Choose another way to recharge',
+      shop: 'Buy a code from Balloon Shop',
+      shopHint: 'Choose “中转站额度” and redeem your code here.',
+      switchTo: 'Switch to {method}',
+      continuePayment: 'Continue with {amount}',
+    },
     methods: {
       easypay: 'EasyPay',
       alipay: 'Alipay',

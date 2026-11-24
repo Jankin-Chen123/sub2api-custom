@@ -4,6 +4,8 @@ import PaymentView from '../PaymentView.vue'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import AmountInput from '@/components/payment/AmountInput.vue'
+import PaymentChannelUnavailableDialog from '@/components/payment/PaymentChannelUnavailableDialog.vue'
+import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
 import en from '@/i18n/locales/en'
 import zh from '@/i18n/locales/zh'
 import type { CheckoutInfoResponse, MethodLimit } from '@/types/payment'
@@ -206,6 +208,46 @@ function oauthOrderFixture() {
 }
 
 describe('PaymentView recharge entry', () => {
+  it.each([
+    ['wxpay', 'alipay', true],
+    ['alipay', 'wxpay', true],
+    ['alipay', 'wxpay', false],
+  ] as const)('handles a rejected %s channel with %s availability %s', async (failed, alternative, available) => {
+    routeState.query = {}
+    const wxpay = checkoutInfoFixture().data.methods.wxpay
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture({ methods: { [failed]: wxpay, [alternative]: { ...wxpay, available } } }))
+    createOrder.mockClear().mockRejectedValueOnce({
+      reason: 'PAYMENT_GATEWAY_ERROR',
+      message: 'payment gateway error: easypay error: 当前付款环境没有已启用的思云支付产品，请检查通道支付接口配置',
+    })
+    const wrapper = shallowMount(PaymentView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } },
+    })
+    await flushPromises()
+    const amount = wrapper.getComponent(AmountInput)
+    const method = wrapper.getComponent(PaymentMethodSelector)
+    amount.vm.$emit('update:modelValue', 20)
+    method.vm.$emit('select', failed)
+    await wrapper.vm.$nextTick()
+    await wrapper.get(`button.btn-${failed}`).trigger('click')
+    await flushPromises()
+    const dialog = wrapper.getComponent(PaymentChannelUnavailableDialog)
+    expect(dialog.props('failedMethod')).toBe(failed)
+    if (available) {
+      expect(dialog.props('alternative')).toEqual({ method: alternative, amount: expect.stringContaining('20') })
+      dialog.vm.$emit('switch-method')
+    } else {
+      expect(dialog.props('alternative')).toBeNull()
+      dialog.vm.$emit('close')
+    }
+    await wrapper.vm.$nextTick()
+    expect(dialog.props('failedMethod')).toBeNull()
+    expect(method.props('selected')).toBe(available ? alternative : failed)
+    expect(amount.props('modelValue')).toBe(20)
+    expect(createOrder).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
   it('only renders recharge when a legacy subscription query is present', async () => {
     routeState.query = { tab: 'subscription' }
     getCheckoutInfo.mockResolvedValue(checkoutInfoFixture())

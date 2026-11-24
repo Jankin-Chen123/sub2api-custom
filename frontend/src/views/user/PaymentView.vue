@@ -158,6 +158,12 @@
         </div>
       </template>
     </div>
+    <PaymentChannelUnavailableDialog
+      :failed-method="unavailableMethod"
+      :alternative="alternativePayment"
+      @close="unavailableMethod = null"
+      @switch-method="switchPaymentMethod"
+    />
     <!-- Image Preview Overlay -->
     <Teleport to="body">
       <Transition name="modal">
@@ -206,9 +212,10 @@ import {
   writePaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
+import PaymentChannelUnavailableDialog from '@/components/payment/PaymentChannelUnavailableDialog.vue'
 import { DEFAULT_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
-import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
+import { buildPaymentErrorToastMessage, describePaymentScenarioError, isEasyPayChannelUnavailable } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
 
 const i18n = useI18n()
@@ -233,6 +240,7 @@ const campaignFirstRechargeVisible = computed(() => {
 
 const loading = ref(true)
 const submitting = ref(false)
+const unavailableMethod = ref<'wxpay' | 'alipay' | null>(null)
 const errorMessage = ref('')
 const errorHintMessage = ref('')
 const amount = ref<number | null>(null)
@@ -518,6 +526,21 @@ const methodOptions = computed<PaymentMethodOption[]>(() =>
 const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
 const feeAmount = computed(() => bonusQuote.value.fee)
 const totalAmount = computed(() => bonusQuote.value.payTotal)
+const alternativePayment = computed(() => {
+  if (!unavailableMethod.value) return null
+  const method = unavailableMethod.value === 'alipay' ? 'wxpay' : 'alipay'
+  const limit = visibleMethods.value[method]
+  if (!limit || limit.available === false || validAmount.value <= 0
+    || normalizePaymentCurrency(limit.currency) !== selectedCurrency.value
+    || !amountFitsMethod(validAmount.value, method) || !amountFitsMethod(payBaseAmount.value, method)) return null
+  return { method, amount: formatSelectedPaymentAmount(totalAmount.value) } as const
+})
+
+function switchPaymentMethod() {
+  if (!alternativePayment.value) return
+  selectedMethod.value = alternativePayment.value.method
+  unavailableMethod.value = null
+}
 
 const amountError = computed(() => {
   if (validAmount.value <= 0) return ''
@@ -714,6 +737,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
     }
   } catch (err: unknown) {
     const apiErr = err as Record<string, unknown>
+    if (showChannelUnavailable(err, orderType, requestType)) return
     if (apiErr.reason === 'TOO_MANY_PENDING') {
       const metadata = apiErr.metadata as Record<string, unknown> | undefined
       errorMessage.value = t('payment.errors.tooManyPending', { max: metadata?.max || '' })
@@ -754,6 +778,13 @@ interface MobileQrFallbackContext {
   planId?: number
   paymentType: string
   attempted: boolean
+}
+
+function showChannelUnavailable(error: unknown, orderType: OrderType, method: string): boolean {
+  const failed = normalizeVisibleMethod(method)
+  if (orderType !== 'balance' || (failed !== 'wxpay' && failed !== 'alipay') || !isEasyPayChannelUnavailable(error)) return false
+  unavailableMethod.value = failed
+  return true
 }
 
 function shouldFallbackToDesktopQr(err: unknown, paymentMethod: string, attempted: boolean): boolean {
@@ -837,8 +868,8 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
     persistRecoverySnapshot(decision.recovery)
     appStore.showWarning(t('payment.errors.mobilePaymentFallbackToQr'))
     return true
-  } catch {
-    return false
+  } catch (error) {
+    return showChannelUnavailable(error, context.orderType, context.paymentType)
   }
 }
 

@@ -2,8 +2,20 @@ import { describe, expect, it } from 'vitest'
 import {
   buildPaymentErrorToastMessage,
   describePaymentScenarioError,
+  isEasyPayChannelUnavailable,
   normalizePaymentMethodForDisplay,
 } from '../paymentUx'
+
+describe('EasyPay channel availability', () => {
+  it.each([
+    ['payment gateway error: easypay error: 当前付款环境没有已启用的思云支付产品，请检查通道支付接口配置', true],
+    ['payment gateway error: easypay error: 请用手机系统浏览器打开当前付款链接（PAYMENT_SCENE_MISMATCH）', false],
+    ['payment gateway error: easypay create: context deadline exceeded', false],
+    ['payment gateway error: other provider: 当前付款环境没有已启用的思云支付产品', false],
+  ])('classifies %s', (message, expected) => {
+    expect(isEasyPayChannelUnavailable({ reason: 'PAYMENT_GATEWAY_ERROR', message })).toBe(expected)
+  })
+})
 
 describe('normalizePaymentMethodForDisplay', () => {
   it('collapses visible payment aliases to canonical method ids', () => {

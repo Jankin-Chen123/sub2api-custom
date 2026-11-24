@@ -33,6 +33,14 @@ export function buildPaymentErrorToastMessage(message: string, hint?: string): s
   return `${message} ${hint}`.trim()
 }
 
+export function isEasyPayChannelUnavailable(error: unknown): boolean {
+  // EasyPay returns this rejection as text inside the shared gateway error.
+  return extractApiErrorCode(error) === 'PAYMENT_GATEWAY_ERROR'
+    && typeof error === 'object' && error !== null && 'message' in error
+    && typeof error.message === 'string'
+    && error.message.startsWith('payment gateway error: easypay error: 当前付款环境没有已启用的思云支付产品')
+}
+
 function defaultWechatHint(context: PaymentScenarioContext): string {
   if (!context.isMobile) return 'payment.errors.wechatScanOnDesktopHint'
   return 'payment.errors.wechatOpenInWeChatHint'
