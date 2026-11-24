@@ -1,5 +1,9 @@
 import type { ImageWorkbenchJob, ImageWorkbenchStatus } from '@/api'
-import { IMAGE_DIMENSION_MIN_EDGE, IMAGE_DIMENSION_STEP } from '@/utils/imageWorkbenchDimensions'
+import {
+  IMAGE_DIMENSION_MIN_EDGE,
+  IMAGE_DIMENSION_MIN_PIXELS,
+  IMAGE_DIMENSION_STEP,
+} from '@/utils/imageWorkbenchDimensions'
 import { isImageWorkbenchQualityAllowed } from '@/utils/imageWorkbenchModelCapabilities'
 
 export function parseSize(value: string): [number, number] {
@@ -103,4 +107,72 @@ export function extractErrorMessage(error: unknown, fallback: string): string {
   }
   if (typeof error === 'string' && error) return error
   return fallback
+}
+
+export function computeAspectRatioSize(
+  currentWidth: number,
+  ratio: string,
+  maxEdge: number,
+  maxPixels: number
+): [number, number] | null {
+  const [widthRatio, heightRatio] = ratio.split(':').map(Number)
+  if (!widthRatio || !heightRatio) return null
+  let width = clampDimension(currentWidth, maxEdge)
+  let height = snapDimension((width * heightRatio) / widthRatio)
+  if (height > maxEdge) {
+    width = clampDimension(snapDimension((width * maxEdge) / height, 'down'), maxEdge)
+    height = snapDimension((width * heightRatio) / widthRatio)
+  }
+  if (height < IMAGE_DIMENSION_MIN_EDGE) {
+    width = clampDimension(
+      snapDimension((width * IMAGE_DIMENSION_MIN_EDGE) / Math.max(height, 1), 'up'),
+      maxEdge
+    )
+    height = snapDimension((width * heightRatio) / widthRatio, 'up')
+  }
+  for (let index = 0; index < 4; index += 1) {
+    const pixels = width * height
+    if (pixels < IMAGE_DIMENSION_MIN_PIXELS) {
+      const factor = Math.sqrt(IMAGE_DIMENSION_MIN_PIXELS / pixels)
+      const nextWidth = clampDimension(snapDimension(width * factor, 'up'), maxEdge)
+      const nextHeight = clampDimension(snapDimension(height * factor, 'up'), maxEdge)
+      if (nextWidth === width && nextHeight === height) break
+      width = nextWidth
+      height = nextHeight
+      continue
+    }
+    if (pixels > maxPixels) {
+      const factor = Math.sqrt(maxPixels / pixels)
+      const nextWidth = clampDimension(snapDimension(width * factor, 'down'), maxEdge)
+      const nextHeight = clampDimension(snapDimension(height * factor, 'down'), maxEdge)
+      if (nextWidth === width && nextHeight === height) break
+      width = nextWidth
+      height = nextHeight
+      continue
+    }
+    break
+  }
+  return [clampDimension(width, maxEdge), clampDimension(height, maxEdge)]
+}
+
+const DIMENSION_ERROR_KEYS: Record<string, string> = {
+  not_positive_integer: 'imageWorkbench.form.dimensionErrors.positiveInteger',
+  not_multiple_of_16: 'imageWorkbench.form.dimensionErrors.multipleOf16',
+  edge_too_large: 'imageWorkbench.form.dimensionErrors.maxEdge',
+  aspect_ratio_too_wide: 'imageWorkbench.form.dimensionErrors.aspectRatio',
+  pixels_too_few: 'imageWorkbench.form.dimensionErrors.minPixels',
+  pixels_too_many: 'imageWorkbench.form.dimensionErrors.maxPixels',
+}
+
+export function dimensionErrorKey(code: string): string {
+  return DIMENSION_ERROR_KEYS[code] || 'imageWorkbench.form.dimensionErrors.invalid'
+}
+
+export function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
 }

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   clampDimension,
+  computeAspectRatioSize,
   dataURLByteLength,
+  dimensionErrorKey,
   formatCost,
   formatJobWaitTime,
   isTerminalJob,
@@ -67,5 +69,15 @@ describe('imageWorkbenchFormatters', () => {
     expect(formatJobWaitTime({ status: 'completed', created_at: createdAt, updated_at: updatedAt }, liveClock)).toBe('01:05')
     expect(formatJobWaitTime({ status: 'in_progress', created_at: createdAt, updated_at: updatedAt }, liveClock)).toBe('02:10')
     expect(formatJobWaitTime({ status: 'queued', created_at: 'bad-date', updated_at: updatedAt }, liveClock)).toBe('00:00')
+  })
+
+  it('computes bounded aspect ratio dimensions and resolves dimension error keys', () => {
+    expect(computeAspectRatioSize(1024, '', 1760, 1_048_576)).toBeNull()
+    expect(computeAspectRatioSize(1536, '16:9', 1760, 1_048_576)).toEqual([1360, 768])
+    expect(computeAspectRatioSize(3840, '16:9', 3840, 8_294_400)).toEqual([3840, 2160])
+
+    expect(dimensionErrorKey('edge_too_large')).toBe('imageWorkbench.form.dimensionErrors.maxEdge')
+    expect(dimensionErrorKey('pixels_too_many')).toBe('imageWorkbench.form.dimensionErrors.maxPixels')
+    expect(dimensionErrorKey('unknown_code')).toBe('imageWorkbench.form.dimensionErrors.invalid')
   })
 })

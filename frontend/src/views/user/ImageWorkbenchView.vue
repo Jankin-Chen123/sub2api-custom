@@ -1,202 +1,61 @@
 <template>
   <AppLayout>
     <div class="-mx-4 -mt-2 -mb-4 flex h-[calc(100dvh-4.5rem-1px)] max-w-[1560px] min-h-0 flex-col gap-3 overflow-hidden px-4 pb-4 pt-0 md:-mx-6 md:-mt-4 md:-mb-6 md:h-[calc(100dvh-4.5rem-1px)] lg:-mx-8 lg:-mt-6 lg:-mb-8 lg:h-[calc(100dvh-4.5rem-1px)] lg:px-4">
-      <section class="journal-banner-apricot overflow-visible rounded-[22px] p-2">
-        <div class="journal-banner-stitch rounded-[16px] p-3 sm:p-4">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex min-w-0 items-center gap-3">
-            <JournalBannerSticker name="palette" size="sm" />
-            <div class="min-w-0">
-              <div class="flex items-center gap-1.5">
-                <h1 class="truncate text-xl font-black tracking-tight text-[#27221d] dark:text-white">{{ t('imageWorkbench.title') }}</h1>
-                <CraftSparks variant="right" size="sm" />
-              </div>
-              <p class="truncate text-xs font-medium text-[#5c5042] dark:text-gray-400">{{ t('imageWorkbench.header.subtitle') }}</p>
-            </div>
-          </div>
-          <div class="flex shrink-0 items-center gap-2">
-            <button class="btn btn-secondary" type="button" :disabled="completedJobs.length === 0 || downloadingAll" @click="downloadAll">
-              {{ downloadingAll ? t('imageWorkbench.actions.downloading') : t('imageWorkbench.actions.downloadAll') }}
-            </button>
-            <button class="btn btn-primary" type="button" :disabled="submitting || !canSubmit" @click="submitJob">
-              {{ submitting ? t('imageWorkbench.actions.submitting') : t('imageWorkbench.actions.generateShort') }}
-            </button>
-          </div>
-        </div>
-
-        <dl class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <div class="journal-kpi-warm rounded-xl px-3 py-2">
-            <dt class="text-xs font-semibold text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.header.model') }}</dt>
-            <dd class="mt-0.5 truncate text-sm font-bold text-[#221d17] dark:text-white">{{ headerModel }}</dd>
-          </div>
-          <div class="journal-kpi-warm rounded-xl px-3 py-2">
-            <dt class="text-xs font-semibold text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.header.canvas') }}</dt>
-            <dd class="mt-0.5 truncate text-sm font-bold text-[#221d17] dark:text-white">{{ headerCanvasSize }}</dd>
-          </div>
-          <div class="journal-kpi-warm rounded-xl px-3 py-2">
-            <dt class="text-xs font-semibold text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.header.queue') }}</dt>
-            <dd class="mt-0.5 truncate text-sm font-bold text-[#221d17] dark:text-white">{{ queueSummary }}</dd>
-          </div>
-          <div class="journal-kpi-warm rounded-xl px-3 py-2">
-            <dt class="text-xs font-semibold text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.header.interface') }}</dt>
-            <dd class="mt-0.5 flex items-center gap-1.5 truncate text-sm font-bold" :class="interfaceConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#221d17] dark:text-white'">
-              <span class="h-2 w-2 shrink-0 rounded-full" :class="interfaceConnected ? 'bg-emerald-500' : 'bg-gray-400'" />
-              {{ interfaceStatus }}
-            </dd>
-          </div>
-        </dl>
-
-        <div v-if="workbenchAnnouncements.length" class="mt-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300" role="status" aria-live="polite">
-          <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25v3.75m0 3.75h.008M10.34 3.94 2.52 17.5a1.5 1.5 0 0 0 1.3 2.25h16.36a1.5 1.5 0 0 0 1.3-2.25L13.66 3.94a1.91 1.91 0 0 0-3.32 0Z" />
-          </svg>
-          <div class="h-5 min-w-0 flex-1 overflow-hidden">
-            <div class="transition-transform duration-500 ease-out" :style="announcementTrackStyle">
-              <div v-for="announcement in workbenchAnnouncements" :key="announcement.id" class="h-5 truncate leading-5">
-                {{ announcement.content }}
-              </div>
-            </div>
-          </div>
-        </div>
-        </div>
-      </section>
+      <ImageWorkbenchHeader
+        :header-model="headerModel"
+        :header-canvas-size="headerCanvasSize"
+        :queue-summary="queueSummary"
+        :interface-connected="interfaceConnected"
+        :interface-status="interfaceStatus"
+        :completed-count="completedJobs.length"
+        :downloading-all="downloadingAll"
+        :submitting="submitting"
+        :can-submit="canSubmit"
+        :announcements="workbenchAnnouncements"
+        :announcement-track-style="announcementTrackStyle"
+        @download-all="downloadAll"
+        @submit="submitJob"
+      />
 
       <div class="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-1">
-        <form class="card image-workbench-compact flex min-h-0 flex-col overflow-hidden p-3 sm:p-4" @submit.prevent="submitJob">
-          <div class="journal-card-band -mx-3 -mt-3 flex shrink-0 items-center justify-between px-3 py-2.5 sm:-mx-4 sm:-mt-4 sm:px-4 sm:py-3">
-            <div class="flex items-center gap-2">
-              <span class="journal-icon-well journal-icon-well--sm">
-                <CraftIcon name="palette" size="xs" />
-              </span>
-              <h2 class="journal-section-title text-base font-extrabold text-[#221d17] dark:text-white">{{ t('imageWorkbench.form.settingsTitle') }}</h2>
-            </div>
-            <button class="btn btn-secondary btn-sm" type="button" @click="resetForm">{{ t('imageWorkbench.form.reset') }}</button>
-          </div>
-
-          <div class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 pt-3 sm:pt-4">
-          <div>
-            <label class="input-label">{{ t('imageWorkbench.form.apiKey') }}</label>
-            <div v-if="loadingKeys" class="input flex items-center text-gray-400" aria-live="polite">{{ t('common.loading') }}</div>
-            <p v-else-if="eligibleKeys.length === 0" class="input flex items-center text-amber-600 dark:text-amber-400" data-testid="no-image-api-key">
-              {{ t('imageWorkbench.form.noApiKey') }}
-            </p>
-            <select v-else v-model.number="form.apiKeyId" class="input" required>
-              <option v-for="key in eligibleKeys" :key="key.id" :value="key.id">
-                {{ key.name }} · {{ key.group?.name || '#' + key.group_id }}
-              </option>
-            </select>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="input-label">{{ t('imageWorkbench.form.model') }}</label>
-              <select v-model="form.model" class="input" data-testid="image-model-select">
-                <option v-for="model in models" :key="model.value" :value="model.value">{{ model.label }}</option>
-              </select>
-            </div>
-            <div>
-              <label class="input-label">{{ t('imageWorkbench.form.quality') }}</label>
-              <select v-model="form.quality" class="input" data-testid="image-quality-select">
-                <option v-for="quality in availableQualities" :key="quality" :value="quality">{{ t('imageWorkbench.form.qualityOptions.' + quality) }}</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label class="input-label">{{ t('imageWorkbench.form.dimensions') }}</label>
-            <div class="grid grid-cols-4 gap-1.5">
-              <button
-                v-for="ratio in availableAspectRatios"
-                :key="ratio || 'auto'"
-                :data-testid="ratio ? `image-ratio-${ratio.replace(':', '-')}` : 'image-ratio-unspecified'"
-                class="rounded-lg border px-2 py-1.5 text-xs font-bold transition"
-                :class="form.aspectRatio === ratio ? 'border-[#e39c64] bg-[#fff1de] text-[#8a4515] shadow-[0_2px_0_rgba(227,156,100,0.35)] dark:border-primary-500 dark:bg-primary-950/40 dark:text-primary-200' : 'border-[#e3d2b6] bg-[#fffdf8] text-[#6f6252] hover:border-[#d8b482] hover:bg-[#fff8ec] dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300'"
-                type="button"
-                @click="selectAspectRatio(ratio)"
-              >
-                {{ ratio || t('imageWorkbench.form.unspecified') }}
-              </button>
-            </div>
-
-            <div class="mt-3 grid grid-cols-2 gap-2">
-              <div>
-                <div class="flex items-center justify-between text-xs font-semibold text-[#5a4e3e] dark:text-gray-300">
-                  <label>{{ t('imageWorkbench.form.width') }}</label>
-                  <span class="font-bold text-[#c26328] dark:text-primary-400">{{ form.width }}px</span>
-                </div>
-                <input v-model.number="form.width" class="mt-1.5 w-full accent-[#e5894b]" type="range" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
-                <input v-model.number="form.width" class="input mt-1.5" type="number" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
-              </div>
-              <div>
-                <div class="flex items-center justify-between text-xs font-semibold text-[#5a4e3e] dark:text-gray-300">
-                  <label>{{ t('imageWorkbench.form.height') }}</label>
-                  <span class="font-bold text-[#c26328] dark:text-primary-400">{{ form.height }}px</span>
-                </div>
-                <input v-model.number="form.height" class="mt-1.5 w-full accent-[#e5894b]" type="range" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
-                <input v-model.number="form.height" class="input mt-1.5" type="number" min="16" :max="selectedModelMaxEdge" step="16" @change="normalizeDimensions" />
-              </div>
-            </div>
-
-            <p v-if="dimensionErrorMessage" class="mt-2 text-xs leading-5 text-red-600 dark:text-red-400">{{ dimensionErrorMessage }}</p>
-            <p v-else class="input-hint">{{ t('imageWorkbench.form.dimensionLimitsHint', { tier: selectedModel.tier, maxEdge: selectedModelMaxEdge, maxPixels: formatInteger(selectedModelMaxPixels) }) }}</p>
-            <p v-if="experimentalDimensions" class="mt-1 text-xs leading-5 text-amber-600 dark:text-amber-400">{{ t('imageWorkbench.form.experimentalHint') }}</p>
-          </div>
-
-          <div>
-            <label class="input-label">{{ t('imageWorkbench.form.prompt') }}</label>
-            <textarea
-              v-model="form.prompt"
-              class="input min-h-24 resize-y"
-              maxlength="12000"
-              required
-              :placeholder="t('imageWorkbench.form.promptPlaceholder')"
-              @keydown.ctrl.enter.prevent="submitJob"
-              @keydown.meta.enter.prevent="submitJob"
-            />
-            <div class="mt-1 text-right text-xs text-gray-400">{{ form.prompt.length }}/12000</div>
-          </div>
-
-          <div>
-            <label class="input-label">{{ t('imageWorkbench.form.referenceTitle') }}</label>
-            <div
-              class="cursor-pointer rounded-xl border-2 border-dashed px-3 py-2.5 transition"
-              :class="isReferenceDragOver ? 'border-[#e39c64] bg-[#fff1de] dark:border-primary-400 dark:bg-primary-950/40' : 'border-[#7dbde8] bg-[#eef8ff]/80 hover:bg-[#e3f3ff] dark:border-sky-700 dark:bg-sky-950/20'"
-              @click="referenceInputRef?.click()"
-              @dragenter.prevent="isReferenceDragOver = true"
-              @dragover.prevent="isReferenceDragOver = true"
-              @dragleave.prevent="isReferenceDragOver = false"
-              @drop.prevent="onReferenceDrop"
-            >
-              <input ref="referenceInputRef" class="hidden" type="file" accept="image/*" multiple @change="onReferenceFiles" />
-              <p class="text-xs font-bold text-[#256b9c] dark:text-blue-300">{{ t('imageWorkbench.form.dropReference') }}</p>
-              <p class="mt-1 text-[11px] font-medium text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.form.dropReferenceHint') }}</p>
-            </div>
-            <div class="mt-2 flex gap-2">
-              <input v-model.trim="referenceUrlInput" class="input min-w-0 flex-1" :placeholder="t('imageWorkbench.form.pasteReferenceUrl')" @keydown.enter.prevent="importReferenceUrl" />
-              <button class="btn btn-secondary shrink-0" type="button" @click="importReferenceUrl">{{ t('imageWorkbench.form.importReference') }}</button>
-            </div>
-            <button class="btn btn-secondary mt-2 w-full" type="button" :disabled="referenceCount === 0" @click="clearReferences">{{ t('imageWorkbench.form.clearReferences') }}</button>
-            <div v-if="referenceCount > 0" class="mt-2 flex flex-wrap gap-2">
-              <span v-for="file in referenceFiles" :key="file.name + file.lastModified" class="max-w-full truncate rounded-full border border-[#e3d2b6] bg-[#fffaf0] px-2.5 py-1 text-xs font-medium text-[#5a4e3e] dark:border-dark-600 dark:bg-dark-700 dark:text-gray-300">{{ file.name }}</span>
-              <span v-for="url in referenceUrlList" :key="url" class="max-w-full truncate rounded-full border border-[#e3d2b6] bg-[#fffaf0] px-2.5 py-1 text-xs font-medium text-[#5a4e3e] dark:border-dark-600 dark:bg-dark-700 dark:text-gray-300">{{ url }}</span>
-              <span v-if="referenceDataURLs.length && !referenceFiles.length" class="rounded-full border border-[#7dbde8] bg-[#eef8ff] px-2.5 py-1 text-xs font-semibold text-[#256b9c] dark:border-sky-800 dark:bg-blue-950/40 dark:text-blue-300">
-                {{ t('imageWorkbench.editor.currentImageReference') }}
-              </span>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 rounded-xl border border-dashed border-[#dcc6a4] bg-[#fffaf0]/90 px-3 py-2 text-xs font-semibold text-[#5a4e3e] dark:border-dark-700 dark:bg-dark-900/50 dark:text-gray-300">
-            <CraftIcon name="receipt" size="xs" />
-            <span v-if="loadingEstimate">{{ t('imageWorkbench.form.loadingEstimate') }}</span>
-            <span v-else-if="costEstimate">{{ t('imageWorkbench.form.estimatedCost', { cost: formatCost(costEstimate.estimated_cost) }) }}</span>
-            <span v-else>{{ t('imageWorkbench.form.estimateUnavailable') }}</span>
-          </div>
-          </div>
-
-          <button class="btn btn-primary mt-3 w-full shrink-0 py-2 text-xs shadow-none disabled:bg-gray-500 disabled:bg-none disabled:from-gray-400 disabled:to-gray-500 disabled:text-white disabled:opacity-100 disabled:shadow-none" type="submit" :disabled="submitting || !canSubmit">
-            {{ submitting ? t('imageWorkbench.actions.submitting') : t('imageWorkbench.actions.generate') }}
-          </button>
-        </form>
+        <ImageWorkbenchFormPanel
+          ref="formPanelRef"
+          v-model:api-key-id="form.apiKeyId"
+          v-model:model="form.model"
+          v-model:quality="form.quality"
+          v-model:width="form.width"
+          v-model:height="form.height"
+          v-model:prompt="form.prompt"
+          v-model:reference-url-input="referenceUrlInput"
+          :loading-keys="loadingKeys"
+          :eligible-keys="eligibleKeys"
+          :models="models"
+          :available-qualities="availableQualities"
+          :available-aspect-ratios="availableAspectRatios"
+          :aspect-ratio="form.aspectRatio"
+          :selected-model-max-edge="selectedModelMaxEdge"
+          :selected-model-max-pixels="selectedModelMaxPixels"
+          :selected-model-tier="selectedModel.tier"
+          :dimension-error-message="dimensionErrorMessage"
+          :experimental-dimensions="experimentalDimensions"
+          :reference-count="referenceCount"
+          :reference-files="referenceFiles"
+          :reference-url-list="referenceUrlList"
+          :referenceDataURLsCount="referenceDataURLs.length"
+          :loading-estimate="loadingEstimate"
+          :cost-estimate="costEstimate"
+          :submitting="submitting"
+          :can-submit="canSubmit"
+          :format-integer="formatInteger"
+          @submit="submitJob"
+          @reset="resetForm"
+          @select-aspect-ratio="selectAspectRatio"
+          @normalize-dimensions="normalizeDimensions"
+          @reference-files="onReferenceFiles"
+          @drop-reference="onReferenceDrop"
+          @import-reference-url="importReferenceUrl"
+          @clear-references="clearReferences"
+        />
 
         <section class="min-h-0 min-w-0 space-y-3 overflow-y-auto overscroll-contain pr-1">
           <div class="card overflow-hidden p-0">
@@ -253,157 +112,53 @@
                 </div>
               </div>
 
-              <aside class="rounded-xl border border-[#e3d2b6] bg-[#fffaf0]/85 p-3 dark:border-dark-700 dark:bg-dark-900/60">
-                <div class="mb-3 flex items-center justify-between">
-                  <h3 class="font-extrabold text-[#221d17] dark:text-white">{{ t('imageWorkbench.preview.batchTitle') }}</h3>
-                  <span class="rounded-full bg-[#ffe6d1] px-2.5 py-0.5 text-xs font-extrabold text-[#b45309] dark:bg-primary-950/50 dark:text-primary-300">{{ jobs.length }}</span>
-                </div>
-                <div v-if="loadingJobs && jobs.length === 0" class="py-8 text-center text-sm text-[#7b6b57] dark:text-gray-400">{{ t('common.loading') }}</div>
-                <div v-else-if="jobs.length === 0" class="rounded-2xl border-2 border-dashed border-[#dcc6a4] bg-[#fffdf8] p-5 text-center text-sm font-semibold text-[#6f6252] dark:border-dark-600 dark:bg-dark-800 dark:text-gray-400">
-                  <div class="journal-icon-well journal-icon-well--sm mx-auto mb-2.5 -rotate-3">
-                    <CraftIcon name="inbox" size="md" />
-                  </div>
-                  <p>{{ t('imageWorkbench.jobs.empty') }}</p>
-                </div>
-                <div v-else class="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-                  <article
-                    v-for="job in jobs"
-                    :key="job.id"
-                    class="overflow-hidden rounded-xl border transition"
-                    :class="job.id === selectedJobId ? 'border-[#e39c64] bg-[#fff4e3] shadow-[0_2px_0_rgba(227,156,100,0.2)] dark:border-primary-500 dark:bg-primary-950/30' : 'border-[#e5d5ba] bg-[#fffdf8] hover:border-[#d8b482] dark:border-dark-700 dark:bg-dark-800'"
-                  >
-                    <button class="block w-full p-3 text-left" type="button" @click="selectJob(job)">
-                      <div class="flex items-start justify-between gap-2">
-                        <span class="truncate text-xs font-bold text-[#221d17] dark:text-gray-200">{{ jobDisplayName(job) }}</span>
-                        <span :class="statusClass(job.status)" class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium">{{ statusText(job.status) }}</span>
-                      </div>
-                      <p class="mt-2 line-clamp-2 text-xs text-[#6f6252] dark:text-gray-400">{{ job.actual_size || job.requested_size || job.id }}</p>
-                      <p class="mt-2 text-[10px] text-[#8a7a65] dark:text-gray-400">{{ formatDate(job.created_at) }}</p>
-                      <div class="mt-2 flex items-end justify-between gap-2">
-                        <p class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
-                          {{ t('imageWorkbench.preview.syncWait', { time: formatJobWaitTime(job) }) }}
-                        </p>
-                        <div class="flex shrink-0 items-center gap-1 text-[10px] font-semibold" :data-testid="`batch-metadata-${job.id}`">
-                          <span class="rounded-full bg-violet-50 px-2 py-0.5 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300">{{ t('imageWorkbench.metadata.resolution', { value: jobResolution(job) }) }}</span>
-                          <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{{ t('imageWorkbench.metadata.quality', { value: jobQuality(job) }) }}</span>
-                        </div>
-                      </div>
-                    </button>
-                    <div class="flex justify-end border-t border-dashed border-[#efe2cb] px-3 py-2 dark:border-dark-700">
-                      <button
-                        class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50 dark:disabled:border-dark-700 dark:disabled:bg-dark-900 dark:disabled:text-gray-600"
-                        type="button"
-                        :disabled="!canDeleteJob(job) || deletingJobId === job.id"
-                        :title="canDeleteJob(job) ? t('imageWorkbench.actions.delete') : t('imageWorkbench.actions.deleteUnavailable')"
-                        :data-testid="`delete-batch-${job.id}`"
-                        @click="deleteJob(job)"
-                      >
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9 14.4 18m-4.8 0L9.26 9m9.97-3.21c.34.05.68.1 1.02.16m-1.02-.16L18.1 19.67A2.25 2.25 0 0 1 15.86 21H8.14a2.25 2.25 0 0 1-2.24-2.08L4.77 5.79m14.46 0A48.1 48.1 0 0 0 15.75 5m-10.98.79c.34-.06.68-.11 1.02-.16m0 0A48.11 48.11 0 0 1 8.25 5m7.5 0V3.92c0-1.18-.91-2.16-2.09-2.2a52.86 52.86 0 0 0-3.32 0c-1.18.04-2.09 1.02-2.09 2.2V5m7.5 0a48.67 48.67 0 0 0-7.5 0" />
-                        </svg>
-                        {{ deletingJobId === job.id ? t('imageWorkbench.actions.deleting') : t('imageWorkbench.actions.delete') }}
-                      </button>
-                    </div>
-                  </article>
-                </div>
-              </aside>
+              <ImageWorkbenchBatchList
+                :jobs="jobs"
+                :loading-jobs="loadingJobs"
+                :selected-job-id="selectedJobId"
+                :deleting-job-id="deletingJobId"
+                :format-date="formatDate"
+                :format-job-wait-time="formatJobWaitTime"
+                :job-display-name="jobDisplayName"
+                :status-class="statusClass"
+                :status-text="statusText"
+                :job-resolution="jobResolution"
+                :job-quality="jobQuality"
+                :can-delete-job="canDeleteJob"
+                @select-job="selectJob"
+                @delete-job="deleteJob"
+              />
             </div>
             </div>
           </div>
 
-          <div class="card overflow-hidden p-0">
-            <div class="journal-card-band flex items-center justify-between px-5 py-3.5">
-              <div class="flex items-center gap-2.5">
-                <span class="journal-icon-well journal-icon-well--sm">
-                  <CraftIcon name="layers" size="xs" />
-                </span>
-                <div>
-                  <div class="flex items-center gap-1.5">
-                    <h2 class="journal-section-title text-lg font-extrabold text-[#221d17] dark:text-white">{{ t('imageWorkbench.library.title') }}</h2>
-                    <CraftSparks variant="right" size="sm" />
-                  </div>
-                  <p class="mt-0.5 text-xs font-medium text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.library.subtitle') }}</p>
-                </div>
-              </div>
-              <span class="rounded-full bg-[#ffe6d1] px-2.5 py-0.5 text-xs font-extrabold text-[#b45309] dark:bg-primary-950/50 dark:text-primary-300">{{ completedJobs.length }}</span>
-            </div>
-            <div class="p-4">
-            <div v-if="completedJobs.length === 0" class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#dcc6a4] bg-[#fffaf0]/80 p-8 text-center dark:border-dark-600 dark:bg-dark-800/40">
-              <div class="relative mb-3 inline-flex">
-                <div class="journal-icon-well -rotate-3">
-                  <CraftIcon name="palette" size="lg" />
-                </div>
-                <CraftSparks variant="right" size="sm" class="ml-1 self-start" />
-              </div>
-              <p class="text-sm font-bold text-[#4e4336] dark:text-gray-400">{{ t('imageWorkbench.library.empty') }}</p>
-            </div>
-            <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <article v-for="job in completedJobs" :key="job.id" class="group overflow-hidden rounded-2xl border border-[#e3d2b6] bg-[#fffdf8] shadow-[0_4px_0_rgba(143,108,65,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_7px_0_rgba(143,108,65,0.12)] dark:border-dark-700 dark:bg-dark-900">
-                <button class="block w-full text-left" type="button" :aria-label="t('imageWorkbench.actions.previewArtwork', { name: jobDisplayName(job) })" @click="previewArtwork(job)">
-                  <div class="aspect-square overflow-hidden bg-[#f9f1e1] dark:bg-dark-800">
-                    <img v-if="previewURLs[job.id]" :src="previewURLs[job.id]" :alt="jobDisplayName(job)" class="h-full w-full object-cover transition group-hover:scale-105" />
-                    <span v-else class="flex h-full items-center justify-center text-xs text-[#7b6b57] dark:text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</span>
-                  </div>
-                </button>
-                <div class="p-3">
-                  <form v-if="renamingJobId === job.id" class="space-y-2" @submit.prevent="saveJobName(job)">
-                    <input v-model="renameDraft" class="input" maxlength="80" :aria-label="t('imageWorkbench.library.nameLabel')" :placeholder="t('imageWorkbench.library.namePlaceholder')" data-testid="work-name-input" />
-                    <div class="flex gap-2">
-                      <button class="btn btn-primary btn-sm flex-1" type="submit" :disabled="savingJobNameId === job.id || !renameDraft.trim()">{{ t('imageWorkbench.actions.saveName') }}</button>
-                      <button class="btn btn-secondary btn-sm flex-1" type="button" :disabled="savingJobNameId === job.id" @click="cancelRename">{{ t('imageWorkbench.actions.cancel') }}</button>
-                    </div>
-                  </form>
-                  <template v-else>
-                    <button class="block w-full truncate text-left text-xs font-bold text-[#221d17] hover:text-[#c26328] dark:text-gray-200 dark:hover:text-blue-300" type="button" @click="previewArtwork(job)">{{ jobDisplayName(job) }}</button>
-                    <div class="mt-2 flex items-end justify-between gap-2">
-                      <p class="min-w-0 truncate text-[10px] text-[#8a7a65] dark:text-gray-400">{{ job.actual_size || job.requested_size }}</p>
-                      <div class="flex shrink-0 items-center gap-1 text-[10px] font-semibold" :data-testid="`library-metadata-${job.id}`">
-                        <span class="rounded-full bg-violet-50 px-2 py-0.5 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300">{{ t('imageWorkbench.metadata.resolution', { value: jobResolution(job) }) }}</span>
-                        <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">{{ t('imageWorkbench.metadata.quality', { value: jobQuality(job) }) }}</span>
-                      </div>
-                    </div>
-                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-dashed border-[#e8dac0] pt-3 dark:border-dark-700">
-                      <button class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70" type="button" :data-testid="`rename-work-${job.id}`" @click="startRename(job)">
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.86 4.49 1.69-1.69a1.88 1.88 0 1 1 2.65 2.65L10.58 16.07a4.5 4.5 0 0 1-1.9 1.13l-2.68.8.8-2.68a4.5 4.5 0 0 1 1.13-1.9L16.86 4.5Zm0 0L19.5 7.13M18 14v4.75A2.25 2.25 0 0 1 15.75 21h-10.5A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                        </svg>
-                        {{ t('imageWorkbench.actions.rename') }}
-                      </button>
-                      <button class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-xs font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-wait disabled:opacity-60 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50" type="button" :disabled="deletingJobId === job.id" :data-testid="`delete-library-${job.id}`" @click="deleteJob(job)">
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9 14.4 18m-4.8 0L9.26 9m9.97-3.21c.34.05.68.1 1.02.16m-1.02-.16L18.1 19.67A2.25 2.25 0 0 1 15.86 21H8.14a2.25 2.25 0 0 1-2.24-2.08L4.77 5.79m14.46 0A48.1 48.1 0 0 0 15.75 5m-10.98.79c.34-.06.68-.11 1.02-.16m0 0A48.11 48.11 0 0 1 8.25 5m7.5 0V3.92c0-1.18-.91-2.16-2.09-2.2a52.86 52.86 0 0 0-3.32 0c-1.18.04-2.09 1.02-2.09 2.2V5m7.5 0a48.67 48.67 0 0 0-7.5 0" />
-                        </svg>
-                        {{ deletingJobId === job.id ? t('imageWorkbench.actions.deleting') : t('imageWorkbench.actions.delete') }}
-                      </button>
-                    </div>
-                  </template>
-                </div>
-              </article>
-            </div>
-            </div>
-          </div>
+          <ImageWorkbenchLibrary
+            v-model:rename-draft="renameDraft"
+            :completed-jobs="completedJobs"
+            :previewURLs="previewURLs"
+            :renaming-job-id="renamingJobId"
+            :saving-job-name-id="savingJobNameId"
+            :deleting-job-id="deletingJobId"
+            :job-display-name="jobDisplayName"
+            :job-resolution="jobResolution"
+            :job-quality="jobQuality"
+            @preview-artwork="previewArtwork"
+            @start-rename="startRename"
+            @cancel-rename="cancelRename"
+            @save-job-name="saveJobName"
+            @delete-job="deleteJob"
+          />
         </section>
       </div>
     </div>
 
-    <div v-if="previewingJob" class="fixed inset-0 z-50 flex items-center justify-center bg-[#231d17]/75 p-4 backdrop-blur-sm" data-testid="artwork-preview" @click.self="closeArtworkPreview">
-      <section class="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[#e3d2b6] bg-[#fffdf8] shadow-2xl dark:border-dark-700 dark:bg-dark-800" role="dialog" aria-modal="true" :aria-label="jobDisplayName(previewingJob)">
-        <header class="journal-card-band flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
-          <div class="min-w-0">
-            <h2 class="truncate text-lg font-extrabold text-[#221d17] dark:text-white">{{ jobDisplayName(previewingJob) }}</h2>
-            <p class="mt-0.5 text-xs font-medium text-[#6f6252] dark:text-gray-400">{{ previewingJob.actual_size || previewingJob.requested_size }}</p>
-          </div>
-          <div class="flex shrink-0 items-center gap-2">
-            <button class="btn btn-secondary btn-sm" type="button" @click="downloadResult(previewingJob)">{{ t('imageWorkbench.actions.downloadCurrent') }}</button>
-            <button class="btn btn-secondary btn-sm" type="button" :aria-label="t('imageWorkbench.actions.closePreview')" @click="closeArtworkPreview">×</button>
-          </div>
-        </header>
-        <div class="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[linear-gradient(135deg,#fdf7eb_25%,#f5ecdc_25%,#f5ecdc_50%,#fdf7eb_50%,#fdf7eb_75%,#f5ecdc_75%)] bg-[length:28px_28px] p-4 dark:bg-dark-900 sm:p-6">
-          <img v-if="previewURLs[previewingJob.id]" :src="previewURLs[previewingJob.id]" :alt="jobDisplayName(previewingJob)" class="max-h-[78vh] max-w-full rounded-xl object-contain shadow-lg" />
-          <p v-else class="text-sm text-[#6f6252] dark:text-gray-400">{{ t('imageWorkbench.actions.loadPreview') }}</p>
-        </div>
-      </section>
-    </div>
+    <ImageWorkbenchArtworkPreviewModal
+      :job="previewingJob"
+      :preview-url="previewingJob ? previewURLs[previewingJob.id] || '' : ''"
+      :display-name="previewingJob ? jobDisplayName(previewingJob) : ''"
+      @close="closeArtworkPreview"
+      @download="downloadResult"
+    />
 
     <div v-if="editor.open" class="fixed inset-0 z-50 flex items-center justify-center bg-[#231d17]/75 p-4" @keydown.esc="closeEditor">
       <section class="flex max-h-[94vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-2xl border border-[#e3d2b6] bg-[#fffdf8] shadow-2xl dark:border-dark-700 dark:bg-dark-800">
@@ -461,13 +216,16 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import CraftIcon from '@/components/craft/CraftIcon.vue'
 import CraftSparks from '@/components/craft/CraftSparks.vue'
-import JournalBannerSticker from '@/components/craft/JournalBannerSticker.vue'
+import ImageWorkbenchArtworkPreviewModal from '@/features/image-workbench/components/ImageWorkbenchArtworkPreviewModal.vue'
+import ImageWorkbenchBatchList from '@/features/image-workbench/components/ImageWorkbenchBatchList.vue'
+import ImageWorkbenchFormPanel from '@/features/image-workbench/components/ImageWorkbenchFormPanel.vue'
+import ImageWorkbenchHeader from '@/features/image-workbench/components/ImageWorkbenchHeader.vue'
+import ImageWorkbenchLibrary from '@/features/image-workbench/components/ImageWorkbenchLibrary.vue'
 import { imageWorkbenchAPI, keysAPI } from '@/api'
 import type { ImageWorkbenchCostEstimate, ImageWorkbenchJob, ImageWorkbenchModel, ImageWorkbenchQuality, ImageWorkbenchStatus } from '@/api'
 import type { ApiKey } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
-import { validateReferenceFiles } from './imageWorkbenchValidation'
 import {
   IMAGE_DIMENSION_MAX_EDGE,
   IMAGE_DIMENSION_MIN_EDGE,
@@ -484,20 +242,21 @@ import {
 } from '@/utils/imageWorkbenchModelCapabilities'
 import {
   clampDimension as clampImageDimension,
+  computeAspectRatioSize,
   dataURLByteLength,
+  dimensionErrorKey,
   extractErrorMessage,
-  formatCost,
   formatJobWaitTime as formatWorkbenchJobWaitTime,
   jobQualityOption,
   jobResolution,
   parseSize,
   sanitizeDownloadFileName,
-  snapDimension,
   statusClass
 } from '@/features/image-workbench/imageWorkbenchFormatters'
 import { useImageMaskEditor } from '@/features/image-workbench/useImageMaskEditor'
 import { useImageWorkbenchDraft } from '@/features/image-workbench/useImageWorkbenchDraft'
 import { useImageWorkbenchPreviews } from '@/features/image-workbench/useImageWorkbenchPreviews'
+import { useImageWorkbenchReferences } from '@/features/image-workbench/useImageWorkbenchReferences'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
@@ -559,8 +318,7 @@ const costEstimate = ref<ImageWorkbenchCostEstimate | null>(null)
 const referenceFiles = ref<File[]>([])
 const referenceDataURLs = ref<string[]>([])
 const referenceUrlInput = ref('')
-const isReferenceDragOver = ref(false)
-const referenceInputRef = ref<HTMLInputElement | null>(null)
+const formPanelRef = ref<InstanceType<typeof ImageWorkbenchFormPanel> | null>(null)
 const editorCanvasRef = ref<HTMLCanvasElement | null>(null)
 const editorMaskCanvasRef = ref<HTMLCanvasElement | null>(null)
 const editorImageRef = ref<HTMLImageElement | null>(null)
@@ -636,6 +394,23 @@ const {
   selectedModelMaxPixels
 })
 const {
+  onReferenceFiles,
+  onReferenceDrop,
+  importReferenceUrl,
+  clearReferences
+} = useImageWorkbenchReferences({
+  form,
+  referenceFiles,
+  referenceDataURLs,
+  referenceUrlInput,
+  referenceUrlList,
+  referenceCount,
+  onError: (message) => appStore.showError(message),
+  onChanged: persistDraftNow,
+  onClearFileInput: () => formPanelRef.value?.clearFileInput(),
+  translateError: (key) => t(key)
+})
+const {
   previewURLs,
   prunePreviews,
   restoreCachedLibrary: restoreCachedPreviewLibrary,
@@ -659,15 +434,7 @@ const dimensionValidation = computed(() => validateImageDimensions(Number(form.w
 const dimensionErrorMessage = computed(() => {
   const code = dimensionValidation.value.code
   if (!code) return ''
-  const keys: Record<string, string> = {
-    not_positive_integer: 'imageWorkbench.form.dimensionErrors.positiveInteger',
-    not_multiple_of_16: 'imageWorkbench.form.dimensionErrors.multipleOf16',
-    edge_too_large: 'imageWorkbench.form.dimensionErrors.maxEdge',
-    aspect_ratio_too_wide: 'imageWorkbench.form.dimensionErrors.aspectRatio',
-    pixels_too_few: 'imageWorkbench.form.dimensionErrors.minPixels',
-    pixels_too_many: 'imageWorkbench.form.dimensionErrors.maxPixels'
-  }
-  return t(keys[code] || 'imageWorkbench.form.dimensionErrors.invalid', {
+  return t(dimensionErrorKey(code), {
     step: IMAGE_DIMENSION_STEP,
     minEdge: IMAGE_DIMENSION_MIN_EDGE,
     maxEdge: IMAGE_DIMENSION_MAX_EDGE,
@@ -785,7 +552,7 @@ async function submitJob() {
     referenceUrlInput.value = ''
     referenceFiles.value = []
     referenceDataURLs.value = []
-    if (referenceInputRef.value) referenceInputRef.value.value = ''
+    formPanelRef.value?.clearFileInput()
     clearDraft()
     appStore.showSuccess(t('imageWorkbench.messages.submitted'))
   } catch (error: unknown) {
@@ -840,111 +607,11 @@ function resetForm() {
 function selectAspectRatio(value: string) {
   form.aspectRatio = value
   if (!value) return
-  const [widthRatio, heightRatio] = value.split(':').map(Number)
-  if (!widthRatio || !heightRatio) return
-  let width = clampDimension(Number(form.width))
-  let height = snapDimension(width * heightRatio / widthRatio)
-  if (height > selectedModelMaxEdge.value) {
-    width = clampDimension(snapDimension(width * selectedModelMaxEdge.value / height, 'down'))
-    height = snapDimension(width * heightRatio / widthRatio)
-  }
-  if (height < IMAGE_DIMENSION_MIN_EDGE) {
-    width = clampDimension(snapDimension(width * IMAGE_DIMENSION_MIN_EDGE / Math.max(height, 1), 'up'))
-    height = snapDimension(width * heightRatio / widthRatio, 'up')
-  }
-  for (let index = 0; index < 4; index += 1) {
-    const pixels = width * height
-    if (pixels < IMAGE_DIMENSION_MIN_PIXELS) {
-      const factor = Math.sqrt(IMAGE_DIMENSION_MIN_PIXELS / pixels)
-      const nextWidth = clampDimension(snapDimension(width * factor, 'up'))
-      const nextHeight = clampDimension(snapDimension(height * factor, 'up'))
-      if (nextWidth === width && nextHeight === height) break
-      width = nextWidth
-      height = nextHeight
-      continue
-    }
-    if (pixels > selectedModelMaxPixels.value) {
-      const factor = Math.sqrt(selectedModelMaxPixels.value / pixels)
-      const nextWidth = clampDimension(snapDimension(width * factor, 'down'))
-      const nextHeight = clampDimension(snapDimension(height * factor, 'down'))
-      if (nextWidth === width && nextHeight === height) break
-      width = nextWidth
-      height = nextHeight
-      continue
-    }
-    break
-  }
-  form.width = clampDimension(width)
-  form.height = clampDimension(height)
+  const resolved = computeAspectRatioSize(Number(form.width), value, selectedModelMaxEdge.value, selectedModelMaxPixels.value)
+  if (!resolved) return
+  form.width = resolved[0]
+  form.height = resolved[1]
   updateFormSize()
-}
-
-async function onReferenceFiles(event: Event) {
-  const input = event.target as HTMLInputElement
-  await processReferenceFiles(Array.from(input.files || []))
-  input.value = ''
-}
-
-async function onReferenceDrop(event: DragEvent) {
-  isReferenceDragOver.value = false
-  await processReferenceFiles(Array.from(event.dataTransfer?.files || []))
-}
-
-async function processReferenceFiles(files: File[]) {
-  if (!files.length) return
-  if (referenceCount.value + files.length > 9) {
-    appStore.showError(t('imageWorkbench.errors.tooManyReferences'))
-    return
-  }
-  const validationError = validateReferenceFiles(files)
-  if (validationError) {
-    const errorKey = {
-      too_many_reference_files: 'imageWorkbench.errors.tooManyReferenceFiles',
-      reference_file_not_image: 'imageWorkbench.errors.invalidReferenceType',
-      reference_file_too_large: 'imageWorkbench.errors.fileTooLarge',
-      mask_file_not_png: 'imageWorkbench.errors.invalidMask',
-      mask_file_too_large: 'imageWorkbench.errors.fileTooLarge'
-    } as const
-    appStore.showError(t(errorKey[validationError]))
-    return
-  }
-  referenceFiles.value = [...referenceFiles.value, ...files]
-  referenceDataURLs.value = [...referenceDataURLs.value, ...await Promise.all(files.map(readFileAsDataURL))]
-  persistDraftNow()
-}
-
-function importReferenceUrl() {
-  const url = referenceUrlInput.value.trim()
-  if (!url) return
-  if (!/^https?:\/\//i.test(url)) {
-    appStore.showError(t('imageWorkbench.errors.invalidReferenceUrl'))
-    return
-  }
-  if (referenceCount.value >= 9) {
-    appStore.showError(t('imageWorkbench.errors.tooManyReferences'))
-    return
-  }
-  form.referenceUrls = [...referenceUrlList.value, url].join('\n')
-  referenceUrlInput.value = ''
-  persistDraftNow()
-}
-
-function clearReferences() {
-  form.referenceUrls = ''
-  referenceUrlInput.value = ''
-  referenceFiles.value = []
-  referenceDataURLs.value = []
-  if (referenceInputRef.value) referenceInputRef.value.value = ''
-  persistDraftNow()
-}
-
-function readFileAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
 }
 
 async function refreshPendingJobs() {
@@ -1152,24 +819,3 @@ onBeforeUnmount(() => {
   disposePreviews()
 })
 </script>
-
-<style scoped>
-.image-workbench-compact :deep(.input) {
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
-  line-height: 1.25rem;
-  padding: 0.375rem 0.75rem;
-}
-
-.image-workbench-compact :deep(.input-label) {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  margin-bottom: 0.25rem;
-}
-
-.image-workbench-compact :deep(.input-hint) {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  margin-top: 0.25rem;
-}
-</style>

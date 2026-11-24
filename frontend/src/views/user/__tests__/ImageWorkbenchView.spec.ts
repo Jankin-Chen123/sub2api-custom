@@ -89,7 +89,14 @@ async function mountWorkbench(jobs: unknown[] = [], keys: unknown[] = [eligibleK
 
   const wrapper = shallowMount(ImageWorkbenchView, {
     global: {
-      stubs: { AppLayout: { template: '<div><slot /></div>' } }
+      stubs: {
+        AppLayout: { template: '<div><slot /></div>' },
+        ImageWorkbenchHeader: false,
+        ImageWorkbenchFormPanel: false,
+        ImageWorkbenchBatchList: false,
+        ImageWorkbenchLibrary: false,
+        ImageWorkbenchArtworkPreviewModal: false
+      }
     }
   })
   await flushPromises()
