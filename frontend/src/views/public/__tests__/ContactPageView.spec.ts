@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { ref } from 'vue'
 
-const componentSource = readFileSync(resolve(process.cwd(), 'src/views/public/ContactPageView.vue'), 'utf8')
+const styleSource = readFileSync(resolve(process.cwd(), 'src/views/public/contact-page.css'), 'utf8')
 
 const { appStore, contactConfig, copyToClipboard, getContactPageSettings } = vi.hoisted(() => ({
   appStore: {
@@ -171,15 +171,15 @@ describe('ContactPageView', () => {
   })
 
   it('keeps the branded light palette even when the host requests dark mode', () => {
-    expect(componentSource).not.toContain('.dark .contact-page {')
-    expect(componentSource).not.toContain('.dark .contact-status {')
+    expect(styleSource).not.toContain('.dark .contact-page {')
+    expect(styleSource).not.toContain('.dark .contact-status {')
   })
 
   it('uses viewport-aware compact sizing on desktop to avoid page scrolling', () => {
-    expect(componentSource).toContain('height: 100svh;')
-    expect(componentSource).toContain('height: clamp(240px, 30vh, 300px);')
-    expect(componentSource).toContain('min-height: 110px;')
-    expect(componentSource).toContain('@media (min-width: 761px) and (max-height: 820px)')
-    expect(componentSource).toContain('height: clamp(205px, 28vh, 220px);')
+    expect(styleSource).toContain('height: 100svh;')
+    expect(styleSource).toContain('height: clamp(240px, 30vh, 300px);')
+    expect(styleSource).toContain('min-height: 110px;')
+    expect(styleSource).toContain('@media (min-width: 761px) and (max-height: 820px)')
+    expect(styleSource).toContain('height: clamp(205px, 28vh, 220px);')
   })
 })

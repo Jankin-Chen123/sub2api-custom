@@ -6349,116 +6349,15 @@
 
         <!-- Tab: Image generation -->
         <div v-show="activeTab === 'imageGeneration'" class="space-y-6">
-          <div class="card">
-            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.dedicatedImage.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.dedicatedImage.description") }}
-              </p>
-            </div>
-            <div class="divide-y divide-gray-100 px-6 dark:divide-dark-700">
-              <div class="flex items-center justify-between gap-6 py-4">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{ t("admin.settings.dedicatedImage.enabled") }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">{{ t("admin.settings.dedicatedImage.enabledHint") }}</p>
-                </div>
-                <Toggle v-model="form.dedicated_image_enabled" data-testid="dedicated-image-enabled" />
-              </div>
-              <div class="flex items-center justify-between gap-6 py-4">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{ t("admin.settings.dedicatedImage.workerEnabled") }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">{{ t("admin.settings.dedicatedImage.workerEnabledHint") }}</p>
-                </div>
-                <Toggle v-model="form.dedicated_image_worker_enabled" :disabled="!form.dedicated_image_enabled" data-testid="dedicated-image-worker-enabled" />
-              </div>
-              <div class="flex items-center justify-between gap-6 py-4">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{ t("admin.settings.dedicatedImage.codexBridgeEnabled") }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">{{ t("admin.settings.dedicatedImage.codexBridgeEnabledHint") }}</p>
-                </div>
-                <Toggle
-                  v-model="form.dedicated_image_codex_bridge_enabled"
-                  :disabled="!form.dedicated_image_enabled || !form.dedicated_image_worker_enabled"
-                  data-testid="dedicated-image-codex-bridge-enabled"
-                />
-              </div>
-              <div class="flex items-center justify-between gap-6 py-4">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{ t("admin.settings.dedicatedImage.fallbackToGeneral") }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">{{ t("admin.settings.dedicatedImage.fallbackToGeneralHint") }}</p>
-                </div>
-                <Toggle
-                  v-model="form.dedicated_image_fallback_to_general"
-                  :disabled="!form.dedicated_image_enabled || !form.dedicated_image_worker_enabled"
-                  data-testid="dedicated-image-fallback-to-general"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Image generation queue protection -->
-          <div class="card">
-            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.imageGenerationQueue.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.imageGenerationQueue.description") }}
-              </p>
-            </div>
-            <div class="space-y-5 p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">
-                    {{ t("admin.settings.imageGenerationQueue.enabled") }}
-                  </label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.imageGenerationQueue.enabledHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.image_generation_queue_enabled" />
-              </div>
-              <div
-                class="grid gap-4 border-t border-gray-100 pt-4 dark:border-dark-700 sm:grid-cols-2"
-              >
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {{ t("admin.settings.imageGenerationQueue.maxActiveJobs") }}
-                  </label>
-                  <input
-                    v-model.number="form.image_generation_max_active_jobs"
-                    type="number"
-                    min="1"
-                    max="1000"
-                    class="input w-32"
-                  />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.imageGenerationQueue.maxActiveJobsHint") }}
-                  </p>
-                </div>
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {{ t("admin.settings.imageGenerationQueue.maxQueuedJobs") }}
-                  </label>
-                  <input
-                    v-model.number="form.image_generation_max_queued_jobs"
-                    type="number"
-                    min="0"
-                    max="100000"
-                    class="input w-32"
-                  />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.imageGenerationQueue.maxQueuedJobsHint") }}
-                  </p>
-                </div>
-              </div>
-              <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
-                {{ t("admin.settings.imageGenerationQueue.safetyHint") }}
-              </p>
-            </div>
-          </div>
+          <DedicatedImageSettingsCards
+            v-model:dedicated-image-enabled="form.dedicated_image_enabled"
+            v-model:dedicated-image-worker-enabled="form.dedicated_image_worker_enabled"
+            v-model:dedicated-image-codex-bridge-enabled="form.dedicated_image_codex_bridge_enabled"
+            v-model:dedicated-image-fallback-to-general="form.dedicated_image_fallback_to_general"
+            v-model:image-generation-queue-enabled="form.image_generation_queue_enabled"
+            v-model:image-generation-max-active-jobs="form.image_generation_max_active_jobs"
+            v-model:image-generation-max-queued-jobs="form.image_generation_max_queued_jobs"
+          />
 
           <ImageGenerationSettings
             v-model:announcements="form.image_workbench_announcements"
@@ -6749,108 +6648,13 @@
                 </p>
               </div>
 
-              <!-- Contact Page Settings -->
-              <div
-                class="rounded-2xl border border-primary-200 bg-primary-50/40 p-5 dark:border-primary-900/50 dark:bg-primary-950/20"
-                data-testid="contact-page-settings-card"
-              >
-                <div class="mb-4">
-                  <h3 class="font-semibold text-gray-900 dark:text-white">
-                    {{ t("admin.settings.site.contactPage.title") }}
-                  </h3>
-                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.site.contactPage.description") }}
-                  </p>
-                  <p
-                    class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
-                  >
-                    {{ t("admin.settings.site.contactPage.qqExpiryWarning") }}
-                  </p>
-                </div>
-
-                <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
-                  <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-600 dark:bg-dark-800">
-                    <h4 class="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                      {{ t("admin.settings.site.contactPage.qqTitle") }}
-                    </h4>
-                    <div class="space-y-4">
-                      <div>
-                        <label class="input-label">
-                          {{ t("admin.settings.site.contactPage.qqGroupNumber") }}
-                        </label>
-                        <input
-                          v-model="form.contact_page_qq_group_number"
-                          type="text"
-                          inputmode="numeric"
-                          class="input font-mono"
-                          data-testid="contact-page-qq-group-number"
-                          :placeholder="t('admin.settings.site.contactPage.qqGroupNumberPlaceholder')"
-                        />
-                      </div>
-                      <div>
-                        <label class="input-label">
-                          {{ t("admin.settings.site.contactPage.qqQrImage") }}
-                        </label>
-                        <ImageUpload
-                          v-model="form.contact_page_qq_qr_image"
-                          mode="image"
-                          size="lg"
-                          :upload-label="t('admin.settings.site.contactPage.replaceImage')"
-                          :remove-label="t('admin.settings.site.remove')"
-                          :hint="t('admin.settings.site.contactPage.imageHint')"
-                          :max-size="2 * 1024 * 1024"
-                        />
-                      </div>
-                    </div>
-                  </section>
-
-                  <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-600 dark:bg-dark-800">
-                    <h4 class="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                      {{ t("admin.settings.site.contactPage.telegramTitle") }}
-                    </h4>
-                    <div class="space-y-4">
-                      <div>
-                        <label class="input-label">
-                          {{ t("admin.settings.site.contactPage.telegramName") }}
-                        </label>
-                        <input
-                          v-model="form.contact_page_telegram_name"
-                          type="text"
-                          class="input"
-                          data-testid="contact-page-telegram-name"
-                          :placeholder="t('admin.settings.site.contactPage.telegramNamePlaceholder')"
-                        />
-                      </div>
-                      <div>
-                        <label class="input-label">
-                          {{ t("admin.settings.site.contactPage.telegramUrl") }}
-                        </label>
-                        <input
-                          v-model="form.contact_page_telegram_url"
-                          type="url"
-                          class="input font-mono text-sm"
-                          data-testid="contact-page-telegram-url"
-                          placeholder="https://t.me/ai_baipiao"
-                        />
-                      </div>
-                      <div>
-                        <label class="input-label">
-                          {{ t("admin.settings.site.contactPage.telegramQrImage") }}
-                        </label>
-                        <ImageUpload
-                          v-model="form.contact_page_telegram_qr_image"
-                          mode="image"
-                          size="lg"
-                          :upload-label="t('admin.settings.site.contactPage.replaceImage')"
-                          :remove-label="t('admin.settings.site.remove')"
-                          :hint="t('admin.settings.site.contactPage.imageHint')"
-                          :max-size="2 * 1024 * 1024"
-                        />
-                      </div>
-                    </div>
-                  </section>
-                </div>
-              </div>
+              <ContactPageSettingsCard
+                v-model:qq-group-number="form.contact_page_qq_group_number"
+                v-model:qq-qr-image="form.contact_page_qq_qr_image"
+                v-model:telegram-name="form.contact_page_telegram_name"
+                v-model:telegram-url="form.contact_page_telegram_url"
+                v-model:telegram-qr-image="form.contact_page_telegram_qr_image"
+              />
 
               <!-- Doc URL -->
               <div>
@@ -9303,6 +9107,8 @@ import ProxySelector from "@/components/common/ProxySelector.vue";
 import ImageUpload from "@/components/common/ImageUpload.vue";
 import BackupSettings from "@/views/admin/BackupView.vue";
 import ImageGenerationSettings from "@/views/admin/ImageGenerationSettings.vue";
+import DedicatedImageSettingsCards from "@/components/admin/settings/DedicatedImageSettingsCards.vue";
+import ContactPageSettingsCard from "@/components/admin/settings/ContactPageSettingsCard.vue";
 import EmailTemplateEditor from "@/views/admin/settings/EmailTemplateEditor.vue";
 import RechargeBonusTierEditor from "@/components/admin/settings/RechargeBonusTierEditor.vue";
 import {

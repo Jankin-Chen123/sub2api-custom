@@ -495,6 +495,19 @@ import {
   loadImageWorkbenchDraft,
   saveImageWorkbenchDraft
 } from '@/utils/imageWorkbenchDraft'
+import {
+  clampDimension as clampImageDimension,
+  dataURLByteLength,
+  formatCost,
+  formatJobWaitTime as formatWorkbenchJobWaitTime,
+  jobQualityOption,
+  jobResolution,
+  parseSize,
+  sanitizeDownloadFileName,
+  snapDimension,
+  statusClass
+} from '@/features/image-workbench/imageWorkbenchFormatters'
+import { useImageMaskEditor } from '@/features/image-workbench/useImageMaskEditor'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
@@ -571,9 +584,25 @@ let announcementTimer: ReturnType<typeof setInterval> | null = null
 let draftSaveTimer: ReturnType<typeof setTimeout> | null = null
 let draftReady = false
 const elapsedClock = ref(Date.now())
-type BrushPoint = { x: number; y: number }
-type BrushStroke = { points: BrushPoint[]; size: number }
-const brushStrokes: BrushStroke[] = []
+const {
+  setupEditorCanvas,
+  redrawBrushStrokes,
+  startDrawing,
+  draw,
+  stopDrawing,
+  clearEditorMarks,
+  createEditableReferenceDataURL
+} = useImageMaskEditor({
+  editor,
+  editorCanvasRef,
+  editorMaskCanvasRef,
+  editorImageRef,
+  maxReferenceBytes: EDITOR_REFERENCE_MAX_BYTES,
+  fileTooLargeMessage: () => t('imageWorkbench.errors.fileTooLarge')
+})
+watch(() => editor.open, (isOpen) => {
+  if (isOpen && editor.hasMarks) redrawBrushStrokes()
+})
 
 const selectedModel = computed(() => imageWorkbenchModelCapabilities(form.model))
 const availableQualities = computed(() => selectedModel.value.qualities)
@@ -949,21 +978,8 @@ function createBlankCanvas() {
   selectedJobId.value = ''
 }
 
-function parseSize(value: string): [number, number] {
-  const match = value.trim().match(/^(\d+)x(\d+)$/i)
-  if (!match) return [1024, 1024]
-  return [Number(match[1]), Number(match[2])]
-}
-
 function clampDimension(value: number) {
-  const numeric = Number.isFinite(value) ? Math.round(value / IMAGE_DIMENSION_STEP) * IMAGE_DIMENSION_STEP : 1024
-  return Math.min(selectedModelMaxEdge.value, Math.max(IMAGE_DIMENSION_MIN_EDGE, numeric))
-}
-
-function snapDimension(value: number, direction: 'up' | 'down' | 'nearest' = 'nearest') {
-  const raw = Number.isFinite(value) ? value / IMAGE_DIMENSION_STEP : 1024 / IMAGE_DIMENSION_STEP
-  const snapped = direction === 'up' ? Math.ceil(raw) : direction === 'down' ? Math.floor(raw) : Math.round(raw)
-  return snapped * IMAGE_DIMENSION_STEP
+  return clampImageDimension(value, selectedModelMaxEdge.value)
 }
 
 function updateFormSize() {
@@ -1278,120 +1294,6 @@ function closeEditor() {
   clearEditorMarks()
 }
 
-function setupEditorCanvas() {
-  const image = editorImageRef.value
-  const canvas = editorCanvasRef.value
-  const maskCanvas = editorMaskCanvasRef.value
-  if (!image || !canvas || !maskCanvas || !image.naturalWidth || !image.naturalHeight) return
-  editor.width = image.naturalWidth
-  editor.height = image.naturalHeight
-  canvas.width = image.naturalWidth
-  canvas.height = image.naturalHeight
-  maskCanvas.width = image.naturalWidth
-  maskCanvas.height = image.naturalHeight
-  clearEditorMarks()
-}
-
-function pointFromEvent(event: PointerEvent) {
-  const canvas = editorCanvasRef.value
-  if (!canvas) return null
-  const rect = canvas.getBoundingClientRect()
-  return {
-    x: Math.max(0, Math.min(canvas.width, (event.clientX - rect.left) * canvas.width / rect.width)),
-    y: Math.max(0, Math.min(canvas.height, (event.clientY - rect.top) * canvas.height / rect.height))
-  }
-}
-
-function drawSmoothStroke(ctx: CanvasRenderingContext2D, stroke: BrushStroke, color: string) {
-  const points = stroke.points
-  if (!points.length) return
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.strokeStyle = color
-  ctx.lineWidth = stroke.size
-  ctx.beginPath()
-  ctx.moveTo(points[0].x, points[0].y)
-  if (points.length === 1) {
-    ctx.arc(points[0].x, points[0].y, stroke.size / 2, 0, Math.PI * 2)
-    ctx.fillStyle = color
-    ctx.fill()
-    return
-  }
-  if (points.length === 2) {
-    ctx.lineTo(points[1].x, points[1].y)
-  } else {
-    for (let index = 1; index < points.length - 1; index += 1) {
-      const current = points[index]!
-      const next = points[index + 1]!
-      const midpointX = (current.x + next.x) / 2
-      const midpointY = (current.y + next.y) / 2
-      ctx.quadraticCurveTo(current.x, current.y, midpointX, midpointY)
-    }
-    const last = points[points.length - 1]!
-    ctx.quadraticCurveTo(last.x, last.y, last.x, last.y)
-  }
-  ctx.stroke()
-}
-
-function redrawBrushStrokes() {
-  const canvas = editorCanvasRef.value
-  const maskCanvas = editorMaskCanvasRef.value
-  if (!canvas || !maskCanvas) return
-  const visual = canvas.getContext('2d')
-  const mask = maskCanvas.getContext('2d')
-  if (!visual || !mask) return
-  visual.clearRect(0, 0, canvas.width, canvas.height)
-  mask.clearRect(0, 0, maskCanvas.width, maskCanvas.height)
-  mask.save()
-  mask.globalCompositeOperation = 'source-over'
-  mask.fillStyle = '#ffffff'
-  mask.fillRect(0, 0, maskCanvas.width, maskCanvas.height)
-  mask.globalCompositeOperation = 'destination-out'
-  for (const stroke of brushStrokes) {
-    drawSmoothStroke(visual, stroke, 'rgba(239, 68, 68, 0.72)')
-    drawSmoothStroke(mask, stroke, '#000000')
-  }
-  mask.restore()
-}
-
-function startDrawing(event: PointerEvent) {
-  if (editor.mode !== 'brush') return
-  const point = pointFromEvent(event)
-  if (!point) return
-  editor.drawing = true
-  brushStrokes.push({ points: [point], size: Math.max(1, Number(editor.brushSize) || 1) })
-  editor.hasMarks = true
-  redrawBrushStrokes()
-  editorCanvasRef.value?.setPointerCapture(event.pointerId)
-}
-
-function draw(event: PointerEvent) {
-  if (!editor.drawing) return
-  const point = pointFromEvent(event)
-  if (!point) return
-  const stroke = brushStrokes[brushStrokes.length - 1]
-  if (!stroke) return
-  const previous = stroke.points[stroke.points.length - 1]
-  if (!previous || Math.hypot(point.x - previous.x, point.y - previous.y) >= 0.5) {
-    stroke.points.push(point)
-    redrawBrushStrokes()
-  }
-}
-
-function stopDrawing() {
-  editor.drawing = false
-}
-
-function clearEditorMarks() {
-  const canvas = editorCanvasRef.value
-  const maskCanvas = editorMaskCanvasRef.value
-  canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
-  maskCanvas?.getContext('2d')?.clearRect(0, 0, maskCanvas.width, maskCanvas.height)
-  brushStrokes.length = 0
-  editor.hasMarks = false
-  editor.drawing = false
-}
-
 function setCurrentAsReference() {
   if (!editor.originalDataURL) return
   referenceFiles.value = []
@@ -1435,83 +1337,13 @@ async function submitEditFromEditor() {
   }
 }
 
-async function createEditableReferenceDataURL(blob: Blob) {
-  const bitmap = await createImageBitmap(blob)
-  let canvas = document.createElement('canvas')
-  canvas.width = bitmap.width
-  canvas.height = bitmap.height
-  const context = canvas.getContext('2d')
-  if (!context) {
-    bitmap.close()
-    throw new Error('Canvas 2D context is unavailable')
-  }
-  context.drawImage(bitmap, 0, 0)
-  bitmap.close()
-
-  let dataURL = canvas.toDataURL('image/png')
-  let byteLength = dataURLByteLength(dataURL)
-  while (byteLength > EDITOR_REFERENCE_MAX_BYTES) {
-    const scale = Math.min(0.9, Math.sqrt(EDITOR_REFERENCE_MAX_BYTES / byteLength) * 0.95)
-    const width = Math.max(IMAGE_DIMENSION_MIN_EDGE, Math.floor(canvas.width * scale))
-    const height = Math.max(IMAGE_DIMENSION_MIN_EDGE, Math.floor(canvas.height * scale))
-    if (width === canvas.width && height === canvas.height) break
-
-    const resized = document.createElement('canvas')
-    resized.width = width
-    resized.height = height
-    const resizedContext = resized.getContext('2d')
-    if (!resizedContext) throw new Error('Canvas 2D context is unavailable')
-    resizedContext.drawImage(canvas, 0, 0, width, height)
-    canvas = resized
-    dataURL = canvas.toDataURL('image/png')
-    byteLength = dataURLByteLength(dataURL)
-  }
-  if (byteLength > EDITOR_REFERENCE_MAX_BYTES) throw new Error(t('imageWorkbench.errors.fileTooLarge'))
-  return dataURL
-}
-
-function dataURLByteLength(dataURL: string) {
-  const separator = dataURL.indexOf(',')
-  const payload = separator >= 0 ? dataURL.slice(separator + 1) : dataURL
-  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0
-  return Math.max(0, Math.floor(payload.length * 3 / 4) - padding)
-}
-
 function statusText(status: ImageWorkbenchStatus) { return t('imageWorkbench.status.' + status) }
-function statusClass(status: ImageWorkbenchStatus) {
-  if (status === 'completed') return 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300'
-  if (status === 'failed' || status === 'submission_unknown') return 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300'
-  return 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
-}
 function jobDisplayName(job: ImageWorkbenchJob) { return job.name?.trim() || t('imageWorkbench.library.untitled') }
-function jobResolution(job: ImageWorkbenchJob) { return job.model.match(/-(\d+k)$/i)?.[1]?.toUpperCase() || '—' }
-function jobQuality(job: ImageWorkbenchJob) {
-  const quality = job.quality && isImageWorkbenchQualityAllowed(job.model, job.quality) ? job.quality : 'auto'
-  return t('imageWorkbench.form.qualityOptions.' + quality)
-}
-function downloadFileName(job: ImageWorkbenchJob) {
-  const safeName = [...jobDisplayName(job)]
-    .map(character => character.charCodeAt(0) < 32 || /[\\/:*?"<>|]/.test(character) ? '_' : character)
-    .join('')
-    .trim()
-  return `${safeName || job.id}.png`
-}
-function formatCost(value: number) { return Number(value || 0).toFixed(4) }
+function jobQuality(job: ImageWorkbenchJob) { return t('imageWorkbench.form.qualityOptions.' + jobQualityOption(job)) }
+function downloadFileName(job: ImageWorkbenchJob) { return sanitizeDownloadFileName(jobDisplayName(job), job.id) }
 function formatInteger(value: number) { return new Intl.NumberFormat(locale.value).format(value) }
 function formatDate(value: string) { return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
-function isTerminalJob(status: ImageWorkbenchStatus) {
-  return status === 'completed' || status === 'failed' || status === 'submission_unknown'
-}
-function formatJobWaitTime(job: ImageWorkbenchJob) {
-  const createdAt = Date.parse(job.created_at)
-  if (!Number.isFinite(createdAt)) return '00:00'
-  const completedAt = isTerminalJob(job.status) ? Date.parse(job.updated_at) : Number.NaN
-  const endAt = Number.isFinite(completedAt) ? completedAt : elapsedClock.value
-  const elapsedSeconds = Math.max(0, Math.floor((endAt - createdAt) / 1000))
-  const minutes = Math.floor(elapsedSeconds / 60)
-  const seconds = elapsedSeconds % 60
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-}
+function formatJobWaitTime(job: ImageWorkbenchJob) { return formatWorkbenchJobWaitTime(job, elapsedClock.value) }
 
 function restartAnnouncementRotation() {
   if (announcementTimer) clearInterval(announcementTimer)
