@@ -318,7 +318,7 @@ import {
   playMascotHighFiveSound,
   playPaperSoundToggleCue,
   setPaperSoundEnabled,
-} from '@/router/paperSound'
+} from '@/features/paper-transition/paperSound'
 
 interface MascotStampBurst {
   id: number
