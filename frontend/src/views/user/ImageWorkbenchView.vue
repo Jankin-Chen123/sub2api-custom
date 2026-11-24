@@ -480,24 +480,12 @@ import {
 import {
   IMAGE_WORKBENCH_MODELS,
   imageWorkbenchModelCapabilities,
-  isImageWorkbenchAspectRatioAllowed,
   isImageWorkbenchQualityAllowed
 } from '@/utils/imageWorkbenchModelCapabilities'
 import {
-  deleteCachedImageWorkbenchEntry,
-  getCachedImageWorkbenchBlob,
-  listCachedImageWorkbenchEntries,
-  putCachedImageWorkbenchBlob
-} from '@/utils/imageWorkbenchCache'
-import type { ImageWorkbenchDraft, ImageWorkbenchDraftReference } from '@/utils/imageWorkbenchDraft'
-import {
-  clearImageWorkbenchDraft,
-  loadImageWorkbenchDraft,
-  saveImageWorkbenchDraft
-} from '@/utils/imageWorkbenchDraft'
-import {
   clampDimension as clampImageDimension,
   dataURLByteLength,
+  extractErrorMessage,
   formatCost,
   formatJobWaitTime as formatWorkbenchJobWaitTime,
   jobQualityOption,
@@ -508,6 +496,8 @@ import {
   statusClass
 } from '@/features/image-workbench/imageWorkbenchFormatters'
 import { useImageMaskEditor } from '@/features/image-workbench/useImageMaskEditor'
+import { useImageWorkbenchDraft } from '@/features/image-workbench/useImageWorkbenchDraft'
+import { useImageWorkbenchPreviews } from '@/features/image-workbench/useImageWorkbenchPreviews'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
@@ -570,10 +560,6 @@ const referenceFiles = ref<File[]>([])
 const referenceDataURLs = ref<string[]>([])
 const referenceUrlInput = ref('')
 const isReferenceDragOver = ref(false)
-const previewURLs = reactive<Record<string, string>>({})
-const previewDataURLs = reactive<Record<string, string>>({})
-const previewBlobs = new Map<string, { version: string; blob: Blob }>()
-const pendingBlobLoads = new Map<string, Promise<Blob>>()
 const referenceInputRef = ref<HTMLInputElement | null>(null)
 const editorCanvasRef = ref<HTMLCanvasElement | null>(null)
 const editorMaskCanvasRef = ref<HTMLCanvasElement | null>(null)
@@ -581,8 +567,6 @@ const editorImageRef = ref<HTMLImageElement | null>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
 let announcementTimer: ReturnType<typeof setInterval> | null = null
-let draftSaveTimer: ReturnType<typeof setTimeout> | null = null
-let draftReady = false
 const elapsedClock = ref(Date.now())
 const {
   setupEditorCanvas,
@@ -611,7 +595,6 @@ const imageCacheUserId = computed(() => Number(authStore.user?.id || 0))
 const eligibleKeys = computed(() => apiKeys.value.filter(key => key.status === 'active' && key.group?.platform === 'openai' && key.group.allow_image_generation))
 const currentJob = computed(() => jobs.value.find(job => job.id === selectedJobId.value) || null)
 const previewingJob = computed(() => jobs.value.find(job => job.id === previewingJobId.value) || null)
-const currentPreviewURL = computed(() => selectedJobId.value ? previewURLs[selectedJobId.value] : '')
 const headerModel = computed(() => selectedModel.value.value.replace(/-\d+k$/i, ''))
 const headerCanvasSize = computed(() => `${form.width} × ${form.height}`)
 const pendingJobs = computed(() => jobs.value.filter(job => job.status === 'queued' || job.status === 'in_progress'))
@@ -638,6 +621,40 @@ const referenceUrlList = computed(() => form.referenceUrls.split(/\r?\n/).map(va
 const referenceCount = computed(() => referenceUrlList.value.length + referenceFiles.value.length + referenceDataURLs.value.length)
 const selectedModelMaxPixels = computed(() => selectedModel.value.maxPixels)
 const selectedModelMaxEdge = computed(() => maxImageDimensionForPixelBudget(selectedModelMaxPixels.value))
+const {
+  restoreDraft,
+  persistDraftNow,
+  clearDraft,
+  disposeDraftAutoSave
+} = useImageWorkbenchDraft({
+  form,
+  referenceFiles,
+  referenceDataURLs,
+  referenceUrlInput,
+  userId: imageCacheUserId,
+  selectedModelMaxEdge,
+  selectedModelMaxPixels
+})
+const {
+  previewURLs,
+  prunePreviews,
+  restoreCachedLibrary: restoreCachedPreviewLibrary,
+  hydrateCachedPreviews,
+  loadPreview,
+  downloadResult,
+  ensureEditableDataURL,
+  refreshCachedJobMetadata,
+  removeCachedJob,
+  disposePreviews
+} = useImageWorkbenchPreviews({
+  userId: imageCacheUserId,
+  createEditableReferenceDataURL,
+  getDownloadFileName: downloadFileName,
+  onError: (message) => appStore.showError(message),
+  previewErrorMessage: () => t('imageWorkbench.errors.preview'),
+  downloadErrorMessage: () => t('imageWorkbench.errors.download')
+})
+const currentPreviewURL = computed(() => selectedJobId.value ? previewURLs[selectedJobId.value] : '')
 const dimensionValidation = computed(() => validateImageDimensions(Number(form.width), Number(form.height), selectedModelMaxPixels.value))
 const dimensionErrorMessage = computed(() => {
   const code = dimensionValidation.value.code
@@ -662,107 +679,6 @@ const experimentalDimensions = computed(() => dimensionValidation.value.code ===
 const canSubmit = computed(() => form.apiKeyId > 0 && form.prompt.trim().length > 0 && eligibleKeys.value.some(key => key.id === form.apiKeyId) && dimensionValidation.value.code === null)
 const editorStageStyle = computed(() => ({ aspectRatio: editor.width + ' / ' + editor.height }))
 
-function currentDraft(): ImageWorkbenchDraft {
-  return {
-    form: {
-      apiKeyId: Number(form.apiKeyId) || 0,
-      model: form.model,
-      quality: form.quality,
-      size: form.size,
-      aspectRatio: form.aspectRatio,
-      width: Number(form.width) || 1024,
-      height: Number(form.height) || 1024,
-      prompt: form.prompt,
-      referenceUrls: form.referenceUrls
-    },
-    referenceUrlInput: referenceUrlInput.value,
-    references: referenceDataURLs.value.map((dataURL, index) => {
-      const file = referenceFiles.value[index]
-      return {
-        name: file?.name || `reference-${index + 1}.png`,
-        type: file?.type || dataURL.match(/^data:([^;,]+)/i)?.[1] || 'image/png',
-        lastModified: file?.lastModified || Date.now(),
-        dataURL,
-        isFile: Boolean(file)
-      }
-    })
-  }
-}
-
-function draftReferenceToFile(reference: ImageWorkbenchDraftReference): File | null {
-  if (!reference.dataURL || !reference.isFile) return null
-  const separator = reference.dataURL.indexOf(',')
-  if (separator < 0) return null
-  try {
-    const payload = reference.dataURL.slice(separator + 1)
-    const binary = atob(payload)
-    const bytes = new Uint8Array(binary.length)
-    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
-    return new File([bytes], reference.name, {
-      type: reference.type || 'image/png',
-      lastModified: reference.lastModified || Date.now()
-    })
-  } catch {
-    return null
-  }
-}
-
-async function restoreDraft() {
-  const userId = imageCacheUserId.value
-  if (userId <= 0) {
-    draftReady = true
-    return
-  }
-  try {
-    const draft = await loadImageWorkbenchDraft(userId)
-    if (draft) {
-      const savedForm = draft.form || {} as ImageWorkbenchDraft['form']
-      form.apiKeyId = Number(savedForm.apiKeyId) || 0
-      form.model = models.some(model => model.value === savedForm.model) ? savedForm.model as ImageWorkbenchModel : 'gpt-image-2-1k'
-      form.quality = isImageWorkbenchQualityAllowed(form.model, savedForm.quality) ? savedForm.quality : selectedModel.value.defaultQuality
-      form.aspectRatio = isImageWorkbenchAspectRatioAllowed(form.model, savedForm.aspectRatio) ? savedForm.aspectRatio : ''
-      await nextTick()
-      form.width = clampDimension(Number(savedForm.width) || 1024)
-      form.height = clampDimension(Number(savedForm.height) || 1024)
-      if (validateImageDimensions(form.width, form.height, selectedModelMaxPixels.value).code) {
-        const [defaultWidth, defaultHeight] = parseSize(selectedModel.value.defaultSize)
-        form.width = defaultWidth
-        form.height = defaultHeight
-        form.aspectRatio = ''
-      }
-      form.size = `${form.width}x${form.height}`
-      form.prompt = String(savedForm.prompt || '').slice(0, 12000)
-      form.referenceUrls = String(savedForm.referenceUrls || '')
-      referenceUrlInput.value = String(draft.referenceUrlInput || '')
-
-      const references = (draft.references || []).slice(0, 9).filter(reference => Boolean(reference.dataURL))
-      referenceDataURLs.value = references.map(reference => reference.dataURL)
-      referenceFiles.value = references
-        .map(draftReferenceToFile)
-        .filter((file): file is File => file !== null)
-    }
-  } catch {
-    // Draft persistence is optional; a malformed or unavailable draft must not block the workbench.
-  } finally {
-    draftReady = true
-  }
-}
-
-function persistDraftNow() {
-  if (!draftReady) return
-  const userId = imageCacheUserId.value
-  if (userId > 0) void saveImageWorkbenchDraft(userId, currentDraft()).catch(() => undefined)
-}
-
-function scheduleDraftSave() {
-  if (!draftReady) return
-  if (draftSaveTimer) clearTimeout(draftSaveTimer)
-  draftSaveTimer = setTimeout(() => {
-    draftSaveTimer = null
-    persistDraftNow()
-  }, 250)
-}
-
 watch(() => form.model, () => {
   const [width, height] = parseSize(selectedModel.value.defaultSize)
   if (!isImageWorkbenchQualityAllowed(form.model, form.quality)) form.quality = selectedModel.value.defaultQuality
@@ -771,7 +687,6 @@ watch(() => form.model, () => {
   form.size = selectedModel.value.defaultSize
   form.aspectRatio = ''
 })
-watch([form, referenceFiles, referenceDataURLs, referenceUrlInput], scheduleDraftSave, { deep: true })
 watch([() => form.width, () => form.height], () => {
   form.size = clampDimension(Number(form.width)) + 'x' + clampDimension(Number(form.height))
 })
@@ -783,8 +698,8 @@ async function loadKeys() {
     const response = await keysAPI.list(1, 100, { status: 'active', sort_by: 'created_at', sort_order: 'desc' })
     apiKeys.value = response.items || []
     if (!eligibleKeys.value.some(key => key.id === form.apiKeyId)) form.apiKeyId = eligibleKeys.value[0]?.id || 0
-  } catch (error: any) {
-    appStore.showError(error?.message || t('imageWorkbench.errors.loadKeys'))
+  } catch (error: unknown) {
+    appStore.showError(extractErrorMessage(error, t('imageWorkbench.errors.loadKeys')))
   } finally {
     loadingKeys.value = false
   }
@@ -809,101 +724,11 @@ async function loadCostEstimate() {
   }
 }
 
-function jobImageVersion(job: ImageWorkbenchJob) {
-  return job.content_url || job.updated_at || job.id
-}
-
-function hasCurrentPreview(job: ImageWorkbenchJob) {
-  return previewBlobs.get(job.id)?.version === jobImageVersion(job) && Boolean(previewURLs[job.id])
-}
-
-function releasePreview(jobId: string) {
-  const url = previewURLs[jobId]
-  if (url) URL.revokeObjectURL(url)
-  delete previewURLs[jobId]
-  delete previewDataURLs[jobId]
-  previewBlobs.delete(jobId)
-}
-
-function setPreviewBlob(job: ImageWorkbenchJob, blob: Blob) {
-  const version = jobImageVersion(job)
-  const existing = previewBlobs.get(job.id)
-  if (existing?.version === version && previewURLs[job.id]) return
-  if (existing?.version !== version) delete previewDataURLs[job.id]
-  if (previewURLs[job.id]) URL.revokeObjectURL(previewURLs[job.id])
-  previewBlobs.set(job.id, { version, blob })
-  previewURLs[job.id] = URL.createObjectURL(blob)
-}
-
 async function restoreCachedLibrary() {
-  const userId = imageCacheUserId.value
-  if (userId <= 0) return
-  try {
-    const entries = (await listCachedImageWorkbenchEntries(userId)).slice(0, 30)
-    if (!entries.length) return
-    jobs.value = entries.map(entry => entry.job)
-    entries.forEach(entry => setPreviewBlob(entry.job, entry.blob))
-    const preferred = jobs.value.find(job => job.status === 'completed') || jobs.value[0]
-    if (preferred) selectedJobId.value = preferred.id
-  } catch {
-    // IndexedDB is an optional acceleration layer; the server remains the source of truth.
-  }
-}
-
-async function hydrateCachedPreviews(imageJobs: ImageWorkbenchJob[]) {
-  const userId = imageCacheUserId.value
-  if (userId <= 0) return
-  await Promise.all(imageJobs.map(async job => {
-    if (hasCurrentPreview(job)) return
-    try {
-      const blob = await getCachedImageWorkbenchBlob(userId, job)
-      if (blob) setPreviewBlob(job, blob)
-    } catch {
-      // Cache read failures fall back to the authenticated content endpoint on demand.
-    }
-  }))
-}
-
-async function getImageBlob(job: ImageWorkbenchJob): Promise<Blob> {
-  const version = jobImageVersion(job)
-  const memoryEntry = previewBlobs.get(job.id)
-  if (memoryEntry?.version === version) return memoryEntry.blob
-  if (memoryEntry) releasePreview(job.id)
-
-  const userId = imageCacheUserId.value
-  const loadKey = `${userId}:${job.id}:${version}`
-  const pending = pendingBlobLoads.get(loadKey)
-  if (pending) return pending
-
-  const load = (async () => {
-    let blob: Blob | null = null
-    if (userId > 0) {
-      try {
-        blob = await getCachedImageWorkbenchBlob(userId, job)
-      } catch {
-        blob = null
-      }
-    }
-    if (!blob) {
-      blob = await imageWorkbenchAPI.getContent(job.id)
-      if (userId > 0) {
-        try {
-          await putCachedImageWorkbenchBlob(userId, job, blob)
-        } catch {
-          // Quota, privacy mode, and storage errors must not prevent normal previews/downloads.
-        }
-      }
-    }
-    previewBlobs.set(job.id, { version, blob })
-    return blob
-  })()
-
-  pendingBlobLoads.set(loadKey, load)
-  try {
-    return await load
-  } finally {
-    pendingBlobLoads.delete(loadKey)
-  }
+  const restored = await restoreCachedPreviewLibrary()
+  if (!restored.jobs.length) return
+  jobs.value = restored.jobs
+  if (restored.preferredJobId) selectedJobId.value = restored.preferredJobId
 }
 
 async function loadJobs() {
@@ -913,9 +738,7 @@ async function loadJobs() {
     const previousSelectedJobId = selectedJobId.value
     jobs.value = response.data || []
     const currentJobIds = new Set(jobs.value.map(job => job.id))
-    Object.keys(previewURLs).forEach(jobId => {
-      if (!currentJobIds.has(jobId)) releasePreview(jobId)
-    })
+    prunePreviews(currentJobIds)
     await hydrateCachedPreviews(jobs.value.filter(job => job.status === 'completed'))
     const preferred = jobs.value.find(job => job.id === previousSelectedJobId)
       || jobs.value.find(job => job.status === 'completed')
@@ -925,8 +748,8 @@ async function loadJobs() {
       selectedJobId.value = ''
       blankCanvasOpen.value = true
     }
-  } catch (error: any) {
-    appStore.showError(error?.message || t('imageWorkbench.errors.loadJobs'))
+  } catch (error: unknown) {
+    appStore.showError(extractErrorMessage(error, t('imageWorkbench.errors.loadJobs')))
   } finally {
     loadingJobs.value = false
   }
@@ -963,10 +786,10 @@ async function submitJob() {
     referenceFiles.value = []
     referenceDataURLs.value = []
     if (referenceInputRef.value) referenceInputRef.value.value = ''
-    void clearImageWorkbenchDraft(imageCacheUserId.value)
+    clearDraft()
     appStore.showSuccess(t('imageWorkbench.messages.submitted'))
-  } catch (error: any) {
-    appStore.showError(error?.message || t('imageWorkbench.errors.submit'))
+  } catch (error: unknown) {
+    appStore.showError(extractErrorMessage(error, t('imageWorkbench.errors.submit')))
   } finally {
     submitting.value = false
   }
@@ -1011,7 +834,7 @@ function resetForm() {
   clearReferences()
   blankCanvasOpen.value = false
   selectedJobId.value = ''
-  void clearImageWorkbenchDraft(imageCacheUserId.value)
+  clearDraft()
 }
 
 function selectAspectRatio(value: string) {
@@ -1155,16 +978,6 @@ function closeArtworkPreview() {
   previewingJobId.value = ''
 }
 
-async function loadPreview(job: ImageWorkbenchJob) {
-  if (hasCurrentPreview(job)) return
-  try {
-    const blob = await getImageBlob(job)
-    setPreviewBlob(job, blob)
-  } catch (error: any) {
-    appStore.showError(error?.message || t('imageWorkbench.errors.preview'))
-  }
-}
-
 async function downloadCurrent() {
   if (currentJob.value) await downloadResult(currentJob.value)
 }
@@ -1181,31 +994,9 @@ async function downloadAll() {
   }
 }
 
-async function downloadResult(job: ImageWorkbenchJob) {
-  try {
-    const blob = await getImageBlob(job)
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = downloadFileName(job)
-    anchor.click()
-    URL.revokeObjectURL(url)
-  } catch (error: any) {
-    appStore.showError(error?.message || t('imageWorkbench.errors.download'))
-  }
-}
-
 async function openEditor(job: ImageWorkbenchJob) {
   if (job.status !== 'completed') return
-  if (!previewDataURLs[job.id]) {
-    try {
-      previewDataURLs[job.id] = await createEditableReferenceDataURL(await getImageBlob(job))
-    } catch (error: any) {
-      appStore.showError(error?.message || t('imageWorkbench.errors.preview'))
-      return
-    }
-  }
-  const dataURL = previewDataURLs[job.id]
+  const dataURL = await ensureEditableDataURL(job)
   if (!dataURL) return
   editor.open = true
   editor.job = job
@@ -1234,18 +1025,11 @@ async function saveJobName(job: ImageWorkbenchJob) {
     const updated = await imageWorkbenchAPI.renameJob(job.id, name)
     const index = jobs.value.findIndex(item => item.id === job.id)
     if (index >= 0) jobs.value[index] = updated
-    const preview = previewBlobs.get(job.id)
-    if (preview && imageCacheUserId.value > 0) {
-      try {
-        await putCachedImageWorkbenchBlob(imageCacheUserId.value, updated, preview.blob)
-      } catch {
-        // A cache metadata refresh is optional; the server name is authoritative.
-      }
-    }
+    await refreshCachedJobMetadata(updated)
     cancelRename()
     appStore.showSuccess(t('imageWorkbench.messages.renamed'))
-  } catch (error: any) {
-    appStore.showError(error?.message || t('imageWorkbench.errors.rename'))
+  } catch (error: unknown) {
+    appStore.showError(extractErrorMessage(error, t('imageWorkbench.errors.rename')))
   } finally {
     savingJobNameId.value = ''
   }
@@ -1264,14 +1048,7 @@ async function deleteJob(job: ImageWorkbenchJob) {
     jobs.value = jobs.value.filter(item => item.id !== job.id)
     if (renamingJobId.value === job.id) cancelRename()
     if (previewingJobId.value === job.id) closeArtworkPreview()
-    releasePreview(job.id)
-    if (imageCacheUserId.value > 0) {
-      try {
-        await deleteCachedImageWorkbenchEntry(imageCacheUserId.value, job.id)
-      } catch {
-        // The server deletion is authoritative; a stale optional cache entry must not block the UI.
-      }
-    }
+    await removeCachedJob(job.id)
     if (selectedJobId.value === job.id) {
       const preferred = jobs.value.find(item => item.status === 'completed') || jobs.value[0]
       if (preferred) await selectJob(preferred)
@@ -1281,8 +1058,8 @@ async function deleteJob(job: ImageWorkbenchJob) {
       }
     }
     appStore.showSuccess(t('imageWorkbench.messages.deleted'))
-  } catch (error: any) {
-    appStore.showError(error?.message || t('imageWorkbench.errors.delete'))
+  } catch (error: unknown) {
+    appStore.showError(extractErrorMessage(error, t('imageWorkbench.errors.delete')))
   } finally {
     deletingJobId.value = ''
   }
@@ -1330,8 +1107,8 @@ async function submitEditFromEditor() {
     selectedJobId.value = job.id
     closeEditor()
     appStore.showSuccess(t('imageWorkbench.editor.submitted'))
-  } catch (error: any) {
-    appStore.showError(error?.message || t('imageWorkbench.errors.submit'))
+  } catch (error: unknown) {
+    appStore.showError(extractErrorMessage(error, t('imageWorkbench.errors.submit')))
   } finally {
     editingSubmitting.value = false
   }
@@ -1368,15 +1145,11 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  if (draftSaveTimer) clearTimeout(draftSaveTimer)
-  draftSaveTimer = null
-  persistDraftNow()
+  disposeDraftAutoSave()
   if (pollTimer) clearInterval(pollTimer)
   if (elapsedTimer) clearInterval(elapsedTimer)
   if (announcementTimer) clearInterval(announcementTimer)
-  Object.keys(previewURLs).forEach(releasePreview)
-  previewBlobs.clear()
-  pendingBlobLoads.clear()
+  disposePreviews()
 })
 </script>
 
