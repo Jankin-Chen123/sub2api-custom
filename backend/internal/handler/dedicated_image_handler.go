@@ -344,4 +344,3 @@ func (h *DedicatedImageHandler) Content(c *gin.Context) {
 	c.Status(http.StatusOK)
 	_, _ = io.Copy(c.Writer, body)
 }
-

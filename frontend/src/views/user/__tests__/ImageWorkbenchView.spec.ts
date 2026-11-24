@@ -315,6 +315,69 @@ describe('ImageWorkbenchView', () => {
     wrapper.unmount()
   })
 
+  it('accepts nine reference images added in batches and rejects a tenth reference', async () => {
+    const wrapper = await mountWorkbench()
+    const referenceInput = wrapper.find('input[type="file"]')
+    const input = referenceInput.element as HTMLInputElement
+    const vm = wrapper.vm as any
+    const files = Array.from({ length: 9 }, (_, index) =>
+      new File([`image-${index}`], `${index}.png`, { type: 'image/png' })
+    )
+
+    setInputFiles(input, files.slice(0, 5))
+    await referenceInput.trigger('change')
+    await vi.waitFor(() => expect(vm.referenceDataURLs).toHaveLength(5))
+    setInputFiles(input, files.slice(5))
+    await referenceInput.trigger('change')
+    await vi.waitFor(() => expect(vm.referenceDataURLs).toHaveLength(9))
+    expect(vm.referenceCount).toBe(9)
+    expect(showError).not.toHaveBeenCalled()
+
+    vm.referenceUrlInput = 'https://example.com/tenth.png'
+    await vm.importReferenceUrl()
+    expect(showError).toHaveBeenCalledWith('imageWorkbench.errors.tooManyReferences')
+    expect(vm.form.referenceUrls).toBe('')
+    vm.form.prompt = 'combine the reference images'
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(createJob.mock.calls[0][0].images).toHaveLength(9)
+    wrapper.unmount()
+  })
+
+  it('counts editor images, URLs, and uploaded files toward the same nine-image limit', async () => {
+    const wrapper = await mountWorkbench()
+    const vm = wrapper.vm as any
+    vm.referenceDataURLs = ['data:image/png;base64,aW1hZ2U=']
+    vm.form.referenceUrls = 'https://example.com/reference.png'
+    const referenceInput = wrapper.find('input[type="file"]')
+    setInputFiles(referenceInput.element as HTMLInputElement, Array.from({ length: 7 }, (_, index) =>
+      new File(['image'], `${index}.png`, { type: 'image/png' })
+    ))
+    await referenceInput.trigger('change')
+    await vi.waitFor(() => expect(vm.referenceDataURLs).toHaveLength(8))
+    expect(vm.referenceCount).toBe(9)
+    expect(showError).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('keeps references consistent when two batches finish reading concurrently', async () => {
+    const wrapper = await mountWorkbench()
+    const vm = wrapper.vm as any
+    const uploads = Array.from({ length: 2 }, (_, batch) => {
+      const input = document.createElement('input')
+      setInputFiles(input, Array.from({ length: 6 }, (_, index) =>
+        new File(['image'], `${batch}-${index}.png`, { type: 'image/png' })
+      ))
+      return vm.onReferenceFiles({ target: input })
+    })
+    await Promise.all(uploads)
+    expect(vm.referenceDataURLs).toHaveLength(6)
+    expect(vm.referenceFiles).toHaveLength(6)
+    expect(vm.referenceCount).toBe(6)
+    expect(showError).toHaveBeenCalledWith('imageWorkbench.errors.tooManyReferences')
+    wrapper.unmount()
+  })
+
   it('rejects non-image and excessive reference uploads before reading them', async () => {
     const wrapper = await mountWorkbench()
     const referenceInput = wrapper.findAll('input[type="file"]')[0]!

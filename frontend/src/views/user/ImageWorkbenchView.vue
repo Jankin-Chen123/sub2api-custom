@@ -376,7 +376,7 @@ const activeCanvasHint = computed(() => !blankCanvasOpen.value && currentJob.val
 const activeCanvasStatus = computed(() => !blankCanvasOpen.value && currentJob.value ? statusText(currentJob.value.status) : t('imageWorkbench.preview.blankCanvasStatus'))
 const completedJobs = computed(() => jobs.value.filter(job => job.status === 'completed'))
 const referenceUrlList = computed(() => form.referenceUrls.split(/\r?\n/).map(value => value.trim()).filter(Boolean))
-const referenceCount = computed(() => referenceUrlList.value.length + referenceFiles.value.length + referenceDataURLs.value.length)
+const referenceCount = computed(() => referenceUrlList.value.length + referenceDataURLs.value.length)
 const selectedModelMaxPixels = computed(() => selectedModel.value.maxPixels)
 const selectedModelMaxEdge = computed(() => maxImageDimensionForPixelBudget(selectedModelMaxPixels.value))
 const {

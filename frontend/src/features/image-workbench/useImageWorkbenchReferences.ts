@@ -52,10 +52,15 @@ export function useImageWorkbenchReferences(options: UseImageWorkbenchReferences
       onError(translateError(REFERENCE_VALIDATION_ERROR_KEYS[validationError]))
       return
     }
+    const dataURLs = await Promise.all(files.map(readFileAsDataURL))
+    if (referenceCount.value + files.length > 9) {
+      onError(translateError('imageWorkbench.errors.tooManyReferences'))
+      return
+    }
     referenceFiles.value = [...referenceFiles.value, ...files]
     referenceDataURLs.value = [
       ...referenceDataURLs.value,
-      ...(await Promise.all(files.map(readFileAsDataURL))),
+      ...dataURLs,
     ]
     onChanged()
   }
