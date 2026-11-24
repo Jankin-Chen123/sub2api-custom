@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	dbent "github.com/Wei-Shaw/sub2api/ent"
 )
 
 // MembershipFactor returns the highest currently effective activity factor.
@@ -204,10 +202,7 @@ func (s *NewcomerCampaignService) ensureCampaignInviteCode(ctx context.Context, 
 	if !s.enabled() || userID <= 0 {
 		return "", nil
 	}
-	client := s.db
-	if tx := dbent.TxFromContext(ctx); tx != nil {
-		client = tx.Client()
-	}
+	client := s.db.ClientForContext(ctx)
 	// Once a code is recorded for an inviter, it is the activity's stable
 	// identity. A later ordinary-affiliate code change must not change links or
 	// allow a referral intent to resolve to a different inviter identity.

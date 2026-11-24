@@ -10,8 +10,6 @@ import (
 	"math"
 	"strings"
 	"time"
-
-	dbent "github.com/Wei-Shaw/sub2api/ent"
 )
 
 // OnPaymentCompleted is safe to call for every webhook delivery. The payment
@@ -206,7 +204,7 @@ func (s *NewcomerCampaignService) logMissingPaymentFact(orderID, userID int64) {
 func (s *NewcomerCampaignService) grantFirstRechargeReward(ctx context.Context, userID, orderID int64, rechargeAmount float64) error {
 	metadata, _ := json.Marshal(map[string]any{"recharge_amount": rechargeAmount, "reason": "first recharge"})
 	balanceChanged := false
-	err := s.withTx(ctx, func(txCtx context.Context, tx *dbent.Client) error {
+	err := s.withTx(ctx, func(txCtx context.Context, tx NewcomerCampaignSQLClient) error {
 		// A campaign reward is intentionally exempt from the generic balance
 		// clawback trigger.  The reward must not repay the debt created when the
 		// very same reward is later revoked after a refund.
@@ -261,7 +259,7 @@ ON CONFLICT (idempotency_key) DO NOTHING`,
 
 func (s *NewcomerCampaignService) revokeFirstRechargeReward(ctx context.Context, userID, orderID int64, reason string) error {
 	balanceChanged := false
-	err := s.withTx(ctx, func(txCtx context.Context, tx *dbent.Client) error {
+	err := s.withTx(ctx, func(txCtx context.Context, tx NewcomerCampaignSQLClient) error {
 		var grantedAmount float64
 		if err := s.queryOne(txCtx, tx, `
 	SELECT COALESCE(SUM(amount), 0)
@@ -531,7 +529,7 @@ func (s *NewcomerCampaignService) reconcileMembership(ctx context.Context, invit
 	}
 	defer s.invalidateMembershipFactor(inviterID)
 	now := s.currentTime()
-	err := s.withTx(ctx, func(txCtx context.Context, tx *dbent.Client) error {
+	err := s.withTx(ctx, func(txCtx context.Context, tx NewcomerCampaignSQLClient) error {
 		tiers := s.configuredCampaignTiers(txCtx)
 		var grantFloor time.Time
 		if s.persistentConfig {

@@ -8,8 +8,6 @@ import (
 	"math"
 	"strings"
 	"time"
-
-	dbent "github.com/Wei-Shaw/sub2api/ent"
 )
 
 // NewcomerCampaignAdminConfig is the operator-facing campaign configuration.
@@ -215,7 +213,7 @@ func (s *NewcomerCampaignService) adminUpdateConfig(ctx context.Context, actorID
 	if actorID > 0 {
 		updatedBy = actorID
 	}
-	err := s.withTx(ctx, func(txCtx context.Context, tx *dbent.Client) error {
+	err := s.withTx(ctx, func(txCtx context.Context, tx NewcomerCampaignSQLClient) error {
 		if s.persistentConfig {
 			if startsAt == nil {
 				var err error
@@ -369,7 +367,7 @@ func (s *NewcomerCampaignService) AdminSetUserMembership(ctx context.Context, ac
 	if actorID > 0 {
 		grantedBy = actorID
 	}
-	err := s.withTx(ctx, func(txCtx context.Context, tx *dbent.Client) error {
+	err := s.withTx(ctx, func(txCtx context.Context, tx NewcomerCampaignSQLClient) error {
 		tiers, err := loadNewcomerCampaignTiers(txCtx, tx)
 		if err != nil {
 			return fmt.Errorf("load tier config: %w", err)

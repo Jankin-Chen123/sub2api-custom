@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -117,8 +116,19 @@ type newcomerBalanceCacheInvalidator interface {
 	InvalidateUserBalance(context.Context, int64) error
 }
 
+type NewcomerCampaignSQLClient interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+type NewcomerCampaignRepository interface {
+	NewcomerCampaignSQLClient
+	ClientForContext(ctx context.Context) NewcomerCampaignSQLClient
+	WithTx(ctx context.Context, fn func(txCtx context.Context, tx NewcomerCampaignSQLClient) error) error
+}
+
 type NewcomerCampaignService struct {
-	db                      *dbent.Client
+	db                      NewcomerCampaignRepository
 	now                     newcomerCampaignClock
 	persistentConfig        bool
 	affiliateEnsurer        newcomerAffiliateEnsurer
@@ -143,24 +153,17 @@ type membershipFactorLookup struct {
 	cacheExpires time.Time
 }
 
-func NewNewcomerCampaignService(entClient *dbent.Client, affiliateEnsurers ...newcomerAffiliateEnsurer) *NewcomerCampaignService {
+func NewNewcomerCampaignServiceWithRepository(repo NewcomerCampaignRepository, affiliateEnsurers ...newcomerAffiliateEnsurer) *NewcomerCampaignService {
 	var affiliateEnsurer newcomerAffiliateEnsurer
 	if len(affiliateEnsurers) > 0 {
 		affiliateEnsurer = affiliateEnsurers[0]
 	}
 	return &NewcomerCampaignService{
-		db:                    entClient,
+		db:                    repo,
 		now:                   func() time.Time { return time.Now().UTC() },
 		affiliateEnsurer:      affiliateEnsurer,
 		membershipFactorCache: make(map[int64]membershipFactorCacheEntry),
 	}
-}
-
-func ProvideNewcomerCampaignService(entClient *dbent.Client, affiliateService *AffiliateService, billingCacheService *BillingCacheService, authCacheInvalidator APIKeyAuthCacheInvalidator) *NewcomerCampaignService {
-	svc := NewNewcomerCampaignService(entClient, affiliateService)
-	svc.persistentConfig = true
-	svc.SetCacheInvalidators(billingCacheService, authCacheInvalidator)
-	return svc
 }
 
 // SetPersistentConfigEnabled enables the database-backed long-lived campaign
@@ -260,10 +263,7 @@ func (s *NewcomerCampaignService) PersistReferralIntent(ctx context.Context, use
 	if signupSource == "" {
 		signupSource = "unknown"
 	}
-	client := s.db
-	if tx := dbent.TxFromContext(ctx); tx != nil {
-		client = tx.Client()
-	}
+	client := s.db.ClientForContext(ctx)
 	if err := s.ensureCampaignEligibilityWithClient(ctx, client, userID); err != nil {
 		return err
 	}
@@ -347,10 +347,7 @@ func (s *NewcomerCampaignService) ensureCampaignEligibility(ctx context.Context,
 	if !s.enabled() || !s.persistentConfig || userID <= 0 {
 		return nil
 	}
-	client := s.db
-	if tx := dbent.TxFromContext(ctx); tx != nil {
-		client = tx.Client()
-	}
+	client := s.db.ClientForContext(ctx)
 	return s.ensureCampaignEligibilityWithClient(ctx, client, userID)
 }
 
@@ -431,10 +428,7 @@ func (s *NewcomerCampaignService) materializeReferralIntent(ctx context.Context,
 		return nil
 	}
 	start, end := s.campaignWindow(ctx)
-	client := s.db
-	if tx := dbent.TxFromContext(ctx); tx != nil {
-		client = tx.Client()
-	}
+	client := s.db.ClientForContext(ctx)
 	if _, err := client.ExecContext(ctx, `
 INSERT INTO newcomer_campaign_invite_codes (campaign_key, invite_code, inviter_id, source)
 SELECT $1, UPPER(TRIM(ua.aff_code)), ua.user_id, 'affiliate_recovery'
@@ -503,17 +497,11 @@ WHERE campaign_key = $1 AND invitee_id = $2 AND status <> 'bound'
 	return nil
 }
 
-func (s *NewcomerCampaignService) withTx(ctx context.Context, fn func(context.Context, *dbent.Client) error) error {
-	tx, err := s.db.Tx(ctx)
-	if err != nil {
-		return err
+func (s *NewcomerCampaignService) withTx(ctx context.Context, fn func(context.Context, NewcomerCampaignSQLClient) error) error {
+	if !s.enabled() {
+		return errors.New("newcomer campaign repository is not configured")
 	}
-	txCtx := dbent.NewTxContext(ctx, tx)
-	if err := fn(txCtx, tx.Client()); err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-	return tx.Commit()
+	return s.db.WithTx(ctx, fn)
 }
 
 type campaignQueryer interface {

@@ -268,3 +268,15 @@ func ProvideChannelMonitorAccountProbe(
 ) ChannelMonitorAccountProbe {
 	return newChannelMonitorAccountProbe(apiKeyRepo, accountRepo, settingRepo, gateway, openAIGateway, geminiGateway)
 }
+
+func ProvideNewcomerCampaignService(
+	repo NewcomerCampaignRepository,
+	affiliateService *AffiliateService,
+	billingCacheService *BillingCacheService,
+	authCacheInvalidator APIKeyAuthCacheInvalidator,
+) *NewcomerCampaignService {
+	svc := NewNewcomerCampaignServiceWithRepository(repo, affiliateService)
+	svc.persistentConfig = true
+	svc.SetCacheInvalidators(billingCacheService, authCacheInvalidator)
+	return svc
+}
