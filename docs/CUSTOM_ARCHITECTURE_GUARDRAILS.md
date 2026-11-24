@@ -10,8 +10,8 @@
 
 1. **禁止打散上游原有目录与包布局**：不移动 `internal/middleware/`、`internal/util/`、`internal/model/`、上游 `auth_*_oauth.go` 或 `cmd/server/wire.go` 的既定路径，避免后续合并产生大规模文件冲突。
 2. **在扩展点隔离定制代码**：
-   - **后端 DI 装配**：纯定制服务的 Wire Provider 函数与集合统一放在 `backend/internal/service/wire_custom.go`（例如 `CustomImageGenerationProviderSet`、`ProvideRedeemService`、`ProvideGatewayService`、`ProvideOpenAIGatewayService`、`ProvideChannelMonitorAccountProbe`），仅在 `backend/internal/service/wire.go` 保留最小化的 `wire.NewSet` 引用。
-   - **后端上游 Repository 定制扩展**：直接扩展上游 Repository 结构体的方法或辅助函数统一放在同包独立 `*_custom.go` 文件（如 `backend/internal/repository/channel_monitor_repo_custom.go`），避免把大段定制方法直接塞进上游 `channel_monitor_repo.go`。
+   - **后端 DI 装配**：纯定制服务的 Wire Provider 函数与集合统一放在 `backend/internal/service/wire_custom.go`（例如 `CustomImageGenerationProviderSet`、`ProvideNewcomerCampaignService`、`ProvideRedeemService`、`ProvideGatewayService`、`ProvideOpenAIGatewayService`、`ProvideChannelMonitorAccountProbe`），纯定制 Repository 装配集合放在 `backend/internal/repository/wire_custom.go`（`CustomProviderSet`），仅在 `backend/internal/service/wire.go` 与 `backend/internal/repository/wire.go` 保留最小化的集合引用。
+   - **后端上游文件定制扩展**：直接扩展上游 Repository、Handler 或 Service 的定制方法与辅助函数，优先拆出到同包独立 `*_custom.go` 文件（如 `backend/internal/repository/channel_monitor_repo_custom.go`、`backend/internal/handler/openai_gateway_handler_custom.go`、`backend/internal/service/openai_account_scheduler_custom.go`），避免将大段定制逻辑直接塞进上游热冲突文件。
    - **后端新增独立业务域**：优先建立独立子包（参考 `internal/payment`、`internal/securityaudit`、`internal/managementmcp`），避免继续向平铺的 `package service` 根目录堆叠大文件。
    - **数据库迁移**：遵循 `backend/migrations/custom_migration_policy_test.go` 约束，新定制迁移统一采用 `custom_YYYYMMDD_<description>[_notx].sql` 命名，不占用上游数字序号且不修改已上线的历史迁移文件。
    - **前端新业务域**：统一采用 Feature Slice 目录 `frontend/src/features/<feature-name>/`（参考 `src/features/prompt-audit/`、`src/features/channel-monitor-v2/`、`src/features/image-workbench/`、`src/features/paper-transition/`），将 API、类型、纯格式化函数、Composable 与单测收拢到同一功能目录内。
@@ -19,17 +19,19 @@
 
 ---
 
-## 二、已启用的静态门禁（`backend/.golangci.yml`）
+## 二、已启用的静态门禁（`backend/.golangci.yml` 与 `frontend/.eslintrc.cjs`）
 
-`depguard` 在保留上游 `service-no-repository` 与 `handler-no-repository` 规则的基础上，新增两条 Ent ORM 分层门禁：
+`depguard` 在保留上游 `service-no-repository` 与 `handler-no-repository` 规则的基础上，新增两条 Ent ORM 分层门禁；Phase 3 完成后，`service-no-ent` 与 `handler-no-ent` 白名单中已无任何纯定制业务文件（仅剩历史冻结的上游文件）：
 
 | 规则名 | 作用范围 | 禁止依赖 | 治理策略 |
 | --- | --- | --- | --- |
-| `handler-no-ent` | `**/internal/handler/**`（排除 `*_test.go`） | `github.com/Wei-Shaw/sub2api/ent`、`entgo.io/ent` | 8 个历史文件列为**冻结白名单**；禁止新增 Handler 直接依赖 Ent |
-| `service-no-ent` | `**/internal/service/**`（排除 `*_test.go`、`wire.go`、`wire_custom.go`） | `github.com/Wei-Shaw/sub2api/ent`、`entgo.io/ent` | 存量直接依赖 Ent 的文件列为**冻结白名单**；新 Service 必须通过 Repository 接口访问数据 |
+| `handler-no-ent` | `**/internal/handler/**`（排除 `*_test.go`） | `github.com/Wei-Shaw/sub2api/ent`、`entgo.io/ent` | 仅余上游历史文件列为**冻结白名单**；禁止新增 Handler 直接依赖 Ent |
+| `service-no-ent` | `**/internal/service/**`（排除 `*_test.go`、`wire.go`、`wire_custom.go`） | `github.com/Wei-Shaw/sub2api/ent`、`entgo.io/ent` | 存量直接依赖 Ent 的上游文件列为**冻结白名单**；纯定制业务文件已清零，新 Service 必须通过 Repository 接口访问数据 |
 
 > [!IMPORTANT]
 > 两个白名单均为**只减不增（Shrink-Only）**策略。任何新文件不得加入白名单；若某个白名单文件被拆分或重构移除 `ent` 依赖，应同步从白名单中删去对应路径。
+
+- **前端特征目录严格类型门禁（`frontend/.eslintrc.cjs`）**：通过 ESLint `overrides` 对 `src/features/**/*.ts` 与 `src/features/**/*.vue`（排除 `**/*.spec.ts`）强制开启 `"@typescript-eslint/no-explicit-any": "error"`，防止新特性切片回流 `any`。
 
 ### 本地校验注意
 
@@ -61,8 +63,14 @@
 - **迁移误放路由目录的定制模块**：将 `frontend/src/router/paperTurn.ts`、`paperSound.ts` 及单测移至 `frontend/src/features/paper-transition/`，保持 `router/` 仅承载路由表与标题解析。
 - **深化 `ImageWorkbenchView.vue` 模块化并清零 `: any`**：将草稿持久化与预览缓存分别抽离为 `useImageWorkbenchDraft.ts` 与 `useImageWorkbenchPreviews.ts`（含单测 `useImageWorkbenchDraft.spec.ts`），补充 `extractErrorMessage`，将视图内 9 处 `catch (error: any)` 全部替换为 `unknown`；同时将 `JournalBannerSticker.vue` 的 `<style scoped>` 完整外置至 `journal-banner-sticker.css`（保持 DOM 与视觉样式 100% 不变）。
 
-### Phase 3（后续演进建议）
-1. **将 `newcomer_campaign` 原始 SQL 下沉为 `NewcomerCampaignRepository`**：把 `newcomer_campaign_*.go` 中的 `ent` / `sql` 访问收拢到 `internal/repository/`，从 `service-no-ent` 白名单中彻底移除迎新活动相关文件。
-2. **继续精简 `ImageWorkbenchView.vue` 与定制类型**：将生图工作台 UI 模板拆分为参数面板、预览画布、作品库与遮罩编辑弹窗子组件，并将纯定制前端类型从 `frontend/src/types/index.ts` 拆入对应 `src/features/<feature>/types.ts`。
-3. **继续消解 `handler-no-ent` 历史白名单**：优先将定制占比高的 `payment_handler.go` / `admin/payment_handler.go` 响应映射逻辑下沉为 service DTO。
-4. **收拢生命周期注册与特征目录严格 Lint**：评估在 `cmd/server/` 引入上游兼容的 `Lifecycle` / `ShutdownCloser` 注册集合收敛 `provideCleanup` 的长参数列表，并在 `frontend/src/features/` 内试点启用更严格的 ESLint 规则（如限制新增 `no-explicit-any`）。
+### Phase 3（已完成于 `rebuild` 分支）
+1. **迎新活动彻底解耦 Ent ORM**：在 `backend/internal/service/newcomer_campaign_service.go` 定义 `NewcomerCampaignSQLClient` 与 `NewcomerCampaignRepository`，由 `backend/internal/repository/newcomer_campaign_repo.go` 与 `backend/internal/repository/wire_custom.go`（`CustomProviderSet`）承接数据访问；同步清除 `newcomer_campaign_*.go` 全部 4 个 Service 文件的 `ent` 依赖，并将其从 `service-no-ent` 白名单彻底移除（`service-no-ent` 与 `handler-no-ent` 均实现纯定制业务文件清零）。
+2. **抽离上游热冲突网关与调度扩展**：将 `backend/internal/handler/openai_gateway_handler.go` 与 `backend/internal/service/openai_account_scheduler.go` 中的定制辅助逻辑分别外置到 `openai_gateway_handler_custom.go`（上游差异从 `+300/-81` 降至 `+159/-92`）与 `openai_account_scheduler_custom.go`（上游差异从 `+246/-34` 降至 `+59/-41`）。注：`redeem_service.go` 与 `subscription_service.go` 的定制方法直接操作 `s.entClient`，为避免违反只减不增的 `service-no-ent` 门禁，暂保留原位等待后续连同 Ent 查询一起下沉至 Repository。
+3. **完成 `ImageWorkbenchView.vue` 组件化拆解**：拆分出 `frontend/src/features/image-workbench/components/` 下的 5 个子组件（`ImageWorkbenchHeader.vue`、`ImageWorkbenchFormPanel.vue`、`ImageWorkbenchBatchList.vue`、`ImageWorkbenchLibrary.vue`、`ImageWorkbenchArtworkPreviewModal.vue`）以及 `useImageWorkbenchReferences.ts` 与 `imageWorkbenchFormatters.ts` 中的纯比例/文件读取辅助函数，将主视图压缩至 **772 行**（`< 800` 行，全仓纯定制非生成/非测试业务源码 `.go`/`.ts`/`.vue` 文件 `>= 800` 行清零），且 100% 保持 DOM 与样式保真。
+4. **清零定制前端 `: any` 并开启 `src/features/` 严格 Lint**：移除 `CheckinPrizeManager.vue`（2 处）与 `DailyCheckinWheel.vue`（1 处）最后 3 处 `catch (error: any)`（纯定制非测试前端文件 `: any` 清零），并在 `frontend/.eslintrc.cjs` 中对 `src/features/**/*.{ts,vue}`（排除 `**/*.spec.ts`）强制开启 `@typescript-eslint/no-explicit-any: "error"`。
+
+### 后续长期演进（按需评估）
+1. **`redeem_service.go` / `subscription_service.go` 定制 Ent 查询下沉**：在具备真实 Postgres 集成测试环境时，将返利审核与套餐购买流程中的 `s.entClient` 事务逻辑封装至独立 Repository，进一步收窄上游合入冲突面。
+2. **`handler-no-ent` / `service-no-ent` 剩余上游白名单**：如 `payment_handler.go`、`admin/payment_handler.go` 等仅携带极小差异的定制代码，优先跟随上游结构演进，避免为极小改动引入合入冲突。
+3. **`cmd/server/wire.go` 的 `provideCleanup` 参数列表收敛**：属于上游核心装配入口，待上游调整或明确多模块统一生命周期设计后再评估引入 `Lifecycle` / `ShutdownCloser` 注册集合。
+4. **前端特征类型隔离纪律**：`frontend/src/types/index.ts` 仅保留上游共享类型及极小差异（`+19/-1`），后续所有新增定制业务类型严格收敛于 `frontend/src/features/<feature>/types.ts`。
