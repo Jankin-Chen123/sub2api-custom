@@ -43,6 +43,74 @@ linters:
               desc: "handler must not import gorm"
             - pkg: github.com/redis/go-redis/v9
               desc: "handler must not import redis"
+        # Enforce: new handler files must not import ent directly.
+        # Frozen legacy allowlist — do not add new entries; shrink as callers migrate.
+        handler-no-ent:
+          list-mode: original
+          files:
+            - "**/internal/handler/**"
+            - "!**/*_test.go"
+            - "!**/internal/handler/auth_dingtalk_oauth.go"
+            - "!**/internal/handler/auth_email_oauth.go"
+            - "!**/internal/handler/auth_linuxdo_oauth.go"
+            - "!**/internal/handler/auth_oauth_pending_flow.go"
+            - "!**/internal/handler/auth_oidc_oauth.go"
+            - "!**/internal/handler/auth_wechat_oauth.go"
+            - "!**/internal/handler/payment_handler.go"
+            - "!**/internal/handler/admin/payment_handler.go"
+          deny:
+            - pkg: github.com/Wei-Shaw/sub2api/ent
+              desc: "handler must not import ent directly; go through service/repository"
+            - pkg: entgo.io/ent
+              desc: "handler must not import ent directly; go through service/repository"
+        # Enforce: new service files must not import ent directly.
+        # Frozen legacy allowlist — do not add new entries; shrink as callers migrate.
+        service-no-ent:
+          list-mode: original
+          files:
+            - "**/internal/service/**"
+            - "!**/*_test.go"
+            - "!**/internal/service/wire.go"
+            - "!**/internal/service/wire_custom.go"
+            - "!**/internal/service/admin_group.go"
+            - "!**/internal/service/admin_service.go"
+            - "!**/internal/service/admin_user.go"
+            - "!**/internal/service/auth_email_binding.go"
+            - "!**/internal/service/auth_email_oauth_auto.go"
+            - "!**/internal/service/auth_oauth_email_flow.go"
+            - "!**/internal/service/auth_oauth_first_bind.go"
+            - "!**/internal/service/auth_pending_identity_service.go"
+            - "!**/internal/service/auth_service.go"
+            - "!**/internal/service/custom_admin_key_accounts.go"
+            - "!**/internal/service/custom_admin_key_proxy_selection.go"
+            - "!**/internal/service/custom_admin_key_transaction.go"
+            - "!**/internal/service/newcomer_campaign_admin.go"
+            - "!**/internal/service/newcomer_campaign_service.go"
+            - "!**/internal/service/payment_config_limits.go"
+            - "!**/internal/service/payment_config_plans.go"
+            - "!**/internal/service/payment_config_providers.go"
+            - "!**/internal/service/payment_config_service.go"
+            - "!**/internal/service/payment_currency.go"
+            - "!**/internal/service/payment_fulfillment.go"
+            - "!**/internal/service/payment_order.go"
+            - "!**/internal/service/payment_order_lifecycle.go"
+            - "!**/internal/service/payment_order_provider_snapshot.go"
+            - "!**/internal/service/payment_recharge_bonus.go"
+            - "!**/internal/service/payment_refund.go"
+            - "!**/internal/service/payment_resume_lookup.go"
+            - "!**/internal/service/payment_service.go"
+            - "!**/internal/service/payment_stats.go"
+            - "!**/internal/service/payment_visible_method_instances.go"
+            - "!**/internal/service/payment_webhook_provider.go"
+            - "!**/internal/service/promo_service.go"
+            - "!**/internal/service/redeem_service.go"
+            - "!**/internal/service/subscription_service.go"
+            - "!**/internal/service/usage_service.go"
+          deny:
+            - pkg: github.com/Wei-Shaw/sub2api/ent
+              desc: "new service files must not import ent directly; define a repository interface"
+            - pkg: entgo.io/ent
+              desc: "new service files must not import ent directly; define a repository interface"
     gosec:
       excludes:
         - G101
